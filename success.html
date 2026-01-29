@@ -41,18 +41,88 @@
 <body>
     <div class="bg-glow"></div>
     <div class="success-hero">
-        <div class="checkmark">✓</div>
-        <p class="artist-name">THANK YOU</p>
-        <h1>PAYMENT SECURED</h1>
-        <p class="description">
-            Your support means everything. We've sent the download links to your email, <br />
-            but you can also access them directly below.
-        </p>
+        <div id="loading-state">
+            <div class="checkmark">...</div>
+            <h1>VERIFYING ORDER</h1>
+            <p class="description">Please wait while we secure your digital release...</p>
+        </div>
 
-        <button class="primary-btn download-btn">DOWNLOAD "LIT" DIGITAL EP</button>
-        <a href="/" class="secondary-btn" style="margin-top: 2rem; display: inline-block; text-decoration: none;">BACK
-            TO HOME</a>
+        <div id="success-content" style="display: none;">
+            <div class="checkmark">✓</div>
+            <p class="artist-name">THANK YOU <span id="customer-name"></span></p>
+            <h1>PAYMENT SECURED</h1>
+            <p class="description">
+                Your support means everything. Access your digital release(s) below.
+            </p>
+
+            <div id="download-links-container"
+                style="display: flex; flex-direction: column; gap: 1rem; align-items: center; margin-top: 2rem;">
+                <!-- Buttons will be injected here -->
+            </div>
+
+            <a href="/" class="secondary-btn"
+                style="margin-top: 2rem; display: inline-block; text-decoration: none;">BACK TO HOME</a>
+        </div>
+
+        <div id="error-state" style="display: none;">
+            <div class="checkmark" style="background: #ff4444;">!</div>
+            <h1>VERIFICATION FAILED</h1>
+            <p class="description">
+                We couldn't verify your session. If you believe this is an error, please contact support.
+            </p>
+            <a href="/" class="secondary-btn"
+                style="margin-top: 2rem; display: inline-block; text-decoration: none;">BACK TO HOME</a>
+        </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session_id');
+
+            const loading = document.getElementById('loading-state');
+            const content = document.getElementById('success-content');
+            const error = document.getElementById('error-state');
+            const container = document.getElementById('download-links-container');
+            const nameSpan = document.getElementById('customer-name');
+
+            if (!sessionId) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/.netlify/functions/verify-session?session_id=${sessionId}`);
+                if (!response.ok) throw new Error('Failed to verify session');
+
+                const data = await response.json();
+
+                if (data.downloads && data.downloads.length > 0) {
+                    nameSpan.textContent = data.customer ? data.customer.toUpperCase() : '';
+                    
+                    data.downloads.forEach(dl => {
+                        const btn = document.createElement('a');
+                        btn.href = dl.url;
+                        btn.target = '_blank';
+                        btn.className = 'primary-btn download-btn';
+                        btn.style.textDecoration = 'none';
+                        btn.textContent = `DOWNLOAD "${dl.name}"`;
+                        container.appendChild(btn);
+                    });
+
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                } else {
+                    throw new Error('No downloads found for this session');
+                }
+            } catch (err) {
+                console.error(err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+            }
+        });
+    </script>
 </body>
 
 </html>
