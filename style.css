@@ -1,0 +1,402 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root {
+  /* The Fall Off Colors */
+  --bg-color: #000000;
+  --card-bg: #0a0a0a;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --accent-gold: #fee440;
+  --accent-pink: #f72585;
+  --neon-blue: rgba(0, 150, 255, 0.1);
+  --border-color: #1a1a1a;
+
+  /* Font */
+  --font-main: 'Montserrat', sans-serif;
+
+  /* Layout */
+  --sidebar-width: 450px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Background Effect */
+.bg-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, var(--neon-blue) 0%, transparent 80%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+#app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Split Screen Layout */
+.left-panel {
+  width: var(--sidebar-width);
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--border-color);
+  background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
+  z-index: 10;
+}
+
+.right-panel {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  padding: 4rem;
+  background-color: var(--bg-color);
+}
+
+/* Typography */
+h1 {
+  font-size: 4rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -2px;
+  line-height: 0.9;
+  margin-bottom: 1rem;
+}
+
+.artist-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+}
+
+p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 1024px) {
+  #app {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: 2rem;
+  }
+
+  .right-panel {
+    margin-left: 0;
+    padding: 2rem;
+  }
+}
+/* Right Panel Specifics */
+.section-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+}
+
+/* Coming Soon Section */
+.coming-soon-section {
+  margin-top: 4rem;
+}
+
+.coming-soon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.coming-soon-card {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  overflow: visible;
+}
+
+.coming-soon-card:hover {
+  transform: translateY(-10px);
+}
+
+.card-media {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  background: #000;
+}
+
+.poster-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+}
+
+.video-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.card-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coming-soon-card:hover .poster-layer {
+  opacity: 0;
+}
+
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+/* Sticker Container */
+.sticker-container {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  width: 100px;
+  height: 100px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Purchase Box */
+.purchase-box {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-top: 2rem;
+}
+
+.price-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.currency {
+  font-size: 1.5rem;
+  color: var(--accent-gold);
+  font-weight: 800;
+}
+
+#pwyw-amount {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--border-color);
+  color: white;
+  font-size: 2.5rem;
+  font-weight: 900;
+  width: 150px;
+  outline: none;
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 1.2rem;
+  background: var(--accent-pink);
+  color: white;
+  font-weight: 800;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  box-shadow: 0 10px 20px rgba(247, 37, 133, 0.2);
+  transition: all 0.3s ease;
+}
+
+.primary-btn:hover {
+  transform: scale(1.02);
+  background: #ff4d6d;
+}
+
+.min-price-note {
+  font-size: 0.6rem;
+  text-align: center;
+  margin-top: 1rem;
+  letter-spacing: 1px;
+}
+
+/* Tracklist */
+.tracklist {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: var(--card-bg);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
+}
+
+.track-item:hover {
+  border-color: var(--accent-gold);
+}
+
+.track-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.track-number {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-weight: 800;
+}
+
+.track-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.track-duration {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.modal-content {
+    background: var(--card-bg);
+    width: 90%;
+    max-width: 500px;
+    padding: 3rem;
+    border-radius: 8px;
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+}
+
+.modal-step-title {
+    font-size: 1.5rem;
+    font-weight: 900;
+    margin-bottom: 2rem;
+    text-align: center;
+    color: var(--accent-gold);
+}
+
+.upsell-card {
+    background: #111;
+    padding: 1.5rem;
+    border-radius: 4px;
+    margin-bottom: 2rem;
+    border: 1px solid var(--accent-pink);
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.upsell-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.upsell-info h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.upsell-price {
+    font-weight: 800;
+    color: var(--accent-pink);
+}
+
+.modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.secondary-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.secondary-btn:hover {
+    color: white;
+    border-color: white;
+}
