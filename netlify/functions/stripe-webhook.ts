@@ -20,6 +20,8 @@ export const handler: Handler = async (event) => {
         return { statusCode: 400, body: `Webhook Error: ${err.message}` };
     }
 
+    console.log('Received Stripe event type:', stripeEvent.type);
+
     if (stripeEvent.type === 'checkout.session.completed') {
         const session = stripeEvent.data.object as Stripe.Checkout.Session;
         const customerEmail = session.customer_details?.email;
