@@ -75,9 +75,16 @@ export class CheckoutFlow {
             </div>
         `;
 
-    document.getElementById('continue-checkout')?.addEventListener('click', () => {
+    document.getElementById('continue-checkout')?.addEventListener('click', async () => {
       const email = (document.getElementById('customer-email') as HTMLInputElement).value;
       if (email) {
+        // Trigger Lead Capture in GHL (Fire and forget, don't block checkout)
+        fetch('/.netlify/functions/ghl-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        }).catch(err => console.error('GHL Lead Capture failed:', err));
+
         this.initiateStripe();
       } else {
         alert('Please enter your email');
@@ -111,7 +118,7 @@ export class CheckoutFlow {
         throw new Error(session.error);
       }
 
-      await stripe.redirectToCheckout({
+      await (stripe as any).redirectToCheckout({
         sessionId: session.id,
       });
 
