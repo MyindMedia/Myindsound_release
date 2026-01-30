@@ -62,7 +62,8 @@ class ComingSoonController {
 
                 const overlayContainer = document.createElement('div');
                 overlayContainer.className = 'peel-overlay-container';
-                card.appendChild(overlayContainer);
+                // Append to posterGroup instead of card for correct positioning
+                posterGroup.appendChild(overlayContainer);
                 overlayContainer.style.background = 'transparent';
 
                 requestAnimationFrame(() => {
@@ -90,12 +91,12 @@ class ComingSoonController {
                     posterGroup.style.position = 'absolute';
                     posterGroup.style.inset = '0';
 
-                    const overlapPx = 0;
+                    const overlapPx = 1;
                     overlayContainer.style.width = (targetWidth + overlapPx * 2) + 'px';
                     overlayContainer.style.height = (targetHeight + overlapPx * 2) + 'px';
                     overlayContainer.style.position = 'absolute';
-                    overlayContainer.style.left = (mediaRect.left - cardRect.left - overlapPx) + 'px';
-                    overlayContainer.style.top = (mediaRect.top - cardRect.top - overlapPx) + 'px';
+                    overlayContainer.style.left = '0';
+                    overlayContainer.style.top = '0';
                     overlayContainer.style.zIndex = '1000';
                     overlayContainer.style.pointerEvents = 'none';
                     overlayContainer.style.willChange = 'transform';
@@ -121,7 +122,7 @@ class ComingSoonController {
                     const stickerPeel = new StickerPeel({
                         container: overlayContainer,
                         imageSrc: '/assets/images/peeloverlay.png',
-                        width: Math.round(targetWidth),
+                        width: Math.round(targetWidth * 0.9),
                         rotate: 0,
                         peelBackHoverPct: hoverPct,
                         peelBackActivePct: 70,
