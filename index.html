@@ -12,51 +12,45 @@
 <body>
   <div class="bg-glow"></div>
   <div id="app">
-    <aside class="left-panel">
-      <div class="logo-container">
-        <img src="/assets/images/Myind Sound Main Logo.png" alt="Myind Sound" class="logo" />
+    <nav class="top-nav">
+      <div class="nav-links">
+        <a href="/" class="nav-link active">DIGITAL</a>
+        <a href="/physical" class="nav-link">PHYSICAL</a>
+        <a href="/login" class="nav-link">GET ACCESS</a>
       </div>
-      <div class="product-hero">
-        <p class="artist-name">ThaMyind</p>
-        <h1>LIT</h1>
-        <p class="description">
-          Experience the sound of the future. Digital EP available now.
-          Pay what you want to support the artist.
-        </p>
-        <div class="purchase-box">
-          <div class="price-input-wrapper">
-            <span class="currency">$</span>
-            <input type="number" id="pwyw-amount" value="5.00" min="1.00" step="1.00" />
-          </div>
-          <button id="checkout-btn" class="primary-btn">GET DIGITAL RELEASE</button>
-          <p class="min-price-note">MINIMUM $1.00</p>
-        </div>
-      </div>
-    </aside>
+    </nav>
 
-    <main class="right-panel">
-      <section class="tracklist-section">
-        <header class="section-header">
-          <span class="section-label">TRACKLIST</span>
-        </header>
-        <div id="tracklist" class="tracklist"></div>
+    <div class="main-content">
+      <section class="digital-section" id="digital">
+        <div class="digital-container">
+          <div class="album-art-side">
+            <div class="sticky-art">
+              <img src="/assets/images/lit-poster.png" alt="LIT Album Art" class="main-album-art" />
+              <div class="purchase-box">
+                <div class="price-input-wrapper">
+                  <span class="currency">$</span>
+                  <input type="number" id="pwyw-amount" value="5.00" min="1.00" step="1.00" />
+                </div>
+                <button id="checkout-btn" class="primary-btn">PAY WHAT YOU WANT</button>
+                <p class="min-price-note">MINIMUM $1.00</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tracklist-side">
+            <header class="section-header">
+              <span class="section-label">TRACKLIST</span>
+            </header>
+            <div id="tracklist" class="tracklist"></div>
+          </div>
+        </div>
       </section>
 
-      <section class="coming-soon-section">
+      <section class="coming-soon-section container">
         <header class="section-header">
           <span class="section-label">COMING SOON</span>
         </header>
         <div class="coming-soon-grid">
-          <div class="coming-soon-card" id="card-thesource">
-            <div class="card-media">
-              <div class="poster-layer" style="background-image: url('/assets/images/thesource-poster.png');"></div>
-              <div class="video-frame">
-                <video src="/assets/videos/the-source-loop.mp4" loop muted playsinline class="card-video"></video>
-              </div>
-            </div>
-            <p class="card-title">THE SOURCE</p>
-            <div class="sticker-container"></div>
-          </div>
           <div class="coming-soon-card" id="card-cwalk">
             <div class="card-media">
               <div class="poster-layer" style="background-image: url('/assets/images/cwalk-poster.png');"></div>
@@ -67,19 +61,19 @@
             <p class="card-title">C-WALK</p>
             <div class="sticker-container"></div>
           </div>
-          <div class="coming-soon-card" id="card-lit">
+          <div class="coming-soon-card" id="card-thesource">
             <div class="card-media">
-              <div class="poster-layer" style="background-image: url('/assets/images/lit-poster.png');"></div>
+              <div class="poster-layer" style="background-image: url('/assets/images/thesource-poster.png');"></div>
               <div class="video-frame">
-                <video src="/assets/videos/lit-loop.mp4" loop muted playsinline class="card-video"></video>
+                <video src="/assets/videos/the-source-loop.mp4" loop muted playsinline class="card-video"></video>
               </div>
             </div>
-            <p class="card-title">LIT FULL</p>
+            <p class="card-title">THE SOURCE</p>
             <div class="sticker-container"></div>
           </div>
         </div>
       </section>
-    </main>
+    </div>
   </div>
 
   <!-- Checkout Modal -->

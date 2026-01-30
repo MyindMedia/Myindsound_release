@@ -3,10 +3,12 @@ import { StickerPeel } from './sticker-peel';
 import { CheckoutFlow } from './checkout';
 
 const tracks = [
-  { id: 1, title: 'LIT (Intro)', duration: '1:45' },
-  { id: 2, title: 'Higher Ground', duration: '3:12' },
-  { id: 3, title: 'Peace & Power', duration: '2:56' },
-  { id: 4, title: 'The Source', duration: '4:20' }
+  { id: 1, title: 'L.I.T. (Living In Truth)' },
+  { id: 2, title: 'G. O. D.' },
+  { id: 3, title: 'Victory In the Valley' },
+  { id: 4, title: 'Tired' },
+  { id: 5, title: 'Let Him Cook' },
+  { id: 6, title: 'Faith' }
 ];
 
 const checkoutFlow = new CheckoutFlow();
@@ -21,7 +23,9 @@ function renderTracklist() {
         <span class="track-number">${track.id.toString().padStart(2, '0')}</span>
         <span class="track-name">${track.title}</span>
       </div>
-      <span class="track-duration">${track.duration}</span>
+      <div class="track-status">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      </div>
     </div>
   `).join('');
 }
