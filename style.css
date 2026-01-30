@@ -645,20 +645,20 @@ body {
 /* Layer 2 (Middle): Spinning Disc - shifted right to align with case window */
 .spinning-disc-wrapper {
   position: absolute;
-  top: 0;
-  left: 3%;  /* Shift disc to the right */
-  width: 100%;
-  height: 100%;
+  /* Position disc within the case window area (Restored Spacing) */
+  top: 18%;
+  left: 14%;
+  width: 72%;
+  height: 72%;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .spinning-disc-wrapper .disc-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  /* 2px Off-Axis Spin */
+  transform-origin: calc(50% + 2px) calc(50% + 2px);
 }
 
 .spinning-disc-wrapper.spinning .disc-image {
