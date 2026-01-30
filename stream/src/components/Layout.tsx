@@ -1,10 +1,8 @@
 import React from 'react';
-import { LogOut, User, Music, Disc } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Music, Disc, User as UserIcon } from 'lucide-react';
+import { UserButton } from '@clerk/clerk-react';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const handleSignOut = () => supabase.auth.signOut();
-
     return (
         <div className="min-h-screen flex flex-col md:flex-row">
             {/* Sidebar */}
@@ -17,16 +15,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <div className="flex-1 space-y-2">
                     <NavItem icon={<Music size={18} />} label="My Library" active />
                     <NavItem icon={<Disc size={18} />} label="Discover" disabled />
-                    <NavItem icon={<User size={18} />} label="Account" disabled />
+                    <NavItem icon={<UserIcon size={18} />} label="Account" disabled />
                 </div>
 
-                <button
-                    onClick={handleSignOut}
-                    className="flex items-center gap-3 px-4 py-3 text-zinc-500 hover:text-white transition-colors group"
-                >
-                    <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-sm font-medium uppercase tracking-widest">Logout</span>
-                </button>
+                <div className="px-4 py-3 flex items-center gap-3 border-t border-zinc-900 pt-6">
+                    <UserButton afterSignOutUrl="/" appearance={{
+                        elements: {
+                            userButtonAvatarBox: 'w-10 h-10 rounded-xl',
+                            userButtonTrigger: 'hover:scale-105 transition-transform'
+                        }
+                    }} />
+                    <div className="hidden md:block">
+                        <div className="text-xs text-white uppercase font-bold tracking-widest">Profile</div>
+                        <div className="text-[10px] text-zinc-500 mono uppercase">Manage Session</div>
+                    </div>
+                </div>
             </nav>
 
             {/* Main Content */}

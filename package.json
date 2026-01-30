@@ -16,6 +16,7 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@clerk/backend": "^2.29.6",
     "@supabase/supabase-js": "^2.93.3"
   }
 }
