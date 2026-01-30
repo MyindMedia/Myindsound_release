@@ -4,6 +4,14 @@ import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 export const handler: Handler = async (event) => {
+    if (!process.env.STRIPE_SECRET_KEY) {
+        console.error('Missing STRIPE_SECRET_KEY environment variable');
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Stripe configuration error. Please check environment variables.' }),
+        };
+    }
+
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }

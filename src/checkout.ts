@@ -1,7 +1,7 @@
 import { loadStripe } from '@stripe/stripe-js';
 
-// TO USER: Replace with your actual publishable key from the Stripe Dashboard
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_your_key_here';
+// Use Vite environment variable for the publishable key
+const STRIPE_PUBLISHABLE_KEY = (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_key_here';
 
 interface CheckoutData {
   amount: number;
@@ -93,8 +93,15 @@ export class CheckoutFlow {
   }
 
   private async initiateStripe() {
+    if (STRIPE_PUBLISHABLE_KEY === 'pk_test_your_key_here') {
+      console.warn("Stripe Publishable Key is using the placeholder. Please set VITE_STRIPE_PUBLISHABLE_KEY.");
+    }
+
     const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
-    if (!stripe) return;
+    if (!stripe) {
+      alert('Failed to load Stripe. Please check your internet connection or browser settings.');
+      return;
+    }
 
     const email = (document.getElementById('customer-email') as HTMLInputElement).value;
     const total = this.data.amount + (this.data.withUpsell ? 9 : 0);
@@ -112,19 +119,28 @@ export class CheckoutFlow {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server responded with ${response.status}`);
+      }
+
       const session = await response.json();
 
       if (session.error) {
         throw new Error(session.error);
       }
 
-      await (stripe as any).redirectToCheckout({
+      const { error } = await (stripe as any).redirectToCheckout({
         sessionId: session.id,
       });
 
+      if (error) {
+        throw error;
+      }
+
     } catch (error: any) {
       console.error('Checkout Error:', error);
-      alert('There was an error initiating checkout. Please try again.');
+      alert(`Checkout Error: ${error.message || 'There was an error initiating checkout. Please try again.'}`);
     }
 
     this.hide();
