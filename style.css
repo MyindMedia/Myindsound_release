@@ -5,6 +5,7 @@
   --text-primary: #ffffff;
   --text-secondary: #888888;
   --accent-gold: #FFD700;
+  --accent-color: #FFD700;
   --accent-pink: #f72585;
   --neon-blue: rgba(0, 150, 255, 0.05);
   --border-color: #1a1a1a;
@@ -61,12 +62,27 @@ body {
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-color);
   padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .nav-links {
   display: flex;
   justify-content: center;
   gap: 3rem;
+  flex: 1;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
 }
 
 .nav-link {

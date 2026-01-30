@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/assets/images/Myind Sound Main Logo.png" />
     <title>Physical Releases | Myind Sound</title>
     <link rel="stylesheet" href="/style.css">
 </head>
@@ -14,52 +15,621 @@
         <nav class="top-nav">
             <div class="nav-links">
                 <a href="/" class="nav-link">DIGITAL</a>
-                <a href="/physical" class="nav-link active">PHYSICAL</a>
-                <a href="/login" class="nav-link">GET ACCESS</a>
+                <a href="/physical.html" class="nav-link active">PHYSICAL</a>
+                <a href="/login.html" class="nav-link">GET ACCESS</a>
+            </div>
+            <div class="nav-right">
+                <button id="cart-btn" class="cart-btn" aria-label="Shopping cart">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    <span id="cart-count" class="cart-count">0</span>
+                </button>
+                <div id="nav-user" class="nav-user"></div>
             </div>
         </nav>
 
         <div class="main-content">
-            <section class="placeholder-section">
-                <div class="placeholder-content">
-                    <h1 class="placeholder-title">PHYSICAL RELEASES</h1>
-                    <p class="placeholder-text">Vinyl, merch, and physical editions coming soon.</p>
-                    <a href="/" class="secondary-btn">BACK TO DIGITAL</a>
+            <!-- Hero Section -->
+            <section class="merch-hero">
+                <h1 class="merch-title">PHYSICAL RELEASES</h1>
+                <p class="merch-subtitle">Premium merchandise and collectibles</p>
+            </section>
+
+            <!-- Product Grid -->
+            <section class="merch-section container">
+                <header class="section-header">
+                    <span class="section-label">APPAREL</span>
+                </header>
+                <div id="products-apparel" class="products-grid">
+                    <!-- Products will be rendered here -->
+                </div>
+            </section>
+
+            <section class="merch-section container">
+                <header class="section-header">
+                    <span class="section-label">ACCESSORIES</span>
+                </header>
+                <div id="products-accessories" class="products-grid">
+                    <!-- Products will be rendered here -->
+                </div>
+            </section>
+
+            <section class="merch-section container">
+                <header class="section-header">
+                    <span class="section-label">COLLECTIBLES</span>
+                </header>
+                <div id="products-collectibles" class="products-grid">
+                    <!-- Products will be rendered here -->
                 </div>
             </section>
         </div>
     </div>
 
+    <!-- Cart Modal -->
+    <div id="cart-modal" class="modal-overlay" style="display: none;">
+        <div class="cart-modal-content">
+            <div class="cart-header">
+                <h2>YOUR CART</h2>
+                <button id="close-cart" class="close-btn">&times;</button>
+            </div>
+            <div id="cart-items" class="cart-items">
+                <!-- Cart items will be rendered here -->
+            </div>
+            <div id="cart-empty" class="cart-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <p>Your cart is empty</p>
+                <button id="continue-shopping" class="secondary-btn">CONTINUE SHOPPING</button>
+            </div>
+            <div id="cart-footer" class="cart-footer" style="display: none;">
+                <div class="cart-total">
+                    <span>SUBTOTAL</span>
+                    <span id="cart-subtotal">$0.00</span>
+                </div>
+                <p class="cart-shipping-note">Shipping calculated at checkout</p>
+                <button id="checkout-btn" class="primary-btn">CHECKOUT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick View Modal -->
+    <div id="quickview-modal" class="modal-overlay" style="display: none;">
+        <div class="quickview-content">
+            <button id="close-quickview" class="close-btn">&times;</button>
+            <div class="quickview-body">
+                <div class="quickview-image">
+                    <img id="quickview-img" src="" alt="Product" />
+                </div>
+                <div class="quickview-info">
+                    <h2 id="quickview-name"></h2>
+                    <p id="quickview-price" class="quickview-price"></p>
+                    <p id="quickview-desc" class="quickview-desc"></p>
+
+                    <div id="quickview-variants" class="variant-selector" style="display: none;">
+                        <label>SIZE</label>
+                        <div id="variant-options" class="variant-options"></div>
+                    </div>
+
+                    <div class="quickview-actions">
+                        <div class="quantity-selector">
+                            <button id="qty-minus" class="qty-btn">-</button>
+                            <span id="qty-value">1</span>
+                            <button id="qty-plus" class="qty-btn">+</button>
+                        </div>
+                        <button id="add-to-cart-btn" class="primary-btn">ADD TO CART</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <style>
-        .placeholder-section {
-            min-height: 80vh;
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .cart-btn {
+            position: relative;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cart-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .cart-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--accent-color);
+            color: #000;
+            font-size: 0.7rem;
+            font-weight: 700;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 4rem 2rem;
         }
 
-        .placeholder-content {
+        .cart-count[data-count="0"] {
+            display: none;
+        }
+
+        .merch-hero {
             text-align: center;
-            max-width: 600px;
+            padding: 4rem 2rem 2rem;
         }
 
-        .placeholder-title {
+        .merch-title {
             font-size: 3rem;
             font-weight: 900;
             letter-spacing: 4px;
-            margin-bottom: 2rem;
-            text-transform: uppercase;
+            margin-bottom: 0.5rem;
         }
 
-        .placeholder-text {
-            font-size: 1rem;
+        .merch-subtitle {
             color: var(--text-secondary);
-            margin-bottom: 3rem;
+            font-size: 0.9rem;
             letter-spacing: 2px;
             text-transform: uppercase;
         }
+
+        .merch-section {
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .product-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-4px);
+        }
+
+        .product-image {
+            position: relative;
+            aspect-ratio: 1;
+            overflow: hidden;
+        }
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .product-card:hover .product-image img {
+            transform: scale(1.05);
+        }
+
+        .product-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .product-card:hover .product-overlay {
+            opacity: 1;
+        }
+
+        .quick-view-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .quick-view-btn:hover {
+            background: var(--accent-color);
+        }
+
+        .product-info {
+            padding: 1.25rem;
+        }
+
+        .product-name {
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-price {
+            color: var(--accent-color);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .sold-out-badge {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: #ff4444;
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 4px;
+        }
+
+        /* Cart Modal */
+        .cart-modal-content {
+            background: #0a0a0a;
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .cart-header h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .cart-items {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .cart-item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .cart-item-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .cart-item-variant {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-item-price {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .cart-item-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+
+        .cart-item-qty {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cart-item-qty button {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .cart-item-qty span {
+            font-size: 0.85rem;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .remove-item-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .remove-item-btn:hover {
+            color: #ff4444;
+        }
+
+        .cart-empty {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .cart-empty svg {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .cart-empty p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .cart-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-shipping-note {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .cart-footer .primary-btn {
+            width: 100%;
+        }
+
+        /* Quick View Modal */
+        .quickview-content {
+            background: #0a0a0a;
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 800px;
+            max-height: 90vh;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quickview-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .quickview-image {
+            aspect-ratio: 1;
+            overflow: hidden;
+        }
+
+        .quickview-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .quickview-info {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quickview-info h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .quickview-price {
+            color: var(--accent-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .quickview-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .variant-selector {
+            margin-bottom: 2rem;
+        }
+
+        .variant-selector label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-bottom: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .variant-options {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .variant-option {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .variant-option:hover {
+            border-color: #fff;
+        }
+
+        .variant-option.selected {
+            border-color: var(--accent-color);
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        .variant-option.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .quickview-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: auto;
+        }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .qty-btn {
+            width: 40px;
+            height: 40px;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .qty-btn:hover {
+            color: var(--accent-color);
+        }
+
+        #qty-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .quickview-actions .primary-btn {
+            flex: 1;
+        }
+
+        @media (max-width: 768px) {
+            .merch-title {
+                font-size: 2rem;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .quickview-body {
+                grid-template-columns: 1fr;
+            }
+
+            .quickview-image {
+                max-height: 300px;
+            }
+
+            .cart-modal-content,
+            .quickview-content {
+                max-height: 100vh;
+                border-radius: 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
+
+    <script type="module" src="/src/physical.ts"></script>
 </body>
 
 </html>

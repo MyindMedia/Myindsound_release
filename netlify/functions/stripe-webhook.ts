@@ -15,6 +15,114 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
+// Handle physical merchandise orders
+async function handlePhysicalOrder(
+    session: Stripe.Checkout.Session,
+    lineItems: Stripe.ApiList<Stripe.LineItem>,
+    customerEmail: string,
+    customerName: string | null | undefined
+) {
+    // Get or create Clerk user
+    let clerkUser;
+    const users = await clerk.users.getUserList({ emailAddress: [customerEmail] });
+
+    if (users.data.length > 0) {
+        clerkUser = users.data[0];
+    } else {
+        try {
+            clerkUser = await clerk.users.createUser({
+                emailAddress: [customerEmail],
+                firstName: customerName?.split(' ')[0] || '',
+                lastName: customerName?.split(' ').slice(1).join(' ') || '',
+                skipPasswordRequirement: true,
+            });
+        } catch (e) {
+            console.error('Clerk User Creation Error:', e);
+        }
+    }
+
+    const clerkId = clerkUser?.id;
+    if (!clerkId) {
+        console.error('Could not get Clerk user ID for physical order');
+        return;
+    }
+
+    // Create physical order record
+    const shippingAddress = session.shipping_details?.address;
+    const { data: order, error: orderError } = await supabase
+        .from('physical_orders')
+        .insert({
+            user_id: clerkId,
+            stripe_payment_id: session.payment_intent as string,
+            total_amount: session.amount_total,
+            shipping_address: {
+                name: session.shipping_details?.name || customerName,
+                line1: shippingAddress?.line1,
+                line2: shippingAddress?.line2,
+                city: shippingAddress?.city,
+                state: shippingAddress?.state,
+                postal_code: shippingAddress?.postal_code,
+                country: shippingAddress?.country,
+            },
+            order_status: 'pending',
+        })
+        .select()
+        .single();
+
+    if (orderError) {
+        console.error('Physical Order Creation Error:', orderError);
+        return;
+    }
+
+    // Create order items
+    const orderItems = lineItems.data.map(item => ({
+        order_id: order.id,
+        product_id: item.price?.product_data?.metadata?.product_id || item.description,
+        product_name: item.description || 'Unknown Product',
+        variant: item.price?.product_data?.metadata?.variant || null,
+        quantity: item.quantity || 1,
+        unit_price: item.price?.unit_amount || 0,
+    }));
+
+    const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+    if (itemsError) {
+        console.error('Order Items Creation Error:', itemsError);
+    }
+
+    // Update profile
+    await supabase.from('profiles').upsert({
+        id: clerkId,
+        email: customerEmail,
+        full_name: customerName,
+    }, { onConflict: 'id' });
+
+    // Sync to GHL
+    const apiKey = process.env.GHL_API_KEY;
+    const locationId = process.env.GHL_LOCATION_ID;
+
+    if (apiKey && locationId) {
+        await fetch('https://services.leadconnectorhq.com/contacts/upsert', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Version': '2021-07-28',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: customerEmail,
+                locationId,
+                tags: ['Merch-Purchased'],
+                source: 'Physical Store'
+            })
+        });
+    }
+
+    console.log(`Physical order created: ${order.id} for user ${clerkId}`);
+}
+
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -34,11 +142,18 @@ export const handler: Handler = async (event) => {
         const session = stripeEvent.data.object as Stripe.Checkout.Session;
         const customerEmail = session.customer_details?.email;
         const customerName = session.customer_details?.name;
+        const orderType = session.metadata?.order_type;
 
         if (customerEmail) {
             try {
                 // 1. Get Line Items
                 const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+
+                // Handle physical orders
+                if (orderType === 'physical') {
+                    await handlePhysicalOrder(session, lineItems, customerEmail, customerName);
+                    return { statusCode: 200, body: JSON.stringify({ received: true }) };
+                }
 
                 // 2. Map Stripe Products to Supabase Products
                 const purchasedStripeProductIds = lineItems.data.map(item => item.price?.product as string);

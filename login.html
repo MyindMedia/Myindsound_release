@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/assets/images/Myind Sound Main Logo.png" />
     <title>Get Access | Myind Sound</title>
     <link rel="stylesheet" href="/style.css">
 </head>
@@ -14,27 +15,43 @@
         <nav class="top-nav">
             <div class="nav-links">
                 <a href="/" class="nav-link">DIGITAL</a>
-                <a href="/physical" class="nav-link">PHYSICAL</a>
-                <a href="/login" class="nav-link active">GET ACCESS</a>
+                <a href="/physical.html" class="nav-link">PHYSICAL</a>
+                <a href="/login.html" class="nav-link active">GET ACCESS</a>
             </div>
+            <div id="nav-user" class="nav-user"></div>
         </nav>
 
         <div class="main-content">
-            <section class="placeholder-section">
-                <div class="placeholder-content">
-                    <h1 class="placeholder-title">GET ACCESS</h1>
-                    <p class="placeholder-text">Sign in to access your purchased releases and stream your library.</p>
-                    <a href="/stream" class="primary-btn"
-                        style="display: inline-block; padding: 1.2rem 3rem; text-decoration: none;">GO TO STREAM</a>
-                    <br><br>
-                    <a href="/" class="secondary-btn">BACK TO DIGITAL</a>
+            <section class="auth-section">
+                <div class="auth-container">
+                    <div class="auth-header">
+                        <img src="/assets/images/Myind Sound Main Logo.png" alt="Myind Sound" class="auth-logo" />
+                        <h1 class="auth-title">GET ACCESS</h1>
+                        <p class="auth-subtitle">Sign in to access your purchased releases and stream your library</p>
+                    </div>
+
+                    <!-- Tab Navigation -->
+                    <div class="auth-tabs">
+                        <button id="tab-signin" class="auth-tab active">SIGN IN</button>
+                        <button id="tab-signup" class="auth-tab">SIGN UP</button>
+                    </div>
+
+                    <!-- Clerk Mount Points -->
+                    <div id="clerk-signin" class="clerk-mount"></div>
+                    <div id="clerk-signup" class="clerk-mount" style="display: none;"></div>
+
+                    <!-- Loading State -->
+                    <div id="auth-loading" class="auth-loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading authentication...</p>
+                    </div>
                 </div>
             </section>
         </div>
     </div>
 
     <style>
-        .placeholder-section {
+        .auth-section {
             min-height: 80vh;
             display: flex;
             align-items: center;
@@ -42,27 +59,184 @@
             padding: 4rem 2rem;
         }
 
-        .placeholder-content {
-            text-align: center;
-            max-width: 600px;
+        .auth-container {
+            width: 100%;
+            max-width: 450px;
         }
 
-        .placeholder-title {
-            font-size: 3rem;
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+        }
+
+        .auth-title {
+            font-size: 2rem;
             font-weight: 900;
             letter-spacing: 4px;
-            margin-bottom: 2rem;
+            margin-bottom: 0.75rem;
             text-transform: uppercase;
         }
 
-        .placeholder-text {
-            font-size: 1rem;
+        .auth-subtitle {
+            font-size: 0.85rem;
             color: var(--text-secondary);
-            margin-bottom: 3rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 1rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .auth-tab:first-child {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .auth-tab.active {
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        .auth-tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        .clerk-mount {
+            min-height: 400px;
+        }
+
+        .auth-loading {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .auth-loading p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
             letter-spacing: 2px;
             text-transform: uppercase;
         }
+
+        /* Clerk Component Overrides */
+        .clerk-root {
+            width: 100% !important;
+        }
+
+        .cl-rootBox {
+            width: 100% !important;
+        }
+
+        .cl-card {
+            background: rgba(10, 10, 10, 0.8) !important;
+            border: 1px solid var(--border-color) !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .cl-headerTitle,
+        .cl-headerSubtitle {
+            display: none !important;
+        }
+
+        .cl-formButtonPrimary {
+            background: var(--accent-color) !important;
+            color: #000 !important;
+            font-weight: 700 !important;
+            letter-spacing: 2px !important;
+            text-transform: uppercase !important;
+        }
+
+        .cl-formButtonPrimary:hover {
+            background: #e6c200 !important;
+        }
+
+        .cl-formFieldInput {
+            background: #1a1a1a !important;
+            border-color: var(--border-color) !important;
+            color: #fff !important;
+        }
+
+        .cl-formFieldInput:focus {
+            border-color: var(--accent-color) !important;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2) !important;
+        }
+
+        .cl-footerActionLink {
+            color: var(--accent-color) !important;
+        }
+
+        .cl-dividerLine {
+            background: var(--border-color) !important;
+        }
+
+        .cl-dividerText {
+            color: var(--text-secondary) !important;
+        }
+
+        .cl-socialButtonsBlockButton {
+            background: #1a1a1a !important;
+            border-color: var(--border-color) !important;
+            color: #fff !important;
+        }
+
+        .cl-socialButtonsBlockButton:hover {
+            background: #222 !important;
+            border-color: #444 !important;
+        }
+
+        .cl-formFieldLabel {
+            color: var(--text-secondary) !important;
+        }
+
+        .cl-identityPreviewText {
+            color: #fff !important;
+        }
+
+        .cl-identityPreviewEditButton {
+            color: var(--accent-color) !important;
+        }
     </style>
+
+    <script type="module" src="/src/login.ts"></script>
 </body>
 
 </html>

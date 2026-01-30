@@ -1,6 +1,7 @@
 import './style.css';
 import { StickerPeel } from './sticker-peel';
 import { CheckoutFlow } from './checkout';
+import { initNavAuth } from './nav-auth';
 
 const tracks = [
   { id: 1, title: 'L.I.T. (Living In Truth)' },
@@ -80,5 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTracklist();
   initStickers();
   initPurchaseFlow();
+  initNavAuth();
   console.log('Myind Sound Release Site Initialized');
 });
