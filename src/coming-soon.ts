@@ -3,7 +3,15 @@
  * Based on Pray project's animations.js
  */
 
+import { StickerPeel } from './sticker-peel';
+
 console.log('coming-soon.js: File loaded');
+
+interface CardElement extends HTMLElement {
+    _stickerPeel?: StickerPeel;
+    _overlayContainer?: HTMLDivElement;
+}
+
 
 class ComingSoonController {
     constructor() {
@@ -20,16 +28,16 @@ class ComingSoonController {
 
     setupCards() {
         console.log('setupCards: Starting...');
-        const cards = document.querySelectorAll('.coming-soon-card');
+        const cards = document.querySelectorAll<CardElement>('.coming-soon-card');
         console.log(`Found ${cards.length} coming soon cards`);
 
         cards.forEach((card, index) => {
             console.log(`Processing card ${index}`);
-            const video = card.querySelector('.card-video');
-            const posterLayer = card.querySelector('.poster-layer');
+            const video = card.querySelector<HTMLVideoElement>('.card-video');
+            const posterLayer = card.querySelector<HTMLDivElement>('.poster-layer');
             const posterSrc = card.getAttribute('data-poster');
-            const posterGroup = card.querySelector('.poster-group');
-            const cardMedia = card.querySelector('.card-media');
+            const posterGroup = card.querySelector<HTMLDivElement>('.poster-group');
+            const cardMedia = card.querySelector<HTMLDivElement>('.card-media');
 
             // Set poster background image
             if (posterLayer && posterSrc) {
@@ -120,7 +128,6 @@ class ComingSoonController {
                         peelDirection: 269,
                         shadowIntensity: 0.05,
                         lightingIntensity: 0.09,
-                        initialPosition: 'center',
                         className: 'coming-soon-sticker'
                     });
 
@@ -135,7 +142,7 @@ class ComingSoonController {
                 video.muted = true;
                 video.playsInline = true;
                 video.loop = true;
-                const mediaEl = card.querySelector('.card-media') || card;
+                const mediaEl = card.querySelector<HTMLDivElement>('.card-media') || card;
                 mediaEl.addEventListener('mouseenter', () => {
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
@@ -154,5 +161,5 @@ class ComingSoonController {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    window.comingSoonController = new ComingSoonController();
+    new ComingSoonController();
 });
