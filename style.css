@@ -629,38 +629,38 @@ body {
 /* Mini Disc Player - Using Actual Assets */
 .mini-disc-player {
   width: 100%;
-  max-width: 550px;
+  max-width: 500px;
   position: relative;
-  aspect-ratio: 1;
 }
 
-/* All disc layers are absolutely positioned */
+/* The case image determines the container size */
+.mini-disc-player .layer-case {
+  position: relative;
+  width: 100%;
+  height: auto;
+  display: block;
+  z-index: 1;
+}
+
+/* All overlay layers are absolutely positioned on top of case */
 .disc-layer {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
   pointer-events: none;
 }
 
-/* Layer 1: Case (bottom - the plastic frame) */
-.layer-case {
-  z-index: 1;
-}
-
-/* Layer 2: Spinning Disc Wrapper */
+/* Layer 2: Spinning Disc Wrapper - positioned within the case window */
 .spinning-disc-wrapper {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  /* Position disc within the case window area */
+  top: 18%;
+  left: 14%;
+  width: 72%;
+  height: 72%;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .spinning-disc-wrapper .disc-image {
@@ -682,26 +682,26 @@ body {
 /* Layer 3: Shadow - subtle shadow on disc */
 .layer-shadow {
   z-index: 3;
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
-/* Layer 4: Paper - small LCD display area, very subtle */
+/* Layer 4: Paper - LCD display area */
 .layer-paper {
   z-index: 4;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
-/* Layer 5: Main Logo (Myind Sound bar) - hide as it's duplicated in disc image */
+/* Layer 5: Main Logo (Myind Sound bar) */
 .layer-logo {
   z-index: 5;
-  display: none; /* Logo is already part of the disc/case composite */
+  opacity: 0.9;
 }
 
-/* Layer 6: Harmonized overlay (top) - subtle sheen effect */
+/* Layer 6: Harmonized overlay (top) - sheen effect */
 .layer-harmonized {
   z-index: 6;
   mix-blend-mode: soft-light;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 /* Visualizer */

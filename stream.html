@@ -26,24 +26,25 @@
     <section class="player-section">
       <!-- Mini Disc Player - Layer order matches Photoshop -->
       <div class="mini-disc-player">
-        <!-- 1. Case (bottom layer - the plastic frame) -->
-        <img src="/assets/disk/Mini_Disk_3_0001s_0000_Case.png" alt="" class="disc-layer layer-case" />
+        <!-- 1. Case (base layer - determines container size) -->
+        <img src="/assets/disk/Mini_Disk_3_0001s_0000_Case.png" alt="Mini Disc Case" class="layer-case" />
 
-        <!-- 2. Spinning Disc with artwork -->
+        <!-- 2. Spinning Disc with artwork (positioned in case window) -->
         <div class="spinning-disc-wrapper" id="spinning-disc">
           <img src="/assets/disk/Mini_Disk_3_0000_Place-your-design-here-(Double-click-to-edit).png" alt="Disc" class="disc-image" />
         </div>
 
+        <!-- Overlay layers (same size as case, with transparency) -->
         <!-- 3. Shadow -->
         <img src="/assets/disk/Mini_Disk_3_0000s_0003_Shadow.png" alt="" class="disc-layer layer-shadow" />
 
-        <!-- 4. Paper -->
+        <!-- 4. Paper (LCD display area) -->
         <img src="/assets/disk/Mini_Disk_3_0000s_0002_Paper.png" alt="" class="disc-layer layer-paper" />
 
-        <!-- 5. Main Logo MS (the Myind Sound bar) -->
+        <!-- 5. Main Logo MS (Myind Sound bar) -->
         <img src="/assets/disk/Mini_Disk_3_0000s_0001_Main-Logo-MS.png" alt="" class="disc-layer layer-logo" />
 
-        <!-- 6. Harmonized layer (top overlay) -->
+        <!-- 6. Harmonized layer (top sheen overlay) -->
         <img src="/assets/disk/Mini_Disk_3_0000s_0000_Harmonized-layer.png" alt="" class="disc-layer layer-harmonized" />
       </div>
 
