@@ -1,0 +1,558 @@
+/**
+ * Stream Player Controller
+ * Y2K-inspired mini disc music player with visualizer
+ */
+
+import './style.css';
+
+interface Track {
+  id: number;
+  title: string;
+  artist: string;
+  duration: string;
+  durationSeconds: number;
+  src: string;
+  cover: string;
+}
+
+// LIT Album Tracks - Update these URLs with actual audio files from Supabase
+const TRACKS: Track[] = [
+  {
+    id: 1,
+    title: 'L.I.T. (Living In Truth)',
+    artist: 'Myind Sound',
+    duration: '4:12',
+    durationSeconds: 252,
+    src: '', // Add Supabase audio URL
+    cover: '/assets/images/lit-poster.png'
+  },
+  {
+    id: 2,
+    title: 'G. O. D.',
+    artist: 'Myind Sound',
+    duration: '3:45',
+    durationSeconds: 225,
+    src: '',
+    cover: '/assets/images/lit-poster.png'
+  },
+  {
+    id: 3,
+    title: 'Victory In the Valley',
+    artist: 'Myind Sound',
+    duration: '4:28',
+    durationSeconds: 268,
+    src: '',
+    cover: '/assets/images/lit-poster.png'
+  },
+  {
+    id: 4,
+    title: 'Tired',
+    artist: 'Myind Sound',
+    duration: '3:52',
+    durationSeconds: 232,
+    src: '',
+    cover: '/assets/images/lit-poster.png'
+  },
+  {
+    id: 5,
+    title: 'Let Him Cook',
+    artist: 'Myind Sound',
+    duration: '4:05',
+    durationSeconds: 245,
+    src: '',
+    cover: '/assets/images/lit-poster.png'
+  },
+  {
+    id: 6,
+    title: 'Faith',
+    artist: 'Myind Sound',
+    duration: '4:10',
+    durationSeconds: 250,
+    src: '',
+    cover: '/assets/images/lit-poster.png'
+  }
+];
+
+class StreamPlayer {
+  private audio: HTMLAudioElement;
+  private tracks: Track[] = TRACKS;
+  private currentTrackIndex: number = 0;
+  private isPlaying: boolean = false;
+  private isShuffle: boolean = false;
+  private repeatMode: 'none' | 'all' | 'one' = 'none';
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private dataArray: Uint8Array | null = null;
+  private animationId: number | null = null;
+
+  // DOM Elements
+  private disc: HTMLElement | null;
+  private playBtn: HTMLElement | null;
+  private playIcon: HTMLElement | null;
+  private pauseIcon: HTMLElement | null;
+  private progressFill: HTMLElement | null;
+  private progressBar: HTMLElement | null;
+  private timeCurrent: HTMLElement | null;
+  private timeTotal: HTMLElement | null;
+  private nowPlayingTitle: HTMLElement | null;
+  private nowPlayingArtist: HTMLElement | null;
+  private tracklistEl: HTMLElement | null;
+  private visualizerCanvas: HTMLCanvasElement | null;
+  private canvasCtx: CanvasRenderingContext2D | null = null;
+
+  constructor() {
+    this.audio = document.getElementById('audio-player') as HTMLAudioElement;
+    this.disc = document.getElementById('spinning-disc');
+    this.playBtn = document.getElementById('play-btn');
+    this.playIcon = this.playBtn?.querySelector('.play-icon') as HTMLElement;
+    this.pauseIcon = this.playBtn?.querySelector('.pause-icon') as HTMLElement;
+    this.progressFill = document.getElementById('progress-fill');
+    this.progressBar = document.getElementById('progress-bar');
+    this.timeCurrent = document.getElementById('time-current');
+    this.timeTotal = document.getElementById('time-total');
+    this.nowPlayingTitle = document.getElementById('now-playing-title');
+    this.nowPlayingArtist = document.getElementById('now-playing-artist');
+    this.tracklistEl = document.getElementById('tracklist');
+    this.visualizerCanvas = document.getElementById('visualizer') as HTMLCanvasElement;
+
+    if (this.visualizerCanvas) {
+      this.canvasCtx = this.visualizerCanvas.getContext('2d');
+    }
+
+    this.init();
+  }
+
+  private init() {
+    this.renderTracklist();
+    this.setupEventListeners();
+    this.loadTrack(0);
+    this.updateAlbumDuration();
+
+    // Start idle visualizer animation
+    this.drawIdleVisualizer();
+  }
+
+  private setupEventListeners() {
+    // Play/Pause
+    this.playBtn?.addEventListener('click', () => this.togglePlay());
+
+    // Previous/Next
+    document.getElementById('prev-btn')?.addEventListener('click', () => this.prevTrack());
+    document.getElementById('next-btn')?.addEventListener('click', () => this.nextTrack());
+
+    // Shuffle/Repeat
+    document.getElementById('shuffle-btn')?.addEventListener('click', () => this.toggleShuffle());
+    document.getElementById('repeat-btn')?.addEventListener('click', () => this.toggleRepeat());
+
+    // Volume
+    const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
+    volumeSlider?.addEventListener('input', (e) => {
+      const value = parseInt((e.target as HTMLInputElement).value);
+      this.setVolume(value / 100);
+    });
+
+    document.getElementById('volume-btn')?.addEventListener('click', () => this.toggleMute());
+
+    // Progress bar click
+    this.progressBar?.addEventListener('click', (e) => this.seekTo(e));
+
+    // Audio events
+    this.audio.addEventListener('timeupdate', () => this.updateProgress());
+    this.audio.addEventListener('ended', () => this.onTrackEnd());
+    this.audio.addEventListener('loadedmetadata', () => this.updateTimeDisplay());
+    this.audio.addEventListener('play', () => this.onPlay());
+    this.audio.addEventListener('pause', () => this.onPause());
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+  }
+
+  private renderTracklist() {
+    if (!this.tracklistEl) return;
+
+    this.tracklistEl.innerHTML = this.tracks.map((track, index) => `
+      <div class="track-item ${index === this.currentTrackIndex ? 'active' : ''}" data-index="${index}">
+        <div class="track-number">${(index + 1).toString().padStart(2, '0')}</div>
+        <div class="track-info">
+          <span class="track-title">${track.title}</span>
+          <span class="track-artist">${track.artist}</span>
+        </div>
+        <div class="track-duration">${track.duration}</div>
+        <div class="track-playing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    `).join('');
+
+    // Add click handlers
+    this.tracklistEl.querySelectorAll('.track-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const index = parseInt(item.getAttribute('data-index') || '0');
+        this.loadTrack(index);
+        this.play();
+      });
+    });
+  }
+
+  private loadTrack(index: number) {
+    this.currentTrackIndex = index;
+    const track = this.tracks[index];
+
+    // Update audio source
+    if (track.src) {
+      this.audio.src = track.src;
+    }
+
+    // Update now playing info
+    if (this.nowPlayingTitle) this.nowPlayingTitle.textContent = track.title;
+    if (this.nowPlayingArtist) this.nowPlayingArtist.textContent = track.artist;
+
+    // Update disc artwork
+    const discArtwork = document.querySelector('.disc-artwork') as HTMLImageElement;
+    if (discArtwork) discArtwork.src = track.cover;
+
+    // Update tracklist active state
+    this.tracklistEl?.querySelectorAll('.track-item').forEach((item, i) => {
+      item.classList.toggle('active', i === index);
+    });
+
+    // Update time display
+    if (this.timeTotal) this.timeTotal.textContent = track.duration;
+    if (this.timeCurrent) this.timeCurrent.textContent = '0:00';
+    if (this.progressFill) this.progressFill.style.width = '0%';
+  }
+
+  private togglePlay() {
+    if (this.isPlaying) {
+      this.pause();
+    } else {
+      this.play();
+    }
+  }
+
+  private play() {
+    // For demo purposes, simulate playing even without audio source
+    if (this.tracks[this.currentTrackIndex].src) {
+      this.audio.play().catch(console.error);
+    } else {
+      // Simulate play for demo
+      this.onPlay();
+      this.simulateProgress();
+    }
+  }
+
+  private pause() {
+    this.audio.pause();
+    this.onPause();
+    if (this.simulationInterval) {
+      clearInterval(this.simulationInterval);
+      this.simulationInterval = null;
+    }
+  }
+
+  private simulationInterval: ReturnType<typeof setInterval> | null = null;
+  private simulatedTime: number = 0;
+
+  private simulateProgress() {
+    const track = this.tracks[this.currentTrackIndex];
+    this.simulationInterval = setInterval(() => {
+      this.simulatedTime += 1;
+      const progress = (this.simulatedTime / track.durationSeconds) * 100;
+
+      if (this.progressFill) this.progressFill.style.width = `${progress}%`;
+      if (this.timeCurrent) this.timeCurrent.textContent = this.formatTime(this.simulatedTime);
+
+      if (this.simulatedTime >= track.durationSeconds) {
+        this.simulatedTime = 0;
+        this.onTrackEnd();
+      }
+    }, 1000);
+  }
+
+  private onPlay() {
+    this.isPlaying = true;
+    this.disc?.classList.add('spinning');
+    if (this.playIcon) this.playIcon.style.display = 'none';
+    if (this.pauseIcon) this.pauseIcon.style.display = 'block';
+
+    // Start visualizer
+    this.initAudioContext();
+    this.startVisualizer();
+  }
+
+  private onPause() {
+    this.isPlaying = false;
+    this.disc?.classList.remove('spinning');
+    if (this.playIcon) this.playIcon.style.display = 'block';
+    if (this.pauseIcon) this.pauseIcon.style.display = 'none';
+
+    // Keep visualizer in idle state
+    this.drawIdleVisualizer();
+  }
+
+  private prevTrack() {
+    let newIndex = this.currentTrackIndex - 1;
+    if (newIndex < 0) newIndex = this.tracks.length - 1;
+
+    this.simulatedTime = 0;
+    this.loadTrack(newIndex);
+    if (this.isPlaying) this.play();
+  }
+
+  private nextTrack() {
+    let newIndex: number;
+
+    if (this.isShuffle) {
+      newIndex = Math.floor(Math.random() * this.tracks.length);
+    } else {
+      newIndex = this.currentTrackIndex + 1;
+      if (newIndex >= this.tracks.length) newIndex = 0;
+    }
+
+    this.simulatedTime = 0;
+    this.loadTrack(newIndex);
+    if (this.isPlaying) this.play();
+  }
+
+  private onTrackEnd() {
+    if (this.repeatMode === 'one') {
+      this.simulatedTime = 0;
+      this.loadTrack(this.currentTrackIndex);
+      this.play();
+    } else if (this.repeatMode === 'all' || this.currentTrackIndex < this.tracks.length - 1) {
+      this.nextTrack();
+    } else {
+      this.pause();
+      this.loadTrack(0);
+    }
+  }
+
+  private toggleShuffle() {
+    this.isShuffle = !this.isShuffle;
+    document.getElementById('shuffle-btn')?.classList.toggle('active', this.isShuffle);
+  }
+
+  private toggleRepeat() {
+    const modes: Array<'none' | 'all' | 'one'> = ['none', 'all', 'one'];
+    const currentIndex = modes.indexOf(this.repeatMode);
+    this.repeatMode = modes[(currentIndex + 1) % modes.length];
+
+    const btn = document.getElementById('repeat-btn');
+    btn?.classList.remove('active', 'repeat-one');
+
+    if (this.repeatMode === 'all') {
+      btn?.classList.add('active');
+    } else if (this.repeatMode === 'one') {
+      btn?.classList.add('active', 'repeat-one');
+    }
+  }
+
+  private setVolume(value: number) {
+    this.audio.volume = value;
+    this.updateVolumeIcon(value);
+  }
+
+  private toggleMute() {
+    this.audio.muted = !this.audio.muted;
+    const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
+    this.updateVolumeIcon(this.audio.muted ? 0 : parseFloat(volumeSlider?.value || '80') / 100);
+  }
+
+  private updateVolumeIcon(value: number) {
+    const volumeIcon = document.querySelector('.volume-icon') as HTMLElement;
+    const muteIcon = document.querySelector('.mute-icon') as HTMLElement;
+
+    if (value === 0 || this.audio.muted) {
+      if (volumeIcon) volumeIcon.style.display = 'none';
+      if (muteIcon) muteIcon.style.display = 'block';
+    } else {
+      if (volumeIcon) volumeIcon.style.display = 'block';
+      if (muteIcon) muteIcon.style.display = 'none';
+    }
+  }
+
+  private seekTo(e: MouseEvent) {
+    if (!this.progressBar) return;
+
+    const rect = this.progressBar.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const track = this.tracks[this.currentTrackIndex];
+
+    if (track.src) {
+      this.audio.currentTime = percent * this.audio.duration;
+    } else {
+      this.simulatedTime = Math.floor(percent * track.durationSeconds);
+      if (this.progressFill) this.progressFill.style.width = `${percent * 100}%`;
+      if (this.timeCurrent) this.timeCurrent.textContent = this.formatTime(this.simulatedTime);
+    }
+  }
+
+  private updateProgress() {
+    if (!this.audio.duration) return;
+
+    const percent = (this.audio.currentTime / this.audio.duration) * 100;
+    if (this.progressFill) this.progressFill.style.width = `${percent}%`;
+    if (this.timeCurrent) this.timeCurrent.textContent = this.formatTime(this.audio.currentTime);
+  }
+
+  private updateTimeDisplay() {
+    if (this.timeTotal && this.audio.duration) {
+      this.timeTotal.textContent = this.formatTime(this.audio.duration);
+    }
+  }
+
+  private formatTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  private updateAlbumDuration() {
+    const totalSeconds = this.tracks.reduce((sum, track) => sum + track.durationSeconds, 0);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    const durationEl = document.getElementById('album-duration');
+    if (durationEl) durationEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  private handleKeyboard(e: KeyboardEvent) {
+    switch (e.code) {
+      case 'Space':
+        e.preventDefault();
+        this.togglePlay();
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        this.prevTrack();
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        this.nextTrack();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        this.setVolume(Math.min(1, this.audio.volume + 0.1));
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        this.setVolume(Math.max(0, this.audio.volume - 0.1));
+        break;
+    }
+  }
+
+  // Audio Visualizer
+  private initAudioContext() {
+    if (this.audioContext) return;
+
+    try {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+
+      const source = this.audioContext.createMediaElementSource(this.audio);
+      source.connect(this.analyser);
+      this.analyser.connect(this.audioContext.destination);
+
+      const bufferLength = this.analyser.frequencyBinCount;
+      this.dataArray = new Uint8Array(bufferLength);
+    } catch (e) {
+      console.log('Web Audio API not supported or already initialized');
+    }
+  }
+
+  private startVisualizer() {
+    if (this.animationId) cancelAnimationFrame(this.animationId);
+    this.drawVisualizer();
+  }
+
+  private drawVisualizer() {
+    if (!this.canvasCtx || !this.visualizerCanvas) return;
+
+    this.animationId = requestAnimationFrame(() => this.drawVisualizer());
+
+    const width = this.visualizerCanvas.width;
+    const height = this.visualizerCanvas.height;
+
+    // Clear canvas
+    this.canvasCtx.fillStyle = 'rgba(10, 10, 10, 0.3)';
+    this.canvasCtx.fillRect(0, 0, width, height);
+
+    if (this.analyser && this.dataArray && this.isPlaying) {
+      this.analyser.getByteFrequencyData(this.dataArray as any);
+
+      const barWidth = (width / this.dataArray.length) * 2.5;
+      let x = 0;
+
+      for (let i = 0; i < this.dataArray.length; i++) {
+        const barHeight = (this.dataArray[i] / 255) * height;
+
+        // Golden gradient
+        const gradient = this.canvasCtx.createLinearGradient(0, height - barHeight, 0, height);
+        gradient.addColorStop(0, '#FFD700');
+        gradient.addColorStop(1, '#B8860B');
+
+        this.canvasCtx.fillStyle = gradient;
+        this.canvasCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+
+        x += barWidth;
+      }
+    } else {
+      // Draw idle animation when no audio data
+      this.drawIdleBars();
+    }
+  }
+
+  private drawIdleVisualizer() {
+    if (this.animationId) cancelAnimationFrame(this.animationId);
+    this.animationId = requestAnimationFrame(() => this.animateIdleVisualizer());
+  }
+
+  private idlePhase = 0;
+
+  private animateIdleVisualizer() {
+    if (this.isPlaying) return;
+
+    this.animationId = requestAnimationFrame(() => this.animateIdleVisualizer());
+
+    if (!this.canvasCtx || !this.visualizerCanvas) return;
+
+    const width = this.visualizerCanvas.width;
+    const height = this.visualizerCanvas.height;
+
+    this.canvasCtx.fillStyle = 'rgba(10, 10, 10, 0.2)';
+    this.canvasCtx.fillRect(0, 0, width, height);
+
+    this.idlePhase += 0.02;
+    this.drawIdleBars();
+  }
+
+  private drawIdleBars() {
+    if (!this.canvasCtx || !this.visualizerCanvas) return;
+
+    const width = this.visualizerCanvas.width;
+    const height = this.visualizerCanvas.height;
+    const barCount = 64;
+    const barWidth = (width / barCount) * 0.8;
+
+    for (let i = 0; i < barCount; i++) {
+      const x = (i / barCount) * width;
+      const barHeight = (Math.sin(this.idlePhase + i * 0.1) * 0.3 + 0.4) * (height * 0.3);
+
+      const gradient = this.canvasCtx.createLinearGradient(0, height - barHeight, 0, height);
+      gradient.addColorStop(0, 'rgba(255, 215, 0, 0.6)');
+      gradient.addColorStop(1, 'rgba(184, 134, 11, 0.3)');
+
+      this.canvasCtx.fillStyle = gradient;
+      this.canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+    }
+  }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    new StreamPlayer();
+  });
+} else {
+  new StreamPlayer();
+}
