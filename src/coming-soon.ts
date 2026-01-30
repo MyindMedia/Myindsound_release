@@ -69,7 +69,6 @@ class ComingSoonController {
                 requestAnimationFrame(() => {
                     console.log(`Setting up dimensions for card ${index}`);
 
-                    const cardRect = card.getBoundingClientRect();
                     const mediaRect = cardMedia.getBoundingClientRect();
                     const targetWidth = mediaRect.width;
                     const targetHeight = mediaRect.height;
