@@ -1,132 +1,36 @@
 /**
  * Physical Merchandise Store
- * Handles product display, quick view, and cart integration
+ * Fetches products from Shopify and handles cart/checkout
  */
 
+import {
+  fetchProducts,
+  createCheckoutUrl,
+  formatPrice,
+  getProductImage,
+  hasVariants,
+  getAvailableVariants,
+  isSoldOut,
+  stripHtml,
+  type ShopifyProduct
+} from './shopify';
 import { initNavAuth } from './nav-auth';
-
-// Product types
-interface ProductVariant {
-  name: string;
-  available: boolean;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  price: number; // in cents
-  description: string;
-  image: string;
-  category: 'apparel' | 'accessories' | 'collectibles';
-  variants?: ProductVariant[];
-  soldOut?: boolean;
-}
 
 // Cart item type
 interface CartItem {
-  id: string;
+  variantId: number;
+  productId: number;
   name: string;
-  price: number;
+  variantTitle: string;
+  price: string;
   quantity: number;
-  variant?: string;
   image: string;
 }
 
-// Product data
-const PRODUCTS: Product[] = [
-  // Apparel
-  {
-    id: 'lit-tee-black',
-    name: 'LIT Album Tee - Black',
-    price: 3500,
-    description: 'Premium heavyweight cotton tee featuring the LIT album artwork. Oversized fit with ribbed crew neck.',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=800',
-    category: 'apparel',
-    variants: [
-      { name: 'S', available: true },
-      { name: 'M', available: true },
-      { name: 'L', available: true },
-      { name: 'XL', available: true },
-      { name: 'XXL', available: false },
-    ]
-  },
-  {
-    id: 'lit-tee-white',
-    name: 'LIT Album Tee - White',
-    price: 3500,
-    description: 'Premium heavyweight cotton tee in white featuring the LIT album artwork. Oversized fit with ribbed crew neck.',
-    image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&q=80&w=800',
-    category: 'apparel',
-    variants: [
-      { name: 'S', available: true },
-      { name: 'M', available: true },
-      { name: 'L', available: true },
-      { name: 'XL', available: true },
-      { name: 'XXL', available: true },
-    ]
-  },
-  {
-    id: 'myind-hoodie',
-    name: 'Myind Sound Hoodie',
-    price: 6500,
-    description: 'Heavyweight fleece hoodie with embroidered Myind Sound logo. Features kangaroo pocket and ribbed cuffs.',
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&q=80&w=800',
-    category: 'apparel',
-    variants: [
-      { name: 'S', available: true },
-      { name: 'M', available: true },
-      { name: 'L', available: true },
-      { name: 'XL', available: true },
-    ]
-  },
-  // Accessories
-  {
-    id: 'myind-cap',
-    name: 'Myind Sound Dad Cap',
-    price: 2800,
-    description: 'Classic dad cap with embroidered Myind Sound logo. Adjustable strap for perfect fit.',
-    image: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&q=80&w=800',
-    category: 'accessories',
-  },
-  {
-    id: 'sticker-pack',
-    name: 'Sticker Pack',
-    price: 1200,
-    description: 'Set of 5 premium vinyl stickers featuring Myind Sound and album artwork. Weather-resistant.',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&q=80&w=800',
-    category: 'accessories',
-  },
-  {
-    id: 'tote-bag',
-    name: 'Canvas Tote Bag',
-    price: 2200,
-    description: 'Heavy-duty canvas tote with screen-printed Myind Sound artwork. Perfect for everyday use.',
-    image: 'https://images.unsplash.com/photo-1597633125097-5a9ae21ea4d3?auto=format&fit=crop&q=80&w=800',
-    category: 'accessories',
-  },
-  // Collectibles
-  {
-    id: 'lit-poster',
-    name: 'LIT Album Poster',
-    price: 2500,
-    description: '18x24 inch museum-quality poster printed on premium matte paper. Ships rolled in a protective tube.',
-    image: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=800',
-    category: 'collectibles',
-  },
-  {
-    id: 'lit-vinyl',
-    name: 'LIT Vinyl LP',
-    price: 4500,
-    description: 'Limited edition 180g vinyl pressing with gatefold sleeve and lyric insert. Includes download card.',
-    image: 'https://images.unsplash.com/photo-1539375665275-f9de415ef9ac?auto=format&fit=crop&q=80&w=800',
-    category: 'collectibles',
-    soldOut: true,
-  },
-];
-
 class PhysicalStore {
-  private currentProduct: Product | null = null;
-  private selectedVariant: string | null = null;
+  private products: ShopifyProduct[] = [];
+  private currentProduct: ShopifyProduct | null = null;
+  private selectedVariantId: number | null = null;
   private quantity: number = 1;
   private cart: CartItem[] = [];
 
@@ -135,41 +39,79 @@ class PhysicalStore {
     this.init();
   }
 
-  private init() {
-    this.renderProducts();
+  private async init() {
+    this.showLoading(true);
+
+    try {
+      this.products = await fetchProducts();
+      this.renderProducts();
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      this.showError('Failed to load products. Please try again later.');
+    }
+
+    this.showLoading(false);
     this.setupCartModal();
     this.setupQuickViewModal();
     this.updateCartCount();
     initNavAuth();
   }
 
+  private showLoading(show: boolean) {
+    const loading = document.getElementById('products-loading');
+    const grid = document.getElementById('products-grid');
+
+    if (loading) loading.style.display = show ? 'flex' : 'none';
+    if (grid) grid.style.display = show ? 'none' : 'grid';
+  }
+
+  private showError(message: string) {
+    const grid = document.getElementById('products-grid');
+    if (grid) {
+      grid.innerHTML = `
+        <div class="error-state" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem;">
+          <p style="color: #888; margin-bottom: 1rem;">${message}</p>
+          <button onclick="location.reload()" class="primary-btn">Retry</button>
+        </div>
+      `;
+      grid.style.display = 'block';
+    }
+  }
+
   private renderProducts() {
     const grid = document.getElementById('products-grid');
     if (!grid) return;
 
-    // Hide loading, show grid
-    const loading = document.getElementById('products-loading');
-    if (loading) loading.style.display = 'none';
-    grid.style.display = 'grid';
+    if (this.products.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem;">
+          <p style="color: #888;">No products available yet. Check back soon!</p>
+        </div>
+      `;
+      return;
+    }
 
-    grid.innerHTML = PRODUCTS.map(p => this.renderProductCard(p)).join('');
+    grid.innerHTML = this.products.map(p => this.renderProductCard(p)).join('');
     this.attachCardListeners(grid);
   }
 
-  private renderProductCard(product: Product): string {
-    const price = (product.price / 100).toFixed(2);
+  private renderProductCard(product: ShopifyProduct): string {
+    const price = formatPrice(product.variants[0]?.price || '0');
+    const image = getProductImage(product);
+    const soldOut = isSoldOut(product);
+
     return `
       <div class="product-card" data-product-id="${product.id}">
         <div class="product-image">
-          ${product.soldOut ? '<span class="sold-out-badge">Sold Out</span>' : ''}
-          <img src="${product.image}" alt="${product.name}" loading="lazy" />
+          ${soldOut ? '<span class="sold-out-badge">Sold Out</span>' : ''}
+          <img src="${image}" alt="${product.title}" loading="lazy" />
           <div class="product-overlay">
             <button class="quick-view-btn">QUICK VIEW</button>
           </div>
         </div>
         <div class="product-info">
-          <h3 class="product-name">${product.name}</h3>
-          <p class="product-price">$${price}</p>
+          <h3 class="product-name">${product.title}</h3>
+          <p class="product-price">${price}</p>
         </div>
       </div>
     `;
@@ -177,8 +119,8 @@ class PhysicalStore {
 
   private attachCardListeners(container: HTMLElement) {
     container.querySelectorAll('.product-card').forEach(card => {
-      const productId = card.getAttribute('data-product-id');
-      const product = PRODUCTS.find(p => p.id === productId);
+      const productId = parseInt(card.getAttribute('data-product-id') || '0');
+      const product = this.products.find(p => p.id === productId);
       if (product) {
         card.addEventListener('click', () => this.openQuickView(product));
       }
@@ -232,42 +174,41 @@ class PhysicalStore {
       emptyState.style.display = 'none';
       footer.style.display = 'block';
 
-      const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      if (subtotalEl) subtotalEl.textContent = `$${(subtotal / 100).toFixed(2)}`;
+      const subtotal = this.cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+      if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal.toString());
 
       itemsContainer.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
 
       // Attach listeners
       itemsContainer.querySelectorAll('.cart-item').forEach(itemEl => {
-        const id = itemEl.getAttribute('data-id');
-        const variant = itemEl.getAttribute('data-variant') || undefined;
+        const variantId = parseInt(itemEl.getAttribute('data-variant-id') || '0');
 
         itemEl.querySelector('.qty-decrease')?.addEventListener('click', () => {
-          this.updateCartQuantity(id!, variant, -1);
+          this.updateCartQuantity(variantId, -1);
         });
 
         itemEl.querySelector('.qty-increase')?.addEventListener('click', () => {
-          this.updateCartQuantity(id!, variant, 1);
+          this.updateCartQuantity(variantId, 1);
         });
 
         itemEl.querySelector('.remove-item-btn')?.addEventListener('click', () => {
-          this.removeFromCart(id!, variant);
+          this.removeFromCart(variantId);
         });
       });
     }
   }
 
   private renderCartItem(item: CartItem): string {
-    const price = (item.price / 100).toFixed(2);
+    const price = formatPrice(item.price);
     return `
-      <div class="cart-item" data-id="${item.id}" data-variant="${item.variant || ''}">
+      <div class="cart-item" data-variant-id="${item.variantId}">
         <div class="cart-item-image">
           <img src="${item.image}" alt="${item.name}" />
         </div>
         <div class="cart-item-info">
           <h4 class="cart-item-name">${item.name}</h4>
-          ${item.variant ? `<p class="cart-item-variant">Size: ${item.variant}</p>` : ''}
-          <p class="cart-item-price">$${price}</p>
+          ${item.variantTitle !== 'Default Title' ? `<p class="cart-item-variant">${item.variantTitle}</p>` : ''}
+          <p class="cart-item-price">${price}</p>
         </div>
         <div class="cart-item-actions">
           <div class="cart-item-qty">
@@ -319,9 +260,10 @@ class PhysicalStore {
     addToCartBtn?.addEventListener('click', () => this.addToCart());
   }
 
-  private openQuickView(product: Product) {
+  private openQuickView(product: ShopifyProduct) {
     this.currentProduct = product;
-    this.selectedVariant = product.variants?.[0]?.available ? product.variants[0].name : null;
+    const availableVariants = getAvailableVariants(product);
+    this.selectedVariantId = availableVariants[0]?.id || null;
     this.quantity = 1;
 
     const modal = document.getElementById('quickview-modal');
@@ -333,27 +275,34 @@ class PhysicalStore {
     const variantOptions = document.getElementById('variant-options');
     const addBtn = document.getElementById('add-to-cart-btn');
 
-    if (img) img.src = product.image;
-    if (name) name.textContent = product.name;
-    if (price) price.textContent = `$${(product.price / 100).toFixed(2)}`;
-    if (desc) desc.textContent = product.description;
+    if (img) img.src = getProductImage(product);
+    if (name) name.textContent = product.title;
+    if (price) price.textContent = formatPrice(product.variants[0]?.price || '0');
+    if (desc) desc.textContent = stripHtml(product.body_html).substring(0, 200) + '...';
 
     // Handle variants
-    if (product.variants && product.variants.length > 0 && variantsContainer && variantOptions) {
+    if (hasVariants(product) && variantsContainer && variantOptions) {
       variantsContainer.style.display = 'block';
       variantOptions.innerHTML = product.variants.map(v => `
-        <button class="variant-option ${v.name === this.selectedVariant ? 'selected' : ''} ${!v.available ? 'disabled' : ''}"
-                data-variant="${v.name}"
+        <button class="variant-option ${v.id === this.selectedVariantId ? 'selected' : ''} ${!v.available ? 'disabled' : ''}"
+                data-variant-id="${v.id}"
+                data-price="${v.price}"
                 ${!v.available ? 'disabled' : ''}>
-          ${v.name}
+          ${v.title}
         </button>
       `).join('');
 
       variantOptions.querySelectorAll('.variant-option:not(.disabled)').forEach(btn => {
         btn.addEventListener('click', () => {
-          this.selectedVariant = btn.getAttribute('data-variant');
+          this.selectedVariantId = parseInt(btn.getAttribute('data-variant-id') || '0');
+          const variantPrice = btn.getAttribute('data-price');
           variantOptions.querySelectorAll('.variant-option').forEach(b => b.classList.remove('selected'));
           btn.classList.add('selected');
+
+          // Update price
+          if (variantPrice && price) {
+            price.textContent = formatPrice(variantPrice);
+          }
         });
       });
     } else if (variantsContainer) {
@@ -361,8 +310,9 @@ class PhysicalStore {
     }
 
     // Handle sold out
+    const soldOut = isSoldOut(product);
     if (addBtn) {
-      if (product.soldOut) {
+      if (soldOut) {
         addBtn.textContent = 'SOLD OUT';
         (addBtn as HTMLButtonElement).disabled = true;
       } else {
@@ -380,7 +330,7 @@ class PhysicalStore {
     const modal = document.getElementById('quickview-modal');
     if (modal) modal.style.display = 'none';
     this.currentProduct = null;
-    this.selectedVariant = null;
+    this.selectedVariantId = null;
     this.quantity = 1;
   }
 
@@ -390,28 +340,24 @@ class PhysicalStore {
   }
 
   private addToCart() {
-    if (!this.currentProduct || this.currentProduct.soldOut) return;
+    if (!this.currentProduct || !this.selectedVariantId) return;
 
-    // Check if variant is required but not selected
-    if (this.currentProduct.variants && this.currentProduct.variants.length > 0 && !this.selectedVariant) {
-      alert('Please select a size');
-      return;
-    }
+    const variant = this.currentProduct.variants.find(v => v.id === this.selectedVariantId);
+    if (!variant || !variant.available) return;
 
-    const existingItem = this.cart.find(
-      item => item.id === this.currentProduct!.id && item.variant === this.selectedVariant
-    );
+    const existingItem = this.cart.find(item => item.variantId === this.selectedVariantId);
 
     if (existingItem) {
       existingItem.quantity += this.quantity;
     } else {
       this.cart.push({
-        id: this.currentProduct.id,
-        name: this.currentProduct.name,
-        price: this.currentProduct.price,
+        variantId: this.selectedVariantId,
+        productId: this.currentProduct.id,
+        name: this.currentProduct.title,
+        variantTitle: variant.title,
+        price: variant.price,
         quantity: this.quantity,
-        variant: this.selectedVariant || undefined,
-        image: this.currentProduct.image,
+        image: getProductImage(this.currentProduct),
       });
     }
 
@@ -421,14 +367,14 @@ class PhysicalStore {
     this.openCart();
   }
 
-  private updateCartQuantity(id: string, variant: string | undefined, delta: number) {
-    const item = this.cart.find(i => i.id === id && i.variant === variant);
+  private updateCartQuantity(variantId: number, delta: number) {
+    const item = this.cart.find(i => i.variantId === variantId);
     if (!item) return;
 
     item.quantity += delta;
 
     if (item.quantity <= 0) {
-      this.removeFromCart(id, variant);
+      this.removeFromCart(variantId);
     } else {
       this.saveCart();
       this.updateCartCount();
@@ -436,20 +382,20 @@ class PhysicalStore {
     }
   }
 
-  private removeFromCart(id: string, variant: string | undefined) {
-    this.cart = this.cart.filter(item => !(item.id === id && item.variant === variant));
+  private removeFromCart(variantId: number) {
+    this.cart = this.cart.filter(item => item.variantId !== variantId);
     this.saveCart();
     this.updateCartCount();
     this.renderCartItems();
   }
 
   private saveCart() {
-    localStorage.setItem('physical-cart', JSON.stringify(this.cart));
+    localStorage.setItem('shopify-cart', JSON.stringify(this.cart));
   }
 
   private loadCart() {
     try {
-      const saved = localStorage.getItem('physical-cart');
+      const saved = localStorage.getItem('shopify-cart');
       if (saved) {
         this.cart = JSON.parse(saved);
       }
@@ -458,42 +404,24 @@ class PhysicalStore {
     }
   }
 
-  private async checkout() {
+  private checkout() {
     if (this.cart.length === 0) return;
 
-    const checkoutBtn = document.getElementById('checkout-btn') as HTMLButtonElement;
-    if (checkoutBtn) {
-      checkoutBtn.textContent = 'PROCESSING...';
-      checkoutBtn.disabled = true;
-    }
+    // Create Shopify cart URL and redirect
+    const items = this.cart.map(item => ({
+      variantId: item.variantId,
+      quantity: item.quantity,
+    }));
 
-    try {
-      const response = await fetch('/.netlify/functions/create-physical-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: this.cart }),
-      });
+    const checkoutUrl = createCheckoutUrl(items);
 
-      if (!response.ok) {
-        throw new Error('Failed to create checkout session');
-      }
+    // Clear cart
+    this.cart = [];
+    this.saveCart();
+    this.updateCartCount();
 
-      const { url } = await response.json();
-      if (url) {
-        // Clear cart after successful checkout creation
-        this.cart = [];
-        this.saveCart();
-        window.location.href = url;
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-      alert('There was an error processing your checkout. Please try again.');
-
-      if (checkoutBtn) {
-        checkoutBtn.textContent = 'CHECKOUT';
-        checkoutBtn.disabled = false;
-      }
-    }
+    // Redirect to Shopify checkout
+    window.location.href = checkoutUrl;
   }
 }
 
