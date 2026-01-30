@@ -164,7 +164,7 @@ class ComingSoonController {
                     overlayContainer.style.top = (mr.top - cr.top - 26.4 - overlapPx) + 'px';
                     if (plasticTop) {
                         plasticTop.style.width = w + 'px';
-                        plasticTop.style.height = w + 'px';
+                        plasticTop.style.height = h + 'px';
                     }
                     if (plasticBottom) {
                         plasticBottom.style.width = w + 'px';
