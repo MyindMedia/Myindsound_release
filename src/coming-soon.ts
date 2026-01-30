@@ -72,9 +72,9 @@ class ComingSoonController {
                     const mediaRect = cardMedia.getBoundingClientRect();
                     const targetWidth = mediaRect.width;
                     const targetHeight = mediaRect.height;
-                    const hoverRevealPx = 4;
-                    const hoverPct = Math.max(0.5, Math.min(25, (hoverRevealPx / targetHeight) * 100));
-                    const hoverPctReduced = hoverPct * 0.3;
+
+                    // Use the same hover percentage as Pray project (20%)
+                    const hoverPct = 20;
 
                     // Ensure base container is positioned for absolute children
                     cardMedia.style.position = 'relative';
@@ -123,7 +123,7 @@ class ComingSoonController {
                         imageSrc: '/assets/images/peeloverlay.png',
                         width: Math.round(targetWidth),
                         rotate: 0,
-                        peelBackHoverPct: hoverPctReduced,
+                        peelBackHoverPct: hoverPct,
                         peelBackActivePct: 70,
                         peelDirection: 269,
                         shadowIntensity: 0.05,

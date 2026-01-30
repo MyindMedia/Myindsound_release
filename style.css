@@ -269,16 +269,17 @@ body {
   gap: 3rem;
   max-width: 900px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .coming-soon-card {
   position: relative;
   cursor: pointer;
-  transition: transform 0.3s ease;
+  width: 100%;
 }
 
 .coming-soon-card:hover {
-  transform: translateY(-10px);
+  /* Removed transform to prevent alignment issues */
 }
 
 .card-media {
@@ -431,9 +432,10 @@ body {
 }
 
 .upsell-img {
-  width: 60px;
-  height: 60px;
+  width: 150px;
+  height: 150px;
   object-fit: cover;
+  border-radius: 2px;
 }
 
 .upsell-info h3 {
