@@ -645,12 +645,15 @@ body {
 /* Layer 2 (Middle): Spinning Disc - shifted right to align with case window */
 .spinning-disc-wrapper {
   position: absolute;
-  /* Position disc within the case window area (Restored Spacing) */
-  top: 18%;
-  left: 14%;
-  width: 72%;
-  height: 72%;
+  /* Restored Original Size */
+  top: 0;
+  left: 3%;
+  width: 100%;
+  height: 100%;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .spinning-disc-wrapper .disc-image {
@@ -666,8 +669,13 @@ body {
 }
 
 @keyframes spin-disc {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Layer 1 (Top): Case Frame Overlay */
@@ -1034,8 +1042,13 @@ body {
 }
 
 @keyframes soundbar {
-  0% { transform: scaleY(0.3); }
-  100% { transform: scaleY(1); }
+  0% {
+    transform: scaleY(0.3);
+  }
+
+  100% {
+    transform: scaleY(1);
+  }
 }
 
 /* Album Info */
