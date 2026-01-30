@@ -51,25 +51,33 @@
           <span class="section-label">COMING SOON</span>
         </header>
         <div class="coming-soon-grid">
-          <div class="coming-soon-card" id="card-cwalk">
+          <div class="coming-soon-card" tabindex="0" data-poster="/assets/images/cwalk-poster.png">
             <div class="card-media">
-              <div class="poster-layer" style="background-image: url('/assets/images/cwalk-poster.png');"></div>
-              <div class="video-frame">
-                <video src="/assets/videos/c-walk-loop.mp4" loop muted playsinline class="card-video"></video>
+              <div class="poster-group" data-peel-hover="20" data-peel-active="70" data-peel-direction="269"
+                data-lighting="0.09" data-shadow="0.05" data-rotate="0" data-sticker-width="300">
+                <div class="poster-layer"></div>
               </div>
+              <div class="plastic-top"></div>
+              <div class="plastic-bottom"></div>
+              <video src="/assets/videos/c-walk-loop.mp4" poster="/assets/images/cwalk-poster.png"
+                alt="C-WALK album cover" class="card-video" loop muted playsinline webkit-playsinline
+                preload="none"></video>
             </div>
             <p class="card-title">C-WALK</p>
-            <div class="sticker-container"></div>
           </div>
-          <div class="coming-soon-card" id="card-thesource">
+          <div class="coming-soon-card" tabindex="0" data-poster="/assets/images/thesource-poster.png">
             <div class="card-media">
-              <div class="poster-layer" style="background-image: url('/assets/images/thesource-poster.png');"></div>
-              <div class="video-frame">
-                <video src="/assets/videos/the-source-loop.mp4" loop muted playsinline class="card-video"></video>
+              <div class="poster-group" data-peel-hover="20" data-peel-active="70" data-peel-direction="269"
+                data-lighting="0.09" data-shadow="0.05" data-rotate="0" data-sticker-width="300">
+                <div class="poster-layer"></div>
               </div>
+              <div class="plastic-top"></div>
+              <div class="plastic-bottom"></div>
+              <video src="/assets/videos/the-source-loop.mp4" poster="/assets/images/thesource-poster.png"
+                alt="The Source album cover" class="card-video" loop muted playsinline webkit-playsinline
+                preload="none"></video>
             </div>
             <p class="card-title">THE SOURCE</p>
-            <div class="sticker-container"></div>
           </div>
         </div>
       </section>
@@ -86,6 +94,8 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Draggable.min.js"></script>
+  <script type="module" src="/src/sticker-peel.ts"></script>
+  <script type="module" src="/src/coming-soon.ts"></script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 
