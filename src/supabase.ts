@@ -8,11 +8,28 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing Supabase environment variables');
+/**
+ * Check if Supabase is properly configured
+ */
+export function isSupabaseConfigured(): boolean {
+  return !!SUPABASE_URL && !!SUPABASE_ANON_KEY &&
+         SUPABASE_URL !== 'your_supabase_url_here' &&
+         SUPABASE_ANON_KEY !== 'your_supabase_anon_key_here';
 }
 
-export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/**
+ * Get missing configuration message
+ */
+export function getSupabaseConfigError(): string | null {
+  if (!SUPABASE_URL) return 'VITE_SUPABASE_URL is not configured';
+  if (!SUPABASE_ANON_KEY) return 'VITE_SUPABASE_ANON_KEY is not configured';
+  return null;
+}
+
+// Create client only if configured, otherwise create a dummy that will fail gracefully
+export const supabase: SupabaseClient = isSupabaseConfigured()
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : createClient('https://placeholder.supabase.co', 'placeholder');
 
 // Type definitions for database tables
 export interface Product {

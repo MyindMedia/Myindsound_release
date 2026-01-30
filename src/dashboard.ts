@@ -3,8 +3,8 @@
  * Handles user dashboard: downloads, orders, and account management
  */
 
-import { getClerk, isSignedIn, getUserId, getUserName, getUserEmail, signOut, mountUserButton } from './clerk';
-import { getUserPurchases, getUserOrders } from './supabase';
+import { getClerk, isSignedIn, getUserId, getUserName, getUserEmail, signOut, mountUserButton, isClerkConfigured } from './clerk';
+import { getUserPurchases, getUserOrders, isSupabaseConfigured, getSupabaseConfigError } from './supabase';
 import type { Product, PhysicalOrder } from './supabase';
 
 class DashboardController {
@@ -14,6 +14,18 @@ class DashboardController {
 
   private async init() {
     try {
+      // Check if services are configured
+      if (!isClerkConfigured()) {
+        this.showError('Authentication not configured. Add VITE_CLERK_PUBLISHABLE_KEY to Netlify environment variables.');
+        return;
+      }
+
+      if (!isSupabaseConfigured()) {
+        const error = getSupabaseConfigError();
+        this.showError(`Database not configured. ${error || 'Add VITE_SUPABASE_ANON_KEY to Netlify environment variables.'}`);
+        return;
+      }
+
       // Check authentication
       const signedIn = await isSignedIn();
 
@@ -49,10 +61,26 @@ class DashboardController {
 
       // Show content
       this.showContent();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Dashboard initialization error:', error);
-      this.showSignInRequired();
+      this.showError(error?.message || 'Failed to load dashboard. Please try again.');
     }
+  }
+
+  private showError(message: string) {
+    const loading = document.getElementById('dashboard-loading');
+    const content = document.getElementById('dashboard-content');
+    const signin = document.getElementById('dashboard-signin');
+
+    if (loading) {
+      loading.innerHTML = `
+        <p style="color: #ff4444; font-weight: bold;">Dashboard Error</p>
+        <p style="margin-top: 1rem; color: #888;">${message}</p>
+        <a href="/" class="secondary-btn" style="margin-top: 2rem; display: inline-block;">Back to Home</a>
+      `;
+    }
+    if (content) content.style.display = 'none';
+    if (signin) signin.style.display = 'none';
   }
 
   private showSignInRequired() {
