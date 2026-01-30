@@ -24,32 +24,27 @@
   <main class="stream-container">
     <!-- Left Side: Disc Player -->
     <section class="player-section">
-      <!-- Mini Disc Player -->
+      <!-- Mini Disc Player - Layer order matches Photoshop -->
       <div class="mini-disc-player">
-        <!-- Background FX Color Layer -->
-        <img src="/assets/disk/Mini_Disk_3_0002s_0000_Fx-Color.png" alt="" class="disc-layer disc-fx" />
+        <!-- 1. Case (bottom layer - the plastic frame) -->
+        <img src="/assets/disk/Mini_Disk_3_0001s_0000_Case.png" alt="" class="disc-layer layer-case" />
 
-        <!-- Shadow Layer -->
-        <img src="/assets/disk/Mini_Disk_3_0000s_0003_Shadow.png" alt="" class="disc-layer disc-shadow" />
-
-        <!-- Case Layer -->
-        <img src="/assets/disk/Mini_Disk_3_0001s_0000_Case.png" alt="" class="disc-layer disc-case-img" />
-
-        <!-- Spinning Disc Container -->
-        <div class="spinning-disc-container" id="spinning-disc">
-          <!-- Album Art on Disc -->
-          <img src="/assets/disk/Mini_Disk_3_0000_Place-your-design-here-(Double-click-to-edit).png" alt="" class="disc-base" />
-          <img src="/assets/images/lit-poster.png" alt="LIT" class="disc-artwork" />
+        <!-- 2. Spinning Disc with artwork -->
+        <div class="spinning-disc-wrapper" id="spinning-disc">
+          <img src="/assets/disk/Mini_Disk_3_0000_Place-your-design-here-(Double-click-to-edit).png" alt="Disc" class="disc-image" />
         </div>
 
-        <!-- Paper/Label Layer -->
-        <img src="/assets/disk/Mini_Disk_3_0000s_0002_Paper.png" alt="" class="disc-layer disc-paper" />
+        <!-- 3. Shadow -->
+        <img src="/assets/disk/Mini_Disk_3_0000s_0003_Shadow.png" alt="" class="disc-layer layer-shadow" />
 
-        <!-- Myind Sound Logo -->
-        <img src="/assets/disk/Mini_Disk_3_0000s_0001_Main-Logo-MS.png" alt="" class="disc-layer disc-logo" />
+        <!-- 4. Paper -->
+        <img src="/assets/disk/Mini_Disk_3_0000s_0002_Paper.png" alt="" class="disc-layer layer-paper" />
 
-        <!-- Harmonized Overlay -->
-        <img src="/assets/disk/Mini_Disk_3_0000s_0000_Harmonized-layer.png" alt="" class="disc-layer disc-harmonized" />
+        <!-- 5. Main Logo MS (the Myind Sound bar) -->
+        <img src="/assets/disk/Mini_Disk_3_0000s_0001_Main-Logo-MS.png" alt="" class="disc-layer layer-logo" />
+
+        <!-- 6. Harmonized layer (top overlay) -->
+        <img src="/assets/disk/Mini_Disk_3_0000s_0000_Harmonized-layer.png" alt="" class="disc-layer layer-harmonized" />
       </div>
 
       <!-- Visualizer -->

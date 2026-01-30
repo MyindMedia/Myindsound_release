@@ -86,7 +86,6 @@ class StreamPlayer {
   private animationId: number | null = null;
 
   // DOM Elements
-  private disc: HTMLElement | null;
   private playBtn: HTMLElement | null;
   private playIcon: HTMLElement | null;
   private pauseIcon: HTMLElement | null;
@@ -102,7 +101,6 @@ class StreamPlayer {
 
   constructor() {
     this.audio = document.getElementById('audio-player') as HTMLAudioElement;
-    this.disc = document.getElementById('spinning-disc');
     this.playBtn = document.getElementById('play-btn');
     this.playIcon = this.playBtn?.querySelector('.play-icon') as HTMLElement;
     this.pauseIcon = this.playBtn?.querySelector('.pause-icon') as HTMLElement;
@@ -271,7 +269,9 @@ class StreamPlayer {
 
   private onPlay() {
     this.isPlaying = true;
-    this.disc?.classList.add('spinning');
+    // Add spinning class to the wrapper
+    const discWrapper = document.querySelector('.spinning-disc-wrapper');
+    discWrapper?.classList.add('spinning');
     if (this.playIcon) this.playIcon.style.display = 'none';
     if (this.pauseIcon) this.pauseIcon.style.display = 'block';
 
@@ -282,7 +282,9 @@ class StreamPlayer {
 
   private onPause() {
     this.isPlaying = false;
-    this.disc?.classList.remove('spinning');
+    // Remove spinning class from the wrapper
+    const discWrapper = document.querySelector('.spinning-disc-wrapper');
+    discWrapper?.classList.remove('spinning');
     if (this.playIcon) this.playIcon.style.display = 'block';
     if (this.pauseIcon) this.pauseIcon.style.display = 'none';
 
