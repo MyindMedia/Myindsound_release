@@ -278,10 +278,6 @@ body {
   width: 100%;
 }
 
-.coming-soon-card:hover {
-  /* Removed transform to prevent alignment issues */
-}
-
 .card-media {
   position: relative;
   width: 100%;
