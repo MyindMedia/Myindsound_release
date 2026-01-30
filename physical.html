@@ -38,31 +38,16 @@
                 <p class="merch-subtitle">Premium merchandise and collectibles</p>
             </section>
 
+            <!-- Loading State -->
+            <div id="products-loading" class="products-loading">
+                <div class="loading-spinner"></div>
+                <p>Loading products...</p>
+            </div>
+
             <!-- Product Grid -->
             <section class="merch-section container">
-                <header class="section-header">
-                    <span class="section-label">APPAREL</span>
-                </header>
-                <div id="products-apparel" class="products-grid">
-                    <!-- Products will be rendered here -->
-                </div>
-            </section>
-
-            <section class="merch-section container">
-                <header class="section-header">
-                    <span class="section-label">ACCESSORIES</span>
-                </header>
-                <div id="products-accessories" class="products-grid">
-                    <!-- Products will be rendered here -->
-                </div>
-            </section>
-
-            <section class="merch-section container">
-                <header class="section-header">
-                    <span class="section-label">COLLECTIBLES</span>
-                </header>
-                <div id="products-collectibles" class="products-grid">
-                    <!-- Products will be rendered here -->
+                <div id="products-grid" class="products-grid">
+                    <!-- Products will be rendered here from Shopify -->
                 </div>
             </section>
         </div>
@@ -626,6 +611,30 @@
             .products-grid {
                 grid-template-columns: 1fr;
             }
+        }
+
+        /* Loading State */
+        .products-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 
