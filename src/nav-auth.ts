@@ -33,12 +33,12 @@ async function updateNavigation(): Promise<void> {
   if (!navLinks) return;
 
   // Find or create the GET ACCESS / DASHBOARD link
-  let authLink = navLinks.querySelector('.nav-link[href="/login.html"], .nav-link[href="/dashboard.html"]') as HTMLAnchorElement;
+  let authLink = navLinks.querySelector('.nav-link[href="/login"], .nav-link[href="/dashboard"], .nav-link[href="/login.html"], .nav-link[href="/dashboard.html"]') as HTMLAnchorElement;
 
   if (signedIn) {
     // Update link to DASHBOARD
     if (authLink) {
-      authLink.href = '/dashboard.html';
+      authLink.href = '/dashboard';
       authLink.textContent = 'DASHBOARD';
     }
 
@@ -50,7 +50,7 @@ async function updateNavigation(): Promise<void> {
   } else {
     // Update link to GET ACCESS
     if (authLink) {
-      authLink.href = '/login.html';
+      authLink.href = '/login';
       authLink.textContent = 'GET ACCESS';
     }
 

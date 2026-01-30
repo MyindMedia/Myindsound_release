@@ -15,8 +15,8 @@
         <nav class="top-nav">
             <div class="nav-links">
                 <a href="/" class="nav-link">DIGITAL</a>
-                <a href="/physical.html" class="nav-link">PHYSICAL</a>
-                <a href="/dashboard.html" class="nav-link active">DASHBOARD</a>
+                <a href="/physical" class="nav-link">PHYSICAL</a>
+                <a href="/dashboard" class="nav-link active">DASHBOARD</a>
             </div>
             <div id="nav-user" class="nav-user"></div>
         </nav>
@@ -40,7 +40,8 @@
                 <div class="dashboard-actions">
                     <a href="/stream" class="action-card">
                         <div class="action-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
                             </svg>
                         </div>
@@ -48,13 +49,15 @@
                             <h3>Stream Library</h3>
                             <p>Listen to your purchased music</p>
                         </div>
-                        <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
                             <polyline points="9 18 15 12 9 6"></polyline>
                         </svg>
                     </a>
                     <a href="/" class="action-card">
                         <div class="action-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <line x1="12" y1="8" x2="12" y2="16"></line>
                                 <line x1="8" y1="12" x2="16" y2="12"></line>
@@ -64,7 +67,8 @@
                             <h3>Browse Releases</h3>
                             <p>Discover new music</p>
                         </div>
-                        <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="action-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
                             <polyline points="9 18 15 12 9 6"></polyline>
                         </svg>
                     </a>
@@ -79,7 +83,8 @@
                         <!-- Downloads will be rendered here -->
                     </div>
                     <div id="downloads-empty" class="empty-state" style="display: none;">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -99,14 +104,15 @@
                         <!-- Orders will be rendered here -->
                     </div>
                     <div id="orders-empty" class="empty-state" style="display: none;">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5">
                             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
                             <line x1="3" y1="6" x2="21" y2="6"></line>
                             <path d="M16 10a4 4 0 0 1-8 0"></path>
                         </svg>
                         <h3>No Orders Yet</h3>
                         <p>Shop physical merchandise to see your orders here</p>
-                        <a href="/physical.html" class="primary-btn">SHOP MERCH</a>
+                        <a href="/physical" class="primary-btn">SHOP MERCH</a>
                     </div>
                 </section>
 
@@ -139,7 +145,7 @@
                 </svg>
                 <h2>Sign In Required</h2>
                 <p>Please sign in to access your dashboard</p>
-                <a href="/login.html?redirect=/dashboard.html" class="primary-btn">SIGN IN</a>
+                <a href="/login?redirect=/dashboard" class="primary-btn">SIGN IN</a>
             </div>
         </div>
     </div>
@@ -165,7 +171,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .dashboard-loading p {

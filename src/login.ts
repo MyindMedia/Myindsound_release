@@ -18,7 +18,7 @@ class LoginController {
     if (signedIn) {
       // Get redirect URL from query params or default to dashboard
       const params = new URLSearchParams(window.location.search);
-      const redirect = params.get('redirect') || '/dashboard.html';
+      const redirect = params.get('redirect') || '/dashboard';
       window.location.href = redirect;
       return;
     }
@@ -91,13 +91,13 @@ class LoginController {
       // Mount Sign-In
       await mountSignIn('clerk-signin', {
         redirectUrl: redirect,
-        signUpUrl: '/login.html#sign-up'
+        signUpUrl: '/login#sign-up'
       });
 
       // Mount Sign-Up
       await mountSignUp('clerk-signup', {
         redirectUrl: redirect,
-        signInUrl: '/login.html'
+        signInUrl: '/login'
       });
     } catch (error) {
       console.error('Failed to mount auth components:', error);

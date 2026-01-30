@@ -1,0 +1,28 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[[redirects]]
+  from = "/physical"
+  to = "/physical.html"
+  status = 200
+
+[[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard"
+  to = "/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/success"
+  to = "/success.html"
+  status = 200
+
+[[redirects]]
+  from = "/cancel"
+  to = "/cancel.html"
+  status = 200
