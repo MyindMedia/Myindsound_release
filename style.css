@@ -373,6 +373,39 @@ body {
   text-transform: uppercase;
 }
 
+.card-play-btn {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 215, 0, 0.9);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1002;
+}
+
+.card-play-btn.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.card-play-btn:hover {
+  background: rgba(255, 215, 0, 1);
+  transform: scale(1.1);
+}
+
+.card-play-icon {
+  color: #000;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;
