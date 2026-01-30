@@ -642,11 +642,11 @@ body {
   z-index: 1;
 }
 
-/* Layer 2 (Middle): Spinning Disc */
+/* Layer 2 (Middle): Spinning Disc - shifted right to align with case window */
 .spinning-disc-wrapper {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 3%;  /* Shift disc to the right */
   width: 100%;
   height: 100%;
   z-index: 2;
@@ -659,7 +659,6 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transition: transform 0.3s ease;
 }
 
 .spinning-disc-wrapper.spinning .disc-image {
