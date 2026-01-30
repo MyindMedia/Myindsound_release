@@ -151,13 +151,13 @@ class ComingSoonController {
                 // Update layout on resize
                 const updateLayout = () => {
                     const cr = card.getBoundingClientRect();
-                    const mr = cardMedia.getBoundingClientRect();
+                    const mr = cardMedia!.getBoundingClientRect();
                     const w = mr.width;
                     const h = mr.height;
-                    posterLayer.style.width = w + 'px';
-                    posterLayer.style.height = h + 'px';
-                    posterGroup.style.width = w + 'px';
-                    posterGroup.style.height = h + 'px';
+                    posterLayer!.style.width = w + 'px';
+                    posterLayer!.style.height = h + 'px';
+                    posterGroup!.style.width = w + 'px';
+                    posterGroup!.style.height = h + 'px';
                     overlayContainer.style.width = (w + overlapPx * 2) + 'px';
                     overlayContainer.style.height = (h + overlapPx * 2) + 'px';
                     overlayContainer.style.left = (Math.round(mr.left - cr.left - 2 - overlapPx) + 1.5) + 'px';
@@ -174,10 +174,10 @@ class ComingSoonController {
 
                 if ('ResizeObserver' in window) {
                     const ro = new ResizeObserver(() => updateLayout());
-                    ro.observe(cardMedia);
+                    ro.observe(cardMedia!);
                     card._overlayResizeObserver = ro;
                 } else {
-                    window.addEventListener('resize', updateLayout);
+                    (window as any).addEventListener('resize', updateLayout);
                 }
             });
         }
@@ -265,18 +265,20 @@ class ComingSoonController {
         });
 
         // Hover handlers for video playback preview
-        card.addEventListener('mouseenter', () => {
-            if (!card.classList.contains('unwrapped') && video) {
-                video.play().catch(() => { });
-            }
-        });
+        if (video) {
+            card.addEventListener('mouseenter', () => {
+                if (!card.classList.contains('unwrapped') && video) {
+                    video.play().catch(() => { });
+                }
+            });
 
-        card.addEventListener('mouseleave', () => {
-            if (!card.classList.contains('unwrapped') && video) {
-                video.pause();
-                video.currentTime = 0;
-            }
-        });
+            card.addEventListener('mouseleave', () => {
+                if (!card.classList.contains('unwrapped') && video) {
+                    video.pause();
+                    video.currentTime = 0;
+                }
+            });
+        }
     }
 }
 
