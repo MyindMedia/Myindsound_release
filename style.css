@@ -679,26 +679,29 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* Layer 3: Shadow */
+/* Layer 3: Shadow - subtle shadow on disc */
 .layer-shadow {
   z-index: 3;
+  opacity: 0.4;
 }
 
-/* Layer 4: Paper */
+/* Layer 4: Paper - small LCD display area, very subtle */
 .layer-paper {
   z-index: 4;
+  opacity: 0.6;
 }
 
-/* Layer 5: Main Logo (Myind Sound bar) */
+/* Layer 5: Main Logo (Myind Sound bar) - hide as it's duplicated in disc image */
 .layer-logo {
   z-index: 5;
+  display: none; /* Logo is already part of the disc/case composite */
 }
 
-/* Layer 6: Harmonized overlay (top) */
+/* Layer 6: Harmonized overlay (top) - subtle sheen effect */
 .layer-harmonized {
   z-index: 6;
-  mix-blend-mode: overlay;
-  opacity: 0.8;
+  mix-blend-mode: soft-light;
+  opacity: 0.5;
 }
 
 /* Visualizer */
