@@ -37,7 +37,7 @@ export const handler: Handler = async (event) => {
         if (hasLit) {
             downloads.push({
                 name: 'LIT (Digital EP)',
-                url: process.env.UNTITLED_LINK_LIT || 'https://untitled.stream/library/project/PLACEHOLDER_LIT',
+                url: process.env.LIT_DOWNLOAD_URL || 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/public/LIT/LIT_Digital_EP.zip',
                 type: 'standard'
             });
         }
