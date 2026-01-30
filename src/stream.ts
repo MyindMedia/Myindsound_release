@@ -449,7 +449,7 @@ class StreamPlayer {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256;
+      this.analyser.fftSize = 2048; // Increased for better waveform resolution
 
       const source = this.audioContext.createMediaElementSource(this.audio);
       source.connect(this.analyser);
@@ -476,31 +476,84 @@ class StreamPlayer {
     const height = this.visualizerCanvas.height;
 
     // Clear canvas
-    this.canvasCtx.fillStyle = 'rgba(10, 10, 10, 0.3)';
+    // Clear canvas with subtle transparency for trail effect
+    this.canvasCtx.fillStyle = '#0a0a0a';
     this.canvasCtx.fillRect(0, 0, width, height);
 
-    if (this.analyser && this.dataArray && this.isPlaying) {
-      this.analyser.getByteFrequencyData(this.dataArray as any);
-
-      const barWidth = (width / this.dataArray.length) * 2.5;
-      let x = 0;
-
-      for (let i = 0; i < this.dataArray.length; i++) {
-        const barHeight = (this.dataArray[i] / 255) * height;
-
-        // Golden gradient
-        const gradient = this.canvasCtx.createLinearGradient(0, height - barHeight, 0, height);
-        gradient.addColorStop(0, '#FFD700');
-        gradient.addColorStop(1, '#B8860B');
-
-        this.canvasCtx.fillStyle = gradient;
-        this.canvasCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
-
-        x += barWidth;
+    if (this.isPlaying) {
+      if (this.analyser && this.dataArray && this.tracks[this.currentTrackIndex].src) {
+        // Real Audio Waveform
+        this.analyser.getByteTimeDomainData(this.dataArray as any);
+      } else {
+        // Simulated Waveform for tracks without files
+        this.generateSimulatedWaveform();
       }
+
+      // Draw Waveform (Symmetrical)
+      const bufferLength = this.dataArray?.length || 0;
+      const sliceWidth = width / bufferLength;
+
+      this.canvasCtx.beginPath();
+      this.canvasCtx.strokeStyle = '#FFD700'; // Primary Gold
+      this.canvasCtx.lineWidth = 2;
+      this.canvasCtx.lineCap = 'round';
+
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = (this.dataArray![i] / 128.0) - 1.0; // -1 to 1
+        const amplitude = v * (height / 2) * 0.8; // Use 80% height
+        const y = (height / 2) + amplitude;
+
+        if (i === 0) {
+          this.canvasCtx.moveTo(x, y);
+        } else {
+          this.canvasCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      this.canvasCtx.stroke();
+
+      // Mirror for symmetrical look (bottom part)
+      this.canvasCtx.beginPath();
+      this.canvasCtx.strokeStyle = 'rgba(184, 134, 11, 0.5)'; // Muted Gold for reflection
+      x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = (this.dataArray![i] / 128.0) - 1.0;
+        const amplitude = -v * (height / 2) * 0.4; // 40% height reflection
+        const y = (height / 2) + amplitude;
+
+        if (i === 0) {
+          this.canvasCtx.moveTo(x, y);
+        } else {
+          this.canvasCtx.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      this.canvasCtx.stroke();
+
+      // Add a glow effect
+      this.canvasCtx.shadowBlur = 10;
+      this.canvasCtx.shadowColor = '#B8860B';
     } else {
-      // Draw idle animation when no audio data
+      // Draw idle animation
       this.drawIdleBars();
+    }
+  }
+
+  private generateSimulatedWaveform() {
+    if (!this.dataArray) return;
+    const time = performance.now() * 0.005;
+    for (let i = 0; i < this.dataArray.length; i++) {
+      // Create a complex wave using multiple sine waves for "active" look
+      const wave1 = Math.sin(i * 0.05 + time);
+      const wave2 = Math.sin(i * 0.1 + time * 1.5) * 0.5;
+      const wave3 = Math.sin(i * 0.02 + time * 0.5) * 0.3;
+      const combined = (wave1 + wave2 + wave3) / 1.8;
+
+      // Map to 0-255 range (middle is 128)
+      this.dataArray[i] = 128 + (combined * 64);
     }
   }
 
