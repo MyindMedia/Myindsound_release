@@ -130,12 +130,11 @@ export class CheckoutFlow {
         throw new Error(session.error);
       }
 
-      const { error } = await (stripe as any).redirectToCheckout({
-        sessionId: session.id,
-      });
-
-      if (error) {
-        throw error;
+      // Use direct redirect as redirectToCheckout is deprecated
+      if (session.url) {
+        window.location.href = session.url;
+      } else {
+        throw new Error('No checkout URL received from server');
       }
 
     } catch (error: any) {

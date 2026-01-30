@@ -105,8 +105,8 @@ export const handler: Handler = async (event) => {
       metadata: {
         order_type: 'physical',
       },
-      success_url: `${process.env.URL || 'http://localhost:8888'}/success.html?session_id={CHECKOUT_SESSION_ID}&type=physical`,
-      cancel_url: `${process.env.URL || 'http://localhost:8888'}/physical.html`,
+      success_url: `${process.env.URL || 'http://localhost:8888'}/success?session_id={CHECKOUT_SESSION_ID}&type=physical`,
+      cancel_url: `${process.env.URL || 'http://localhost:8888'}/physical`,
     });
 
     return {

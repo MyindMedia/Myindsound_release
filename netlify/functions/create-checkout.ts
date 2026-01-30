@@ -82,7 +82,7 @@ export const handler: Handler = async (event) => {
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: session.id }),
+            body: JSON.stringify({ url: session.url }),
         };
     } catch (error: any) {
         console.error('Stripe Error:', error);
