@@ -3,7 +3,7 @@
  * Handles Clerk authentication UI and tab switching
  */
 
-import { mountSignIn, mountSignUp, isSignedIn, mountUserButton } from './clerk';
+import { mountSignIn, mountSignUp, isSignedIn, mountUserButton, isClerkConfigured, getClerkError } from './clerk';
 
 class LoginController {
   private currentTab: 'signin' | 'signup' = 'signin';
@@ -13,14 +13,34 @@ class LoginController {
   }
 
   private async init() {
-    // Check if user is already signed in
-    const signedIn = await isSignedIn();
-    if (signedIn) {
-      // Get redirect URL from query params or default to dashboard
-      const params = new URLSearchParams(window.location.search);
-      const redirect = params.get('redirect') || '/dashboard';
-      window.location.href = redirect;
+    const loading = document.getElementById('auth-loading');
+
+    // Check if Clerk is configured
+    if (!isClerkConfigured()) {
+      if (loading) {
+        loading.innerHTML = `
+          <p style="color: #ff4444; font-weight: bold;">Authentication Not Configured</p>
+          <p style="margin-top: 1rem; color: #888;">VITE_CLERK_PUBLISHABLE_KEY is missing.</p>
+          <p style="margin-top: 0.5rem; color: #888; font-size: 0.9rem;">Add it to Netlify environment variables and redeploy.</p>
+          <a href="/" class="secondary-btn" style="margin-top: 2rem; display: inline-block;">Back to Home</a>
+        `;
+      }
       return;
+    }
+
+    try {
+      // Check if user is already signed in
+      const signedIn = await isSignedIn();
+      if (signedIn) {
+        // Get redirect URL from query params or default to dashboard
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect') || '/dashboard';
+        window.location.href = redirect;
+        return;
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      // Continue to show login form even if initial check fails
     }
 
     // Check URL hash for initial tab
@@ -35,7 +55,6 @@ class LoginController {
     await this.mountAuthComponents();
 
     // Hide loading state
-    const loading = document.getElementById('auth-loading');
     if (loading) {
       loading.style.display = 'none';
     }
@@ -99,15 +118,23 @@ class LoginController {
         redirectUrl: redirect,
         signInUrl: '/login'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to mount auth components:', error);
       const loading = document.getElementById('auth-loading');
+      const clerkError = getClerkError();
+      const errorMessage = clerkError?.message || error?.message || 'Unknown error';
+
       if (loading) {
         loading.innerHTML = `
-          <p style="color: #ff4444;">Failed to load authentication.</p>
-          <p style="margin-top: 1rem;">Please check your Clerk configuration.</p>
+          <p style="color: #ff4444; font-weight: bold;">Failed to Load Authentication</p>
+          <p style="margin-top: 1rem; color: #888;">${errorMessage}</p>
+          <p style="margin-top: 1rem; color: #666; font-size: 0.85rem;">
+            Make sure VITE_CLERK_PUBLISHABLE_KEY is set in Netlify<br/>
+            and the domain is allowed in your Clerk Dashboard.
+          </p>
           <a href="/" class="secondary-btn" style="margin-top: 2rem; display: inline-block;">Back to Home</a>
         `;
+        loading.style.display = 'flex';
       }
     }
   }

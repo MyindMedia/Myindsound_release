@@ -7,19 +7,36 @@ import { Clerk } from '@clerk/clerk-js';
 
 const CLERK_PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
 
-if (!CLERK_PUBLISHABLE_KEY) {
-  console.error('Missing VITE_CLERK_PUBLISHABLE_KEY environment variable');
-}
-
 // Singleton Clerk instance
 let clerkInstance: Clerk | null = null;
 let clerkPromise: Promise<Clerk> | null = null;
+let clerkError: Error | null = null;
+
+/**
+ * Check if Clerk key is configured
+ */
+export function isClerkConfigured(): boolean {
+  return !!CLERK_PUBLISHABLE_KEY && CLERK_PUBLISHABLE_KEY !== 'pk_test_...';
+}
+
+/**
+ * Get any initialization error
+ */
+export function getClerkError(): Error | null {
+  return clerkError;
+}
 
 /**
  * Initialize and return the Clerk instance
  * Returns a promise that resolves when Clerk is fully loaded
  */
 export async function getClerk(): Promise<Clerk> {
+  if (!isClerkConfigured()) {
+    const error = new Error('VITE_CLERK_PUBLISHABLE_KEY is not configured. Add it to Netlify environment variables and redeploy.');
+    clerkError = error;
+    throw error;
+  }
+
   if (clerkInstance) {
     return clerkInstance;
   }
@@ -29,10 +46,16 @@ export async function getClerk(): Promise<Clerk> {
   }
 
   clerkPromise = (async () => {
-    const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
-    await clerk.load();
-    clerkInstance = clerk;
-    return clerk;
+    try {
+      const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
+      await clerk.load();
+      clerkInstance = clerk;
+      return clerk;
+    } catch (error: any) {
+      clerkError = error;
+      console.error('Clerk initialization failed:', error);
+      throw error;
+    }
   })();
 
   return clerkPromise;
