@@ -41,7 +41,7 @@ export const handler: Handler = async (event) => {
 
         if (hasLit) {
             // Generate signed URL for LIT EP
-            const fileName = 'LIT_Digital_EP.zip';
+            const fileName = 'ThaMyind - LIT EP.zip';
             const { data: signedData, error: signedError } = await supabase
                 .storage
                 .from('LIT')
