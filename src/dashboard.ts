@@ -165,11 +165,14 @@ class DashboardController {
 
       // Setup download handlers
       container.querySelectorAll('.download-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const url = (e.target as HTMLElement).dataset.url;
-          const name = (e.target as HTMLElement).dataset.name;
-          if (url) {
-            this.downloadFile(url, name || 'download');
+        btn.addEventListener('click', async (e) => {
+          const btnEl = e.currentTarget as HTMLButtonElement;
+          const productId = btnEl.dataset.id;
+          const name = btnEl.dataset.name;
+          const userId = await getUserId();
+
+          if (productId && userId) {
+            await this.downloadFile(productId, userId, name || 'download');
           }
         });
       });
@@ -189,7 +192,7 @@ class DashboardController {
         <div class="download-card-info">
           <h4 class="download-card-title">${product.name}</h4>
           <p class="download-card-desc">${product.description || 'Digital Release'}</p>
-          <button class="download-btn" data-url="${product.audio_url}" data-name="${product.name}">
+          <button class="download-btn" data-id="${product.id}" data-name="${product.name}">
             DOWNLOAD
           </button>
         </div>
@@ -197,14 +200,41 @@ class DashboardController {
     `;
   }
 
-  private downloadFile(url: string, name: string) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  private async downloadFile(productId: string, userId: string, name: string) {
+    const btn = document.querySelector(`.download-btn[data-id="${productId}"]`) as HTMLButtonElement;
+    const originalText = btn?.textContent;
+
+    try {
+      if (btn) {
+        btn.textContent = 'PREPARING...';
+        btn.disabled = true;
+      }
+
+      const response = await fetch('/.netlify/functions/get-download-url', {
+        method: 'POST',
+        body: JSON.stringify({ productId, userId })
+      });
+
+      if (!response.ok) throw new Error('Failed to get download link');
+
+      const { downloadUrl } = await response.json();
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = name;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Failed to prepare download. Please try again.');
+    } finally {
+      if (btn) {
+        btn.textContent = originalText || 'DOWNLOAD';
+        btn.disabled = false;
+      }
+    }
   }
 
   private async loadOrders(userId: string) {

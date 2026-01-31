@@ -36,8 +36,8 @@ export interface Product {
   id: string;
   name: string;
   description: string;
-  cover_url: string;
-  audio_url: string;
+  cover_url: string | null;
+  audio_url: string | null;
   stripe_product_id: string;
 }
 

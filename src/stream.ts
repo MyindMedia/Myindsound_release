@@ -5,6 +5,7 @@
 
 import './style.css';
 import { logTrackPlay } from './supabase';
+import { getUserId } from './clerk';
 
 interface Track {
   id: number;
@@ -121,7 +122,8 @@ class StreamPlayer {
     this.init();
   }
 
-  private init() {
+  private async init() {
+    await this.fetchSignedUrls();
     this.renderTracklist();
     this.setupEventListeners();
     this.loadTrack(0);
@@ -129,6 +131,38 @@ class StreamPlayer {
 
     // Start idle visualizer animation
     this.drawIdleVisualizer();
+  }
+
+  private async fetchSignedUrls() {
+    try {
+      const userId = await getUserId();
+      if (!userId) return;
+
+      const response = await fetch('/.netlify/functions/get-stream-urls', {
+        headers: {
+          'x-user-id': userId
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch stream URLs:', await response.text());
+        return;
+      }
+
+      const data = await response.json();
+      const signedTracks = data.tracks;
+
+      // Map signed URLs to our tracks array based on order (1-6)
+      this.tracks = this.tracks.map((track, index) => {
+        const signedTrack = signedTracks[index];
+        if (signedTrack && signedTrack.url) {
+          return { ...track, src: signedTrack.url };
+        }
+        return track;
+      });
+    } catch (e) {
+      console.error('Error fetching signed URLs:', e);
+    }
   }
 
   private setupEventListeners() {
