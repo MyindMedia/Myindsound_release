@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Myind Sound</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 6rem auto 2rem;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .stats-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 12px;
+        }
+
+        .stats-card h2 {
+            font-size: 0.8rem;
+            color: #888;
+            letter-spacing: 0.1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 1rem 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #555;
+            font-weight: 500;
+            font-size: 0.7rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #FFD700;
+        }
+
+        .admin-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="top-nav">
+        <div class="nav-links">
+            <a href="/" class="nav-link">HOME</a>
+            <a href="/dashboard" class="nav-link">MY LIBRARY</a>
+            <a href="/admin" class="nav-link active">ADMIN</a>
+        </div>
+        <div id="nav-user" class="nav-user"></div>
+    </nav>
+
+    <div class="admin-container" id="admin-content" style="display: none;">
+        <div class="admin-nav">
+            <h1>ADMIN DASHBOARD</h1>
+            <button id="refresh-stats" class="secondary-btn">REFRESH</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stats-card">
+                <h2>TOTAL PLAYS</h2>
+                <div class="stat-value" id="total-plays">0</div>
+            </div>
+            <div class="stats-card">
+                <h2>TOTAL USERS</h2>
+                <div class="stat-value" id="total-users">0</div>
+            </div>
+            <div class="stats-card">
+                <h2>TOTAL PURCHASES</h2>
+                <div class="stat-value" id="total-purchases">0</div>
+            </div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns: 1fr;">
+            <div class="stats-card">
+                <h2>RECENT PLAYS</h2>
+                <table id="recent-plays-table">
+                    <thead>
+                        <tr>
+                            <th>TRACK</th>
+                            <th>USER</th>
+                            <th>TIME</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="stats-card">
+                <h2>RECENT PURCHASES</h2>
+                <table id="recent-purchases-table">
+                    <thead>
+                        <tr>
+                            <th>PRODUCT</th>
+                            <th>USER</th>
+                            <th>DATE</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="unauthorized"
+        style="display: none; height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+        <h1>ACCESS DENIED</h1>
+        <p>You do not have administrative privileges.</p>
+        <a href="/" class="primary-btn" style="margin-top: 2rem;">GO HOME</a>
+    </div>
+
+    <!-- Clerk Script -->
+    <script async crossorigin="anonymous"
+        src="https://main-grouper-12.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+        type="module"></script>
+    <script type="module" src="/src/admin.ts"></script>
+</body>
+
+</html>

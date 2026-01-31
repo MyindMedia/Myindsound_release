@@ -4,6 +4,7 @@
  */
 
 import { isSignedIn, mountUserButton, onAuthChange } from './clerk';
+import { isAdmin } from './supabase';
 
 /**
  * Initialize navigation with auth state
@@ -42,6 +43,20 @@ async function updateNavigation(): Promise<void> {
       authLink.textContent = 'DASHBOARD';
     }
 
+    // Add ADMIN link if user is admin
+    const clerk = (window as any).Clerk;
+    if (clerk?.user) {
+      const isUserAdmin = await isAdmin(clerk.user.id);
+      const hasAdminLink = navLinks.querySelector('.nav-link[href="/admin"]');
+      if ((isUserAdmin || clerk.user.primaryEmailAddress?.emailAddress === 'info@myindsound.com') && !hasAdminLink) {
+        const adminLink = document.createElement('a');
+        adminLink.href = '/admin';
+        adminLink.className = 'nav-link';
+        adminLink.textContent = 'ADMIN';
+        navLinks.appendChild(adminLink);
+      }
+    }
+
     // Mount user button if container exists
     if (navUser) {
       navUser.innerHTML = ''; // Clear previous content
@@ -53,6 +68,10 @@ async function updateNavigation(): Promise<void> {
       authLink.href = '/login';
       authLink.textContent = 'GET ACCESS';
     }
+
+    // Remove admin link if it exists
+    const adminLink = navLinks.querySelector('.nav-link[href="/admin"]');
+    if (adminLink) adminLink.remove();
 
     // Clear user button
     if (navUser) {

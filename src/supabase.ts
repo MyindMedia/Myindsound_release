@@ -13,8 +13,8 @@ const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
  */
 export function isSupabaseConfigured(): boolean {
   return !!SUPABASE_URL && !!SUPABASE_ANON_KEY &&
-         SUPABASE_URL !== 'your_supabase_url_here' &&
-         SUPABASE_ANON_KEY !== 'your_supabase_anon_key_here';
+    SUPABASE_URL !== 'your_supabase_url_here' &&
+    SUPABASE_ANON_KEY !== 'your_supabase_anon_key_here';
 }
 
 /**
@@ -128,4 +128,71 @@ export async function hasProductAccess(userId: string, productId: string): Promi
     .single();
 
   return !error && !!data;
+}
+
+/**
+ * Check if the current user is an admin
+ */
+export async function isAdmin(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', userId)
+    .single();
+
+  return !error && !!data?.is_admin;
+}
+
+export interface TrackPlay {
+  id?: string;
+  user_id?: string;
+  product_id: string;
+  track_name: string;
+  played_at?: string;
+}
+
+/**
+ * Log a track play event
+ */
+export async function logTrackPlay(trackName: string, productId: string, userId?: string): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+
+  const { error } = await supabase
+    .from('track_plays')
+    .insert({
+      track_name: trackName,
+      product_id: productId,
+      user_id: userId || null
+    });
+
+  if (error) {
+    console.error('Error logging play:', error);
+  }
+}
+
+/**
+ * Fetch play stats (Admin only)
+ */
+export async function getAdminStats(): Promise<any> {
+  const { data: plays, error: playsError } = await supabase
+    .from('track_plays')
+    .select('*, products(name)')
+    .order('played_at', { ascending: false });
+
+  const { data: users, error: usersError } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  const { data: access, error: accessError } = await supabase
+    .from('user_access')
+    .select('*, products(name)')
+    .order('created_at', { ascending: false });
+
+  return {
+    plays: plays || [],
+    users: users || [],
+    purchases: access || [],
+    errors: { playsError, usersError, accessError }
+  };
 }

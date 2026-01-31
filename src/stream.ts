@@ -4,6 +4,7 @@
  */
 
 import './style.css';
+import { logTrackPlay } from './supabase';
 
 interface Track {
   id: number;
@@ -267,13 +268,33 @@ class StreamPlayer {
     }, 1000);
   }
 
-  private onPlay() {
+  private async onPlay() {
     this.isPlaying = true;
+    if (this.playIcon) this.playIcon.style.display = 'none';
+    if (this.pauseIcon) this.pauseIcon.style.display = 'block';
+
+    // Log the play event
+    const currentTrack = this.tracks[this.currentTrackIndex];
+    if (currentTrack) {
+      // Find user ID if signed in
+      let userId = undefined;
+      try {
+        if (window.Clerk?.user) {
+          userId = window.Clerk.user.id;
+        }
+      } catch (e) { }
+
+      // LIT Product ID: f67a66b8-59a0-413f-b943-8fbb9cdee876
+      await logTrackPlay(currentTrack.title, 'f67a66b8-59a0-413f-b943-8fbb9cdee876', userId);
+    }
+
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
     // Add spinning class to the wrapper
     const discWrapper = document.querySelector('.spinning-disc-wrapper');
     discWrapper?.classList.add('spinning');
-    if (this.playIcon) this.playIcon.style.display = 'none';
-    if (this.pauseIcon) this.pauseIcon.style.display = 'block';
 
     // Start visualizer
     this.initAudioContext();
