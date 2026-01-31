@@ -48,7 +48,7 @@ async function handlePhysicalOrder(
     }
 
     // Create physical order record
-    const shippingAddress = session.shipping_details?.address;
+    const shippingAddress = (session as any).shipping_details?.address;
     const { data: order, error: orderError } = await supabase
         .from('physical_orders')
         .insert({
@@ -56,7 +56,7 @@ async function handlePhysicalOrder(
             stripe_payment_id: session.payment_intent as string,
             total_amount: session.amount_total,
             shipping_address: {
-                name: session.shipping_details?.name || customerName,
+                name: (session as any).shipping_details?.name || customerName,
                 line1: shippingAddress?.line1,
                 line2: shippingAddress?.line2,
                 city: shippingAddress?.city,
@@ -77,9 +77,9 @@ async function handlePhysicalOrder(
     // Create order items
     const orderItems = lineItems.data.map(item => ({
         order_id: order.id,
-        product_id: item.price?.product_data?.metadata?.product_id || item.description,
+        product_id: (item.price?.product as any)?.metadata?.product_id || item.description,
         product_name: item.description || 'Unknown Product',
-        variant: item.price?.product_data?.metadata?.variant || null,
+        variant: (item.price?.product as any)?.metadata?.variant || null,
         quantity: item.quantity || 1,
         unit_price: item.price?.unit_amount || 0,
     }));
@@ -161,7 +161,7 @@ export const handler: Handler = async (event) => {
                 // 3. Find matching products in Supabase
                 const { data: products } = await supabase
                     .from('products')
-                    .select('id, stripe_product_id')
+                    .select('id, stripe_product_id, name')
                     .in('stripe_product_id', purchasedStripeProductIds);
 
                 if (products && products.length > 0) {
@@ -172,16 +172,11 @@ export const handler: Handler = async (event) => {
                     if (users.data.length > 0) {
                         clerkUser = users.data[0];
                     } else {
-                        // Create user in Clerk if they don't exist
-                        // Note: For PWYW, we might want to just invite them or allow them to sign up with the same email.
-                        // Clerk invitation is often cleaner for "pre-created" accounts.
                         try {
                             clerkUser = await clerk.users.createUser({
                                 emailAddress: [customerEmail],
                                 firstName: customerName?.split(' ')[0] || '',
                                 lastName: customerName?.split(' ').slice(1).join(' ') || '',
-                                // Use a random password or rely on invitation/magic link
-                                // Since we haven't asked for a password, invitation is better but Clerk's createUser requires some fields.
                                 skipPasswordRequirement: true,
                             });
                         } catch (e) {
@@ -192,7 +187,7 @@ export const handler: Handler = async (event) => {
                     const clerkId = clerkUser?.id;
 
                     if (clerkId) {
-                        // 5. Grant Access in Supabase user_access table using Clerk ID
+                        // 5. Grant Access in Supabase user_access table
                         const accessRecords = products.map(p => ({
                             user_id: clerkId,
                             product_id: p.id
@@ -205,10 +200,15 @@ export const handler: Handler = async (event) => {
                         if (accessError) {
                             console.error('Supabase Access Grant Error:', accessError);
                         } else {
-                            console.log(`Access granted to Clerk User ${clerkId} (${customerEmail}) for products: ${products.map(p => p.stripe_product_id).join(', ')}`);
+                            console.log(`SUCCESS: Access granted to ${customerEmail} (Clerk: ${clerkId}) for: ${products.map(p => p.name).join(', ')}`);
+
+                            // 6. Simulate Confirmation Email
+                            console.log(`EMAIL SIMULATION: Sending confirmation to ${customerEmail}`);
+                            // In a real app, use Resend/SendGrid here:
+                            // await sendConfirmationEmail(customerEmail, products);
                         }
 
-                        // 6. Update Profile in Supabase (optional, keeping it in sync)
+                        // 7. Update Profile in Supabase
                         await supabase.from('profiles').upsert({
                             id: clerkId,
                             email: customerEmail,

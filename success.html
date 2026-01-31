@@ -73,7 +73,20 @@
             <a href="/" class="secondary-btn"
                 style="margin-top: 2rem; display: inline-block; text-decoration: none;">BACK TO HOME</a>
         </div>
+
+        <!-- Sign-up Prompt for new users -->
+        <div id="signup-prompt"
+            style="display: none; margin-top: 3rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem;">
+            <h2>SECURE YOUR ACCESS</h2>
+            <p class="description">Create a password to access your releases anytime from your dashboard.</p>
+            <div id="clerk-signup-container" style="margin-top: 1.5rem; display: flex; justify-content: center;"></div>
+        </div>
     </div>
+
+    <!-- Clerk Script -->
+    <script async crossorigin="anonymous"
+        src="https://main-grouper-12.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+        type="module"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -100,7 +113,7 @@
 
                 if (data.downloads && data.downloads.length > 0) {
                     nameSpan.textContent = data.customer ? data.customer.toUpperCase() : '';
-                    
+
                     data.downloads.forEach(dl => {
                         const btn = document.createElement('a');
                         btn.href = dl.url;
@@ -113,6 +126,30 @@
 
                     loading.style.display = 'none';
                     content.style.display = 'block';
+
+                    // Check if signed in, if not show sign-up
+                    try {
+                        // Wait for Clerk to load
+                        const interval = setInterval(async () => {
+                            if (window.Clerk) {
+                                clearInterval(interval);
+                                await window.Clerk.load();
+
+                                if (!window.Clerk.user) {
+                                    // Show sign-up prompt
+                                    document.getElementById('signup-prompt').style.display = 'block';
+                                    window.Clerk.mountSignUp(document.getElementById('clerk-signup-container'), {
+                                        initialValues: {
+                                            emailAddress: data.customer_email || ''
+                                        },
+                                        afterSignUpUrl: '/dashboard'
+                                    });
+                                }
+                            }
+                        }, 100);
+                    } catch (e) {
+                        console.error('Clerk load error:', e);
+                    }
                 } else {
                     throw new Error('No downloads found for this session');
                 }

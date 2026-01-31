@@ -45,7 +45,7 @@ class DashboardController {
       }
 
       // Update UI with user info
-      this.updateUserInfo(userName, userEmail);
+      this.updateUserInfo(userName, userEmail, userId);
 
       // Fetch and render data
       await Promise.all([
@@ -103,11 +103,13 @@ class DashboardController {
     if (signin) signin.style.display = 'none';
   }
 
-  private updateUserInfo(name: string | null, email: string | null) {
+  private updateUserInfo(name: string | null, email: string | null, id: string | null) {
     const nameEl = document.getElementById('user-name');
     const emailEl = document.getElementById('account-email');
     const avatarEl = document.getElementById('account-avatar');
     const memberSinceEl = document.getElementById('member-since');
+    const idEl = document.getElementById('clerk-id-display');
+    const copyIdBtn = document.getElementById('copy-clerk-id');
 
     if (nameEl) {
       nameEl.textContent = name || 'User';
@@ -117,12 +119,27 @@ class DashboardController {
       emailEl.textContent = email || '';
     }
 
+    if (idEl) {
+      idEl.textContent = id || 'N/A';
+    }
+
+    if (copyIdBtn && id) {
+      copyIdBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(id).then(() => {
+          const originalText = copyIdBtn.innerHTML;
+          copyIdBtn.innerHTML = 'ID COPIED!';
+          setTimeout(() => {
+            copyIdBtn.innerHTML = originalText;
+          }, 2000);
+        });
+      });
+    }
+
     if (avatarEl && name) {
       avatarEl.textContent = name.charAt(0).toUpperCase();
     }
 
     if (memberSinceEl) {
-      // For now, just show current year
       memberSinceEl.textContent = new Date().getFullYear().toString();
     }
   }

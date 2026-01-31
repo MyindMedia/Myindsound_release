@@ -489,53 +489,35 @@ class StreamPlayer {
         this.generateSimulatedWaveform();
       }
 
-      // Draw Waveform (Symmetrical)
+      // Draw Premium Waveform (Symmetrical Bars)
       const bufferLength = this.dataArray?.length || 0;
-      const sliceWidth = width / bufferLength;
-
-      this.canvasCtx.beginPath();
-      this.canvasCtx.strokeStyle = '#FFD700'; // Primary Gold
-      this.canvasCtx.lineWidth = 2;
-      this.canvasCtx.lineCap = 'round';
-
+      const barWidth = (width / bufferLength) * 2;
       let x = 0;
+
+      this.canvasCtx.shadowBlur = 15;
+      this.canvasCtx.shadowColor = 'rgba(255, 215, 0, 0.5)';
+
       for (let i = 0; i < bufferLength; i++) {
         const v = (this.dataArray![i] / 128.0) - 1.0; // -1 to 1
-        const amplitude = v * (height / 2) * 0.8; // Use 80% height
-        const y = (height / 2) + amplitude;
+        const amplitude = Math.abs(v) * (height / 2) * 0.8;
 
-        if (i === 0) {
-          this.canvasCtx.moveTo(x, y);
-        } else {
-          this.canvasCtx.lineTo(x, y);
-        }
+        // Create gold gradient for each bar
+        const gradient = this.canvasCtx.createLinearGradient(0, (height / 2) - amplitude, 0, (height / 2) + amplitude);
+        gradient.addColorStop(0, 'rgba(184, 134, 11, 0.2)'); // Darker Gold (Top)
+        gradient.addColorStop(0.5, '#FFD700');                // Bright Gold (Middle)
+        gradient.addColorStop(1, 'rgba(184, 134, 11, 0.2)');  // Darker Gold (Bottom)
 
-        x += sliceWidth;
+        this.canvasCtx.fillStyle = gradient;
+
+        // Draw the bar symmetrically from the middle
+        this.canvasCtx.fillRect(x, (height / 2) - amplitude, barWidth - 1, amplitude * 2);
+
+        x += barWidth;
       }
 
-      this.canvasCtx.stroke();
-
-      // Mirror for symmetrical look (bottom part)
-      this.canvasCtx.beginPath();
-      this.canvasCtx.strokeStyle = 'rgba(184, 134, 11, 0.5)'; // Muted Gold for reflection
-      x = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const v = (this.dataArray![i] / 128.0) - 1.0;
-        const amplitude = -v * (height / 2) * 0.4; // 40% height reflection
-        const y = (height / 2) + amplitude;
-
-        if (i === 0) {
-          this.canvasCtx.moveTo(x, y);
-        } else {
-          this.canvasCtx.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
-      this.canvasCtx.stroke();
-
-      // Add a glow effect
-      this.canvasCtx.shadowBlur = 10;
-      this.canvasCtx.shadowColor = '#B8860B';
+      // Add a persistent center line
+      this.canvasCtx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+      this.canvasCtx.fillRect(0, (height / 2) - 1, width, 2);
     } else {
       // Draw idle animation
       this.drawIdleBars();

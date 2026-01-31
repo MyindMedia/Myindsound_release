@@ -1,7 +1,12 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+const supabase = createClient(
+    process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
 
 export const handler: Handler = async (event) => {
     const sessionId = event.queryStringParameters?.session_id;
@@ -35,11 +40,28 @@ export const handler: Handler = async (event) => {
         const downloads = [];
 
         if (hasLit) {
-            downloads.push({
-                name: 'LIT (Digital EP)',
-                url: process.env.LIT_DOWNLOAD_URL || 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/public/LIT/LIT_Digital_EP.zip',
-                type: 'standard'
-            });
+            // Generate signed URL for LIT EP
+            const fileName = 'LIT_Digital_EP.zip';
+            const { data: signedData, error: signedError } = await supabase
+                .storage
+                .from('LIT')
+                .createSignedUrl(fileName, 3600); // 1 hour expiry
+
+            if (signedError) {
+                console.error('Error creating signed URL for LIT:', signedError);
+                // Fallback to public URL (might fail if private)
+                downloads.push({
+                    name: 'LIT (Digital EP)',
+                    url: process.env.LIT_DOWNLOAD_URL || `https://${process.env.VITE_SUPABASE_URL?.split('//')[1]}/storage/v1/object/public/LIT/${fileName}`,
+                    type: 'standard'
+                });
+            } else {
+                downloads.push({
+                    name: 'LIT (Digital EP)',
+                    url: signedData.signedUrl,
+                    type: 'standard'
+                });
+            }
         }
 
         if (hasSource) {
@@ -54,6 +76,7 @@ export const handler: Handler = async (event) => {
             statusCode: 200,
             body: JSON.stringify({
                 customer: session.customer_details?.name,
+                customer_email: session.customer_details?.email,
                 downloads
             }),
         };
