@@ -1,10 +1,10 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 
-// Stripe Product IDs
+// Stripe Product IDs - Favor Environment Variables for flexibility (Test vs Live)
 const STRIPE_PRODUCTS = {
-    LIT: 'prod_TsqOvYycMrdhnl',
-    THE_SOURCE: 'prod_TsqUkQtzNQ5Y3z',
+    LIT: process.env.STRIPE_PRODUCT_ID_LIT || 'prod_TsqOvYycMrdhnl',
+    THE_SOURCE: process.env.STRIPE_PRODUCT_ID_SOURCE || 'prod_TsqUkQtzNQ5Y3z',
 };
 
 export const handler: Handler = async (event) => {
@@ -75,8 +75,8 @@ export const handler: Handler = async (event) => {
                 products: withUpsell ? 'LIT,THE_SOURCE' : 'LIT',
                 lit_amount: amount.toString(),
             },
-            success_url: `${process.env.URL || 'http://localhost:8888'}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.URL || 'http://localhost:8888'}/`,
+            success_url: `${process.env.URL || 'http://localhost:8888'}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.URL || 'http://localhost:8888'}/?cancel=true`,
         });
 
         return {

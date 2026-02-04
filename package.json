@@ -9,15 +9,15 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@netlify/functions": "^5.1.2",
     "@stripe/stripe-js": "^8.7.0",
-    "stripe": "^20.3.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
     "@clerk/backend": "^2.29.6",
     "@clerk/clerk-js": "^5.122.0",
-    "@supabase/supabase-js": "^2.93.3"
+    "@netlify/functions": "^5.1.2",
+    "@supabase/supabase-js": "^2.93.3",
+    "stripe": "^20.3.0"
   }
 }

@@ -117,7 +117,16 @@ export class CheckoutFlow {
           withUpsell: this.data.withUpsell,
           email: email
         }),
+      }).catch(err => {
+        throw new Error('Network error or endpoint not found. Ensure Netlify Functions are active.');
       });
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response from server:', text);
+        throw new Error('Server returned a non-JSON response. Please ensure Netlify Functions are running (use "netlify dev").');
+      }
 
       if (!response.ok) {
         const errorData = await response.json();

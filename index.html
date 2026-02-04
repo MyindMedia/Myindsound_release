@@ -25,16 +25,34 @@
       <section class="digital-section" id="digital">
         <div class="digital-container">
           <div class="album-art-side">
-            <div class="sticky-art">
-              <img src="/assets/images/lit-poster.png" alt="LIT Album Art" class="main-album-art" />
-              <div class="purchase-box">
-                <div class="price-input-wrapper">
-                  <span class="currency">$</span>
-                  <input type="number" id="pwyw-amount" value="5.00" min="1.00" step="1.00" />
-                </div>
-                <button id="checkout-btn" class="primary-btn">PAY WHAT YOU WANT</button>
-                <p class="min-price-note">MINIMUM $1.00</p>
+            <!-- Album Art Container - Separate from Purchase Box -->
+            <div id="lit-album-container" class="album-art-container"
+              style="position: relative; width: 100%; aspect-ratio: 1; margin-bottom: 2rem; perspective: 1000px;">
+              <!-- Dynamic Glow -->
+              <div id="lit-glow"
+                style="position: absolute; inset: -50px; z-index: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.6), transparent 60%); opacity: 0; pointer-events: none; transition: opacity 0.3s ease;">
               </div>
+
+              <!-- Static Album Art (Background) -->
+              <img src="/assets/images/lit-poster.png" alt="LIT Album Art" class="main-album-art dynamic-album-art"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; border-radius: 4px;" />
+
+              <!-- Peel Overlay (Foreground) -->
+              <div id="lit-sticker-container" class="dynamic-album-art"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; overflow: hidden; border-radius: 4px; pointer-events: none;">
+                <img src="/assets/images/buypeeloverlay.png" alt="Plastic Wrapper"
+                  style="width: 100%; height: 100%; object-fit: cover;" />
+              </div>
+            </div>
+
+            <!-- Purchase Box - Separate Container -->
+            <div class="purchase-box" style="position: relative; z-index: 3;">
+              <div class="price-input-wrapper">
+                <span class="currency">$</span>
+                <input type="number" id="pwyw-amount" value="5.00" min="1.00" step="1.00" />
+              </div>
+              <button id="checkout-btn" class="primary-btn">PAY WHAT YOU WANT</button>
+              <p class="min-price-note">MINIMUM $1.00</p>
             </div>
           </div>
 
@@ -56,7 +74,7 @@
             data-audio-src="/assets/audio/Blood-Demo.mp3" data-audio-start="15" data-audio-duration="20">
             <div class="card-media">
               <div class="poster-group" data-peel-hover="20" data-peel-active="70" data-peel-direction="269"
-                data-lighting="0.09" data-shadow="0.05" data-rotate="0" data-sticker-width="300">
+                data-lighting="0.09" data-shadow="0.05" data-rotate="0">
                 <div class="poster-layer"></div>
               </div>
               <div class="plastic-top"></div>
@@ -76,7 +94,7 @@
             data-audio-src="/assets/audio/God-is-Good-Demo.mp3" data-audio-start="140" data-audio-duration="20">
             <div class="card-media">
               <div class="poster-group" data-peel-hover="20" data-peel-active="70" data-peel-direction="269"
-                data-lighting="0.09" data-shadow="0.05" data-rotate="0" data-sticker-width="300">
+                data-lighting="0.09" data-shadow="0.05" data-rotate="0">
                 <div class="poster-layer"></div>
               </div>
               <div class="plastic-top"></div>

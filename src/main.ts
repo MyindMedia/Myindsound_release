@@ -1,7 +1,7 @@
 import './style.css';
-import { StickerPeel } from './sticker-peel';
 import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
+import { initLitHover } from './lit-hover';
 
 const tracks = [
   { id: 1, title: 'L.I.T. (Living In Truth)' },
@@ -14,53 +14,40 @@ const tracks = [
 
 const checkoutFlow = new CheckoutFlow();
 
-function renderTracklist() {
+function renderTracklist(unlocked: boolean = false) {
   const tracklistContainer = document.getElementById('tracklist');
   if (!tracklistContainer) return;
 
-  tracklistContainer.innerHTML = tracks.map(track => `
+  if (unlocked) {
+    tracklistContainer.classList.add('unlocked');
+  }
+
+  tracklistContainer.innerHTML = tracks.map(track => {
+    let icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+
+    if (unlocked) {
+      // Play button icon
+      icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+    }
+
+    return `
     <div class="track-item">
       <div class="track-info">
         <span class="track-number">${track.id.toString().padStart(2, '0')}</span>
         <span class="track-name">${track.title}</span>
       </div>
-      <div class="track-status">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      <div class="track-status ${unlocked ? 'unlocked' : ''}">
+        ${icon}
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 function initStickers() {
-  const cards = document.querySelectorAll('.coming-soon-card');
+  // LIT Album Art Hover Effect is now handled by lit-hover.ts
+  initLitHover();
 
-  cards.forEach(card => {
-    const stickerContainer = card.querySelector('.sticker-container') as HTMLElement;
-
-    if (stickerContainer) {
-      new StickerPeel({
-        imageSrc: '/assets/images/peeloverlay.png',
-        container: stickerContainer,
-        peelDirection: 269,
-        peelBackHoverPct: 20,
-        peelBackActivePct: 70,
-        lightingIntensity: 0.09,
-        shadowIntensity: 0.05
-      });
-    }
-
-    // Hover Video Playback
-    const video = card.querySelector('video') as HTMLVideoElement;
-    if (video) {
-      card.addEventListener('mouseenter', () => {
-        video.play().catch(() => { });
-      });
-      card.addEventListener('mouseleave', () => {
-        video.pause();
-        video.currentTime = 0;
-      });
-    }
-  });
+  console.log('Stickers initialized (LIT handled separately)');
 }
 
 function initPurchaseFlow() {
@@ -77,8 +64,25 @@ function initPurchaseFlow() {
   });
 }
 
+import { PurchaseAnimationController } from './purchase-animation';
+
 document.addEventListener('DOMContentLoaded', () => {
-  renderTracklist();
+  const urlParams = new URLSearchParams(window.location.search);
+  const success = urlParams.get('success');
+
+  if (success === 'true') {
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Start Animation
+    const anim = new PurchaseAnimationController(() => {
+      renderTracklist(true); // Render unlocked
+    });
+    anim.start();
+  } else {
+    renderTracklist(false);
+  }
+
   initStickers();
   initPurchaseFlow();
   initNavAuth();

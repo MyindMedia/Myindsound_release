@@ -6,6 +6,7 @@
 import './style.css';
 import { logTrackPlay } from './supabase';
 import { getUserId } from './clerk';
+import { DiskPlayerAnimator, EnhancedDiskPlayerAnimator } from './disk-player';
 
 interface Track {
   id: number;
@@ -86,6 +87,10 @@ class StreamPlayer {
   private analyser: AnalyserNode | null = null;
   private dataArray: Uint8Array | null = null;
   private animationId: number | null = null;
+  private diskAnimator: DiskPlayerAnimator | null = null;
+  private introOverlay: HTMLElement | null = null;
+  // private isIntroMode: boolean = false;
+  private hasStartedPlaying: boolean = false;
 
   // DOM Elements
   private playBtn: HTMLElement | null;
@@ -114,6 +119,7 @@ class StreamPlayer {
     this.nowPlayingArtist = document.getElementById('now-playing-artist');
     this.tracklistEl = document.getElementById('tracklist');
     this.visualizerCanvas = document.getElementById('visualizer') as HTMLCanvasElement;
+    this.introOverlay = document.getElementById('intro-overlay');
 
     if (this.visualizerCanvas) {
       this.canvasCtx = this.visualizerCanvas.getContext('2d');
@@ -123,14 +129,119 @@ class StreamPlayer {
   }
 
   private async init() {
+    // Initialize Disk Animator
+    if (typeof (window as any).gsap !== 'undefined') {
+      this.diskAnimator = new EnhancedDiskPlayerAnimator((window as any).gsap);
+    } else {
+      this.diskAnimator = new DiskPlayerAnimator();
+    }
+
     await this.fetchSignedUrls();
     this.renderTracklist();
     this.setupEventListeners();
     this.loadTrack(0);
     this.updateAlbumDuration();
 
+    // Check for intro mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('new_purchase') === 'true') {
+      this.startIntroSequence();
+    } else {
+      this.setupInitialState();
+    }
+
     // Start idle visualizer animation
     this.drawIdleVisualizer();
+  }
+
+  private setupInitialState() {
+    // Hide tracklist and visualizer initially
+    const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
+    const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
+    const streamContainer = document.querySelector('.stream-container') as HTMLElement;
+    
+    if (tracklistSection) {
+      tracklistSection.style.opacity = '0';
+      tracklistSection.style.pointerEvents = 'none';
+      tracklistSection.style.transform = 'translateX(20px)';
+      tracklistSection.style.transition = 'all 0.5s ease';
+    }
+    
+    if (visualizerContainer) {
+      visualizerContainer.style.opacity = '0';
+      visualizerContainer.style.height = '0';
+      visualizerContainer.style.overflow = 'hidden';
+      visualizerContainer.style.margin = '0';
+      visualizerContainer.style.transition = 'all 0.5s ease';
+    }
+    
+    // Center the player
+    if (streamContainer) {
+      streamContainer.style.gridTemplateColumns = '1fr';
+      streamContainer.style.justifyItems = 'center';
+    }
+    
+    // Add pulsating effect to play button
+    this.playBtn?.classList.add('pulsating-play');
+  }
+
+  private startIntroSequence() {
+    if (!this.introOverlay) return;
+    
+    // Setup initial state behind overlay
+    this.setupInitialState();
+    
+    this.introOverlay.classList.add('active');
+    
+    const gsap = (window as any).gsap;
+    if (!gsap) {
+      // Fallback if GSAP not loaded
+      setTimeout(() => {
+        this.introOverlay?.classList.remove('active');
+      }, 2000);
+      return;
+    }
+    
+    const albumArt = document.getElementById('intro-album-art');
+    const peelLayer = document.getElementById('intro-peel-layer');
+    
+    const tl = gsap.timeline();
+    
+    // Shake effect
+    tl.to(albumArt, {
+      x: -5,
+      duration: 0.1,
+      repeat: 5,
+      yoyo: true,
+      ease: "power1.inOut"
+    })
+    .to(albumArt, {
+      x: 5,
+      duration: 0.1,
+      repeat: 5,
+      yoyo: true,
+      ease: "power1.inOut"
+    }, "<")
+    
+    // Peel effect
+    .to(peelLayer, {
+      xPercent: -100,
+      yPercent: -100,
+      rotation: -45,
+      opacity: 0,
+      duration: 1.5,
+      ease: "power2.inOut"
+    })
+    
+    // Fade out overlay
+    .to(this.introOverlay, {
+      opacity: 0,
+      duration: 1,
+      onComplete: () => {
+        this.introOverlay?.classList.remove('active');
+        this.introOverlay!.style.display = 'none';
+      }
+    });
   }
 
   private async fetchSignedUrls() {
@@ -306,6 +417,35 @@ class StreamPlayer {
     this.isPlaying = true;
     if (this.playIcon) this.playIcon.style.display = 'none';
     if (this.pauseIcon) this.pauseIcon.style.display = 'block';
+    
+    // Reveal UI if first play
+    if (!this.hasStartedPlaying) {
+      this.hasStartedPlaying = true;
+      this.playBtn?.classList.remove('pulsating-play');
+      
+      const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
+      const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
+      const streamContainer = document.querySelector('.stream-container') as HTMLElement;
+      
+      if (streamContainer) {
+        // Reset grid
+        streamContainer.style.gridTemplateColumns = '1fr 400px';
+        streamContainer.style.justifyItems = 'start'; // or default
+      }
+      
+      if (visualizerContainer) {
+        visualizerContainer.style.height = 'auto'; // Let it grow
+        visualizerContainer.style.overflow = 'visible';
+        visualizerContainer.style.margin = ''; // Reset
+        visualizerContainer.style.opacity = '1';
+      }
+      
+      if (tracklistSection) {
+        tracklistSection.style.opacity = '1';
+        tracklistSection.style.pointerEvents = 'auto';
+        tracklistSection.style.transform = 'translateX(0)';
+      }
+    }
 
     // Log the play event
     const currentTrack = this.tracks[this.currentTrackIndex];
@@ -326,9 +466,8 @@ class StreamPlayer {
       this.audioContext.resume();
     }
 
-    // Add spinning class to the wrapper
-    const discWrapper = document.querySelector('.spinning-disc-wrapper');
-    discWrapper?.classList.add('spinning');
+    // Start disk animation
+    this.diskAnimator?.setPlaying(true);
 
     // Start visualizer
     this.initAudioContext();
@@ -337,9 +476,9 @@ class StreamPlayer {
 
   private onPause() {
     this.isPlaying = false;
-    // Remove spinning class from the wrapper
-    const discWrapper = document.querySelector('.spinning-disc-wrapper');
-    discWrapper?.classList.remove('spinning');
+    // Stop disk animation
+    this.diskAnimator?.setPlaying(false);
+    
     if (this.playIcon) this.playIcon.style.display = 'block';
     if (this.pauseIcon) this.pauseIcon.style.display = 'none';
 

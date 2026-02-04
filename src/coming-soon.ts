@@ -14,6 +14,9 @@ declare global {
 }
 
 class ComingSoonController {
+    private static currentAudio: HTMLAudioElement | null = null;
+    private static fadeInterval: any | null = null;
+
     constructor() {
         this.init();
     }
@@ -51,16 +54,16 @@ class ComingSoonController {
 
             const overlayContainer = document.createElement('div');
             overlayContainer.className = 'peel-overlay-container';
-            card.appendChild(overlayContainer);
+            cardMedia.appendChild(overlayContainer); // Append to cardMedia for perfect alignment
             overlayContainer.style.background = 'transparent';
 
             requestAnimationFrame(() => {
                 console.log(`Setting up dimensions for card ${index}`);
 
-                const cardRect = card.getBoundingClientRect();
                 const mediaRect = cardMedia.getBoundingClientRect();
                 const targetWidth = mediaRect.width;
                 const targetHeight = mediaRect.height;
+                console.log('Target Height:', targetHeight); // Prevent TS error
 
                 // Get peel configuration from data attributes
                 const hoverPct = parseFloat(posterGroup.getAttribute('data-peel-hover') || '20');
@@ -73,41 +76,42 @@ class ComingSoonController {
                 // Ensure base container is positioned for absolute children
                 cardMedia.style.position = 'relative';
                 cardMedia.style.willChange = 'transform';
+                cardMedia.style.overflow = 'visible'; // Allow peel flap to go outside
 
                 // Force poster-layer and poster-group to match card-media dimensions exactly
-                posterLayer.style.width = targetWidth + 'px';
-                posterLayer.style.height = targetHeight + 'px';
+                posterLayer.style.width = '100%';
+                posterLayer.style.height = '100%';
                 posterLayer.style.position = 'absolute';
                 posterLayer.style.inset = '0';
-                posterGroup.style.width = targetWidth + 'px';
-                posterGroup.style.height = targetHeight + 'px';
+                posterGroup.style.width = '100%';
+                posterGroup.style.height = '100%';
                 posterGroup.style.position = 'absolute';
                 posterGroup.style.inset = '0';
 
-                // Match Pray project's overlay positioning
-                const overlapPx = 1;
-                overlayContainer.style.width = (targetWidth + overlapPx * 2) + 'px';
-                overlayContainer.style.height = (targetHeight + overlapPx * 2) + 'px';
+                // Perfect alignment: overlay matches card-media exactly
+                overlayContainer.style.width = '100%';
+                overlayContainer.style.height = '100%';
                 overlayContainer.style.position = 'absolute';
-                overlayContainer.style.left = (Math.round(mediaRect.left - cardRect.left - 2 - overlapPx) + 1.5) + 'px';
-                overlayContainer.style.top = (mediaRect.top - cardRect.top - 26.4 - overlapPx) + 'px';
-                overlayContainer.style.zIndex = '1000';
+                overlayContainer.style.inset = '0';
+                overlayContainer.style.left = '0';
+                overlayContainer.style.top = '0';
+                overlayContainer.style.zIndex = '1002'; // Ensure it's on top of poster-group (1001)
                 overlayContainer.style.pointerEvents = 'none';
                 overlayContainer.style.willChange = 'transform';
                 overlayContainer.style.transform = 'none';
                 overlayContainer.style.overflow = 'visible';
                 overlayContainer.style.transformStyle = 'preserve-3d';
 
-                // Style plastic layers
+                // Style plastic layers - use percentage sizing for perfect alignment
                 if (plasticTop) {
-                    plasticTop.style.width = targetWidth + 'px';
-                    plasticTop.style.height = targetHeight + 'px';
+                    plasticTop.style.width = '100%';
+                    plasticTop.style.height = '100%';
                     plasticTop.style.position = 'absolute';
                     plasticTop.style.inset = '0';
                 }
                 if (plasticBottom) {
-                    plasticBottom.style.width = targetWidth + 'px';
-                    plasticBottom.style.height = targetHeight + 'px';
+                    plasticBottom.style.width = '100%';
+                    plasticBottom.style.height = '100%';
                     plasticBottom.style.position = 'absolute';
                     plasticBottom.style.inset = '0';
                 }
@@ -134,7 +138,7 @@ class ComingSoonController {
                 const stickerPeel = new StickerPeel({
                     container: overlayContainer,
                     imageSrc: '/assets/images/peeloverlay.png',
-                    width: Math.round(targetWidth * 0.9),
+                    width: targetWidth, // Use full width for perfect alignment
                     rotate: rotate,
                     peelBackHoverPct: hoverPct,
                     peelBackActivePct: activePct,
@@ -150,30 +154,32 @@ class ComingSoonController {
 
                 // Update layout on resize
                 const updateLayout = () => {
-                    const cr = card.getBoundingClientRect();
-                    const mr = cardMedia!.getBoundingClientRect();
+                    if (!cardMedia) return;
+
+                    const mr = cardMedia.getBoundingClientRect();
                     const w = mr.width;
                     const h = mr.height;
-                    posterLayer!.style.width = w + 'px';
-                    posterLayer!.style.height = h + 'px';
-                    posterGroup!.style.width = w + 'px';
-                    posterGroup!.style.height = h + 'px';
-                    overlayContainer.style.width = (w + overlapPx * 2) + 'px';
-                    overlayContainer.style.height = (h + overlapPx * 2) + 'px';
-                    overlayContainer.style.left = (Math.round(mr.left - cr.left - 2 - overlapPx) + 1.5) + 'px';
-                    overlayContainer.style.top = (mr.top - cr.top - 26.4 - overlapPx) + 'px';
-                    if (plasticTop) {
-                        plasticTop.style.width = w + 'px';
-                        plasticTop.style.height = h + 'px';
+
+                    // Force overlay container to match exactly
+                    overlayContainer.style.width = '100%';
+                    overlayContainer.style.height = '100%';
+
+                    // Update sticker peel instance dimensions
+                    if (stickerPeel) {
+                        stickerPeel.resize(w, h);
                     }
-                    if (plasticBottom) {
-                        plasticBottom.style.width = w + 'px';
-                        plasticBottom.style.height = h + 'px';
-                    }
+
+                    // console.log('Updated dimensions:', w, h);
                 };
 
+                // Initial layout update to ensure correct size immediately after creation
+                // This catches cases where the initial size calculation happened before layout stabilized
+                requestAnimationFrame(() => updateLayout());
+
                 if ('ResizeObserver' in window) {
-                    const ro = new ResizeObserver(() => updateLayout());
+                    const ro = new ResizeObserver(() => {
+                        requestAnimationFrame(updateLayout);
+                    });
                     ro.observe(cardMedia!);
                     card._overlayResizeObserver = ro;
                 } else {
@@ -212,15 +218,22 @@ class ComingSoonController {
                 flap.style.setProperty('top', 'calc(100% - 1px)', 'important');
             }
 
-            // Reveal video
+            // Reveal video with smooth cross-dissolve
             if (video) {
-                video.style.transition = 'opacity 0.6s ease-out, transform 0.25s ease-out';
-                video.style.opacity = '1';
-                video.style.transform = 'none';
+                // Start video playback immediately but keep it invisible
                 const playPromise = video.play();
                 if (playPromise && typeof playPromise.catch === 'function') {
                     playPromise.catch(() => { });
                 }
+
+                // Fade out poster and fade in video simultaneously
+                posterLayer.style.transition = 'opacity 0.6s ease-out';
+                video.style.transition = 'opacity 0.6s ease-out';
+
+                setTimeout(() => {
+                    posterLayer.style.opacity = '0';
+                    video.style.opacity = '1';
+                }, 100);
 
                 // Show play button
                 const playBtn = card.querySelector('.card-play-btn') as HTMLElement;
@@ -244,22 +257,8 @@ class ComingSoonController {
 
             if (audioSrc) {
                 setTimeout(() => {
-                    const audio = new Audio(audioSrc);
-                    audio.currentTime = audioStart;
-                    audio.volume = 0.7;
-
-                    const playAudioPromise = audio.play();
-                    if (playAudioPromise) {
-                        playAudioPromise.catch(() => {
-                            console.log('Audio playback failed');
-                        });
-                    }
-
-                    // Stop after duration
-                    setTimeout(() => {
-                        audio.pause();
-                        audio.currentTime = 0;
-                    }, audioDuration * 1000);
+                    const audio = ComingSoonController.playAudioWithFadeout(audioSrc, audioStart, audioDuration);
+                    this.setupPlayButton(card, audio);
                 }, 800);
             }
         });
@@ -279,6 +278,99 @@ class ComingSoonController {
                 }
             });
         }
+    }
+
+    private static stopCurrentAudio() {
+        if (ComingSoonController.currentAudio) {
+            ComingSoonController.currentAudio.pause();
+            ComingSoonController.currentAudio.currentTime = 0;
+            ComingSoonController.currentAudio = null;
+        }
+        if (ComingSoonController.fadeInterval) {
+            clearInterval(ComingSoonController.fadeInterval);
+            ComingSoonController.fadeInterval = null;
+        }
+    }
+
+    private static fadeOutAudio(audio: HTMLAudioElement, duration: number = 2000) {
+        const startVolume = audio.volume;
+        const startTime = Date.now();
+
+        ComingSoonController.fadeInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            audio.volume = startVolume * (1 - progress);
+
+            if (progress >= 1) {
+                audio.pause();
+                audio.currentTime = 0;
+                ComingSoonController.currentAudio = null;
+                if (ComingSoonController.fadeInterval) {
+                    clearInterval(ComingSoonController.fadeInterval);
+                    ComingSoonController.fadeInterval = null;
+                }
+            }
+        }, 50);
+    }
+
+    private static playAudioWithFadeout(audioSrc: string, startTime: number, duration: number) {
+        // Stop any currently playing audio
+        ComingSoonController.stopCurrentAudio();
+
+        const audio = new Audio(audioSrc);
+        audio.currentTime = startTime;
+        audio.volume = 0.7;
+
+        const playPromise = audio.play();
+        if (playPromise) {
+            playPromise.catch(() => {
+                console.log('Audio playback failed');
+            });
+        }
+
+        ComingSoonController.currentAudio = audio;
+
+        // Schedule fade-out before the duration ends
+        const fadeStartTime = Math.max((duration - 2) * 1000, 1000); // Start fade 2 seconds before end
+        setTimeout(() => {
+            if (ComingSoonController.currentAudio === audio) {
+                ComingSoonController.fadeOutAudio(audio, 2000);
+            }
+        }, fadeStartTime);
+
+        // Stop at exact duration
+        setTimeout(() => {
+            if (ComingSoonController.currentAudio === audio) {
+                ComingSoonController.stopCurrentAudio();
+            }
+        }, duration * 1000);
+
+        return audio;
+    }
+
+    private setupPlayButton(card: HTMLElement, audio: HTMLAudioElement) {
+        const playBtn = card.querySelector('.card-play-btn') as HTMLElement;
+        if (!playBtn) return;
+
+        let isPlaying = true;
+
+        playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            if (isPlaying) {
+                audio.pause();
+                playBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            } else {
+                const playPromise = audio.play();
+                if (playPromise) {
+                    playPromise.catch(() => {
+                        console.log('Audio playback failed');
+                    });
+                }
+                playBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+            }
+            isPlaying = !isPlaying;
+        });
     }
 }
 

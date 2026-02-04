@@ -79,6 +79,10 @@ export class StickerPeel {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '0');
     svg.setAttribute('height', '0');
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.pointerEvents = 'none'; // Ensure it doesn't block clicks
 
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     const pointLightFilter = this.createFilter('pointLight', `
@@ -240,5 +244,19 @@ export class StickerPeel {
         gsap.to(this.dragTarget, { rotation: 0, duration: 0.8, ease: 'power2.out' });
       }
     })[0];
+  }
+
+  public resize(width: number, height: number) {
+    if (this.dragTarget) {
+      this.dragTarget.style.width = width + 'px';
+      this.dragTarget.style.height = height + 'px';
+    }
+  }
+
+  public destroy() {
+    if (this.draggableInstance) {
+      this.draggableInstance.kill();
+    }
+    // Remove event listeners if we added any global ones (current ones are on container)
   }
 }

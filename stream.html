@@ -8,8 +8,77 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Intro Overlay for New Purchase */
+    #intro-overlay {
+      position: fixed;
+      inset: 0;
+      background: black;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      perspective: 1000px;
+    }
+    
+    #intro-overlay.active {
+      display: flex;
+    }
+    
+    #intro-album-art {
+      width: 300px;
+      height: 300px;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    
+    #intro-album-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 4px;
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
+    }
+
+    #intro-peel-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('/assets/images/buypeeloverlay.png') no-repeat center center;
+      background-size: cover;
+      z-index: 2;
+    }
+    
+    .pulsating-play {
+      animation: pulse-gold 2s infinite;
+    }
+    
+    @keyframes pulse-gold {
+      0% {
+        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+        transform: scale(1);
+      }
+      70% {
+        box-shadow: 0 0 0 20px rgba(255, 215, 0, 0);
+        transform: scale(1.1);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+        transform: scale(1);
+      }
+    }
+  </style>
 </head>
 <body class="stream-page">
+  <!-- Intro Overlay -->
+  <div id="intro-overlay">
+    <div id="intro-album-art">
+      <img src="/assets/images/lit-poster.png" id="intro-album-img" alt="LIT Album" />
+      <div id="intro-peel-layer"></div>
+    </div>
+  </div>
   <!-- Navigation -->
   <nav class="main-nav">
     <div class="nav-links">
@@ -24,18 +93,15 @@
   <main class="stream-container">
     <!-- Left Side: Disc Player -->
     <section class="player-section">
-      <!-- Mini Disc Player - 3 Layer System -->
-      <div class="mini-disc-player">
-        <!-- Layer 3 (Bottom): Base/Background -->
-        <img src="/assets/disk/layer-3-base.png" alt="" class="layer-base" />
-
-        <!-- Layer 2 (Middle): Spinning Disc -->
-        <div class="spinning-disc-wrapper" id="spinning-disc">
-          <img src="/assets/disk/layer-2-disc.png" alt="Disc" class="disc-image" />
+      <!-- Animated Disk Player -->
+      <div class="animated-disk-player">
+        <div class="disk-layers">
+          <img src="/assets/CD-Assets/l5.png" alt="Disk Layer 5" class="disk-layer layer-5" />
+          <img src="/assets/CD-Assets/l4.png" alt="Disk Layer 4" class="disk-layer layer-4" />
+          <img src="/assets/CD-Assets/l3.png" alt="Disk Layer 3" class="disk-layer layer-3" />
+          <img src="/assets/CD-Assets/l2.png" alt="Disk Layer 2" class="disk-layer layer-2" />
+          <img src="/assets/CD-Assets/l1.png" alt="Disk Layer 1" class="disk-layer layer-1" />
         </div>
-
-        <!-- Layer 1 (Top): Case Frame Overlay -->
-        <img src="/assets/disk/layer-1-top.png" alt="" class="layer-top" />
       </div>
 
       <!-- Visualizer -->
@@ -149,6 +215,9 @@
   <!-- Hidden Audio Element -->
   <audio id="audio-player" preload="metadata"></audio>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Draggable.min.js"></script>
+  <script type="module" src="/src/disk-player.ts"></script>
   <script type="module" src="/src/stream.ts"></script>
 </body>
 </html>
