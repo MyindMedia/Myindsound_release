@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/style.css" />
     <style>
         .success-hero {
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -82,6 +82,11 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* Animation lock state */
+        body.animation-active {
+            overflow: hidden;
+        }
     </style>
 </head>
 
@@ -135,10 +140,16 @@
         </div>
     </div>
 
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
     <!-- Clerk Script -->
     <script async crossorigin="anonymous"
         src="https://main-grouper-12.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
         type="module"></script>
+
+    <!-- Success Animation Module -->
+    <script type="module" src="/src/success-animation.ts"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -172,13 +183,23 @@
                     streamBtn.className = 'primary-btn stream-btn';
                     streamBtn.style.textDecoration = 'none';
                     streamBtn.textContent = 'STREAM NOW';
-                    streamBtn.addEventListener('click', (e) => {
+                    streamBtn.addEventListener('click', async (e) => {
                         e.preventDefault();
-                        const overlay = document.getElementById('reveal-overlay');
-                        overlay.classList.add('active');
-                        setTimeout(() => {
-                            window.location.href = '/stream.html?new_purchase=true';
-                        }, 1500);
+
+                        // Import and start animation
+                        try {
+                            const { SuccessAnimationController } = await import('/src/success-animation.ts');
+                            const animController = new SuccessAnimationController();
+                            animController.start('/assets/images/lit-poster.png');
+                        } catch (err) {
+                            // Fallback to old behavior if module fails
+                            console.error('Animation module failed:', err);
+                            const overlay = document.getElementById('reveal-overlay');
+                            overlay.classList.add('active');
+                            setTimeout(() => {
+                                window.location.href = '/stream.html?state=reveal_ui';
+                            }, 1500);
+                        }
                     });
                     container.appendChild(streamBtn);
 

@@ -149,10 +149,10 @@ export class PurchaseAnimationController {
         layers.style.height = '100%';
 
         // Create layers L1 (top) to L5 (bottom)
-        ['l5', 'l4', 'l3', 'l2', 'l1'].forEach((name) => {
+        ['layer5', 'layer4', 'layer3', 'layer2', 'layer1'].forEach((name) => {
             const layerImg = document.createElement('img');
-            layerImg.src = `/assets/CD-Assets/${name}.png`;
-            layerImg.className = `disk-layer layer-${name.replace('l', '')}`;
+            layerImg.src = `/assets/images/CD Casset/${name}.png`;
+            layerImg.className = `disk-layer layer-${name.replace('layer', '')}`;
 
             // Fix styles for absolute positioning inside the container
             layerImg.style.position = 'absolute';

@@ -133,18 +133,20 @@ class StreamPlayer {
   private async init() {
     // 1. Immediate State Check to prevent FOUC
     const urlParams = new URLSearchParams(window.location.search);
-    const isDocking = urlParams.get('state') === 'animate_dock';
+    const stateParam = urlParams.get('state');
+    const isDocking = stateParam === 'animate_dock';
+    const isRevealUI = stateParam === 'reveal_ui';
 
-    if (isDocking) {
+    if (isDocking || isRevealUI) {
       // HIDE UI SYNCHRONOUSLY
       const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
-      const controlBar = document.querySelector('.player-controls') as HTMLElement; // Updated selector
+      const controlBar = document.querySelector('.player-controls') as HTMLElement;
       const nav = document.querySelector('nav');
       const visualizer = document.querySelector('.visualizer-container') as HTMLElement;
 
       if (tracklistSection) {
         tracklistSection.style.opacity = '0';
-        tracklistSection.style.visibility = 'hidden'; // Ensure it's not clickable
+        tracklistSection.style.visibility = 'hidden';
       }
       if (controlBar) controlBar.style.opacity = '0';
       if (nav) nav.style.opacity = '0';
@@ -167,6 +169,8 @@ class StreamPlayer {
     // Resume Sequence based on State
     if (isDocking) {
       this.startDockingSequence();
+    } else if (isRevealUI) {
+      this.revealUIAfterDock();
     } else if (urlParams.get('new_purchase') === 'true') {
       this.startIntroSequence();
     } else {
@@ -239,10 +243,10 @@ class StreamPlayer {
     layers.style.width = '100%';
     layers.style.height = '100%';
 
-    ['l5', 'l4', 'l3', 'l2', 'l1'].forEach((name) => {
+    ['layer5', 'layer4', 'layer3', 'layer2', 'layer1'].forEach((name) => {
       const layerImg = document.createElement('img');
-      layerImg.src = `/assets/CD-Assets/${name}.png`;
-      layerImg.className = `disk-layer layer-${name.replace('l', '')}`;
+      layerImg.src = `/assets/images/CD Casset/${name}.png`;
+      layerImg.className = `disk-layer layer-${name.replace('layer', '')}`;
       layerImg.style.position = 'absolute';
       layerImg.style.inset = '0';
       layerImg.style.width = '100%';
@@ -319,6 +323,77 @@ class StreamPlayer {
             }, 10000); // 10 Second Delay
           }
         });
+      }
+    });
+  }
+
+  private revealUIAfterDock() {
+    // This is called when coming from success.html after the full animation
+    // The CD player is already "docked" conceptually, just reveal UI smoothly
+    const gsap = (window as any).gsap;
+    if (!gsap) {
+      // Fallback: just show everything
+      this.setupInitialState();
+      return;
+    }
+
+    const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
+    const controlBar = document.querySelector('.player-controls') as HTMLElement;
+    const nav = document.querySelector('nav');
+    const visualizer = document.querySelector('.visualizer-container') as HTMLElement;
+
+    // Start the disk spinning immediately (creates continuity from success.html animation)
+    this.diskAnimator?.setPlaying(true);
+
+    // Staggered reveal animation
+    const tl = gsap.timeline({ delay: 0.3 });
+
+    // Reveal nav first
+    if (nav) {
+      tl.to(nav, {
+        opacity: 1,
+        duration: 0.5,
+        ease: 'power2.out'
+      });
+    }
+
+    // Reveal visualizer
+    if (visualizer) {
+      tl.to(visualizer, {
+        opacity: 1,
+        duration: 0.6,
+        ease: 'power2.out'
+      }, '-=0.3');
+    }
+
+    // Reveal tracklist section with slide
+    if (tracklistSection) {
+      tracklistSection.style.transform = 'translateX(50px)';
+      tracklistSection.style.visibility = 'visible';
+      tl.to(tracklistSection, {
+        opacity: 1,
+        x: 0,
+        duration: 0.8,
+        ease: 'power2.out'
+      }, '-=0.4');
+    }
+
+    // Reveal controls
+    if (controlBar) {
+      tl.to(controlBar, {
+        opacity: 1,
+        duration: 0.5,
+        ease: 'power2.out'
+      }, '-=0.5');
+    }
+
+    // Stop the disk after reveal (user can start playing)
+    tl.call(() => {
+      this.diskAnimator?.setPlaying(false);
+
+      // Add pulsating effect to play button to invite interaction
+      if (this.playBtn) {
+        this.playBtn.classList.add('pulsating-play');
       }
     });
   }
