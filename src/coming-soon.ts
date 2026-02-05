@@ -22,9 +22,9 @@ class ComingSoonController {
     }
 
     private init() {
-        console.log('Initializing Coming Soon cards');
+
         const cards = document.querySelectorAll('.coming-soon-card');
-        console.log(`Found ${cards.length} coming soon cards`);
+
 
         cards.forEach((card, index) => {
             this.setupCard(card as HTMLElement, index);
@@ -50,7 +50,7 @@ class ComingSoonController {
 
         // Create sticker peel overlay
         if (posterGroup && cardMedia && posterLayer && video) {
-            console.log(`Creating overlay for card ${index}`);
+
 
             const overlayContainer = document.createElement('div');
             overlayContainer.className = 'peel-overlay-container';
@@ -58,12 +58,12 @@ class ComingSoonController {
             overlayContainer.style.background = 'transparent';
 
             requestAnimationFrame(() => {
-                console.log(`Setting up dimensions for card ${index}`);
+
 
                 const mediaRect = cardMedia.getBoundingClientRect();
                 const targetWidth = mediaRect.width;
                 const targetHeight = mediaRect.height;
-                console.log('Target Height:', targetHeight); // Prevent TS error
+
 
                 // Get peel configuration from data attributes
                 const hoverPct = parseFloat(posterGroup.getAttribute('data-peel-hover') || '20');
@@ -150,7 +150,7 @@ class ComingSoonController {
 
                 card._stickerPeel = stickerPeel;
                 card._overlayContainer = overlayContainer;
-                console.log(`Overlay created for card ${index}`);
+
 
                 // Update layout on resize
                 const updateLayout = () => {
@@ -169,7 +169,7 @@ class ComingSoonController {
                         stickerPeel.resize(w, h);
                     }
 
-                    // console.log('Updated dimensions:', w, h);
+
                 };
 
                 // Initial layout update to ensure correct size immediately after creation
@@ -324,7 +324,7 @@ class ComingSoonController {
         const playPromise = audio.play();
         if (playPromise) {
             playPromise.catch(() => {
-                console.log('Audio playback failed');
+                console.error('Audio playback failed');
             });
         }
 
@@ -364,7 +364,7 @@ class ComingSoonController {
                 const playPromise = audio.play();
                 if (playPromise) {
                     playPromise.catch(() => {
-                        console.log('Audio playback failed');
+                        console.error('Audio playback failed');
                     });
                 }
                 playBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';

@@ -1442,3 +1442,59 @@ body {
     display: none;
   }
 }
+
+/* Dashboard Transition Animations */
+.dashboard-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slide-in-right {
+  animation: slideInRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-in-bottom {
+  animation: slideInBottom 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hide purchase section when dashboard is active/animating */
+body.dashboard-mode .purchase-box,
+body.dashboard-mode .min-price-note,
+body.dashboard-mode #lit-sticker-container,
+body.dashboard-mode #lit-glow {
+  display: none !important;
+}
+
+/* Ensure dashboard elements are hidden initially in animation mode */
+body.animation-active .tracklist-side,
+body.animation-active .player-controls {
+  opacity: 0;
+}
+
+body.dashboard-mode .player-controls {
+  pointer-events: auto;
+}

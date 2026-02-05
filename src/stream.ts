@@ -7,6 +7,7 @@ import './style.css';
 import { logTrackPlay } from './supabase';
 import { getUserId } from './clerk';
 import { DiskPlayerAnimator, EnhancedDiskPlayerAnimator } from './disk-player';
+import { UnicornSceneManager } from './unicorn-scene';
 
 interface Track {
   id: number;
@@ -91,6 +92,7 @@ class StreamPlayer {
   private introOverlay: HTMLElement | null = null;
   // private isIntroMode: boolean = false;
   private hasStartedPlaying: boolean = false;
+  private loadingAudio: HTMLAudioElement | null = null;
 
   // DOM Elements
   private playBtn: HTMLElement | null;
@@ -129,6 +131,26 @@ class StreamPlayer {
   }
 
   private async init() {
+    // 1. Immediate State Check to prevent FOUC
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDocking = urlParams.get('state') === 'animate_dock';
+
+    if (isDocking) {
+      // HIDE UI SYNCHRONOUSLY
+      const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
+      const controlBar = document.querySelector('.player-controls') as HTMLElement; // Updated selector
+      const nav = document.querySelector('nav');
+      const visualizer = document.querySelector('.visualizer-container') as HTMLElement;
+
+      if (tracklistSection) {
+        tracklistSection.style.opacity = '0';
+        tracklistSection.style.visibility = 'hidden'; // Ensure it's not clickable
+      }
+      if (controlBar) controlBar.style.opacity = '0';
+      if (nav) nav.style.opacity = '0';
+      if (visualizer) visualizer.style.opacity = '0';
+    }
+
     // Initialize Disk Animator
     if (typeof (window as any).gsap !== 'undefined') {
       this.diskAnimator = new EnhancedDiskPlayerAnimator((window as any).gsap);
@@ -142,13 +164,17 @@ class StreamPlayer {
     this.loadTrack(0);
     this.updateAlbumDuration();
 
-    // Check for intro mode
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('new_purchase') === 'true') {
+    // Resume Sequence based on State
+    if (isDocking) {
+      this.startDockingSequence();
+    } else if (urlParams.get('new_purchase') === 'true') {
       this.startIntroSequence();
     } else {
       this.setupInitialState();
     }
+
+    // Initialize Unicorn Background
+    UnicornSceneManager.init('unicorn-background');
 
     // Start idle visualizer animation
     this.drawIdleVisualizer();
@@ -157,42 +183,154 @@ class StreamPlayer {
   private setupInitialState() {
     // Hide tracklist and visualizer initially
     const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
-    const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
-    const streamContainer = document.querySelector('.stream-container') as HTMLElement;
-    
+
     if (tracklistSection) {
-      tracklistSection.style.opacity = '0';
-      tracklistSection.style.pointerEvents = 'none';
-      tracklistSection.style.transform = 'translateX(20px)';
-      tracklistSection.style.transition = 'all 0.5s ease';
+      tracklistSection.style.opacity = '1'; // Default visible unless animating
+      tracklistSection.style.pointerEvents = 'auto';
+      tracklistSection.style.transform = 'none';
+      tracklistSection.style.transition = 'none';
     }
-    
-    if (visualizerContainer) {
-      visualizerContainer.style.opacity = '0';
-      visualizerContainer.style.height = '0';
-      visualizerContainer.style.overflow = 'hidden';
-      visualizerContainer.style.margin = '0';
-      visualizerContainer.style.transition = 'all 0.5s ease';
-    }
-    
-    // Center the player
-    if (streamContainer) {
-      streamContainer.style.gridTemplateColumns = '1fr';
-      streamContainer.style.justifyItems = 'center';
-    }
-    
+
     // Add pulsating effect to play button
     this.playBtn?.classList.add('pulsating-play');
   }
 
+  private startDockingSequence() {
+    // 1. Hide UI initially
+    const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
+    const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
+    const controlBar = document.querySelector('.player-controls') as HTMLElement; // Updated selector
+    const nav = document.querySelector('nav');
+
+    if (tracklistSection) tracklistSection.style.opacity = '0';
+    if (controlBar) controlBar.style.opacity = '0';
+    if (nav) nav.style.opacity = '0';
+
+    // 2. Create Floating CD Player Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'dock-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '9999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.pointerEvents = 'none';
+
+    // Seamless Transition Backdrop
+    const backdrop = document.createElement('div');
+    backdrop.style.position = 'absolute';
+    backdrop.style.inset = '0';
+    backdrop.style.background = '#000'; // Match index page fade-out
+    backdrop.style.opacity = '1';
+    backdrop.style.zIndex = '-1';
+    overlay.appendChild(backdrop);
+
+    // Container for the CD Player
+    const cdPlayer = document.createElement('div');
+    cdPlayer.className = 'animated-disk-player';
+    cdPlayer.style.width = '300px';
+    cdPlayer.style.height = '300px';
+    cdPlayer.style.position = 'absolute';
+
+    // Layers
+    const layers = document.createElement('div');
+    layers.className = 'disk-layers';
+    layers.style.width = '100%';
+    layers.style.height = '100%';
+
+    ['l5', 'l4', 'l3', 'l2', 'l1'].forEach((name) => {
+      const layerImg = document.createElement('img');
+      layerImg.src = `/assets/CD-Assets/${name}.png`;
+      layerImg.className = `disk-layer layer-${name.replace('l', '')}`;
+      layerImg.style.position = 'absolute';
+      layerImg.style.inset = '0';
+      layerImg.style.width = '100%';
+      layerImg.style.height = '100%';
+      layers.appendChild(layerImg);
+    });
+
+    cdPlayer.appendChild(layers);
+    overlay.appendChild(cdPlayer);
+    document.body.appendChild(overlay);
+
+    // 3. Animate Docking
+    const targetArt = document.querySelector('.animated-disk-player') as HTMLElement;
+    if (targetArt) targetArt.style.opacity = '0';
+
+    const gsap = (window as any).gsap;
+    const tl = gsap.timeline();
+
+    // A. Spin the CD (L3)
+    const l3 = cdPlayer.querySelector('.layer-3');
+    if (l3) gsap.to(l3, { rotation: 360, duration: 4, repeat: -1, ease: 'none' });
+
+    // B. Dock Animation
+    // Fade out backdrop immediately to reveal "space" but UI is still hidden
+    tl.to(backdrop, { opacity: 0, duration: 1.0, ease: 'power2.in' });
+
+    // Move to Target
+    tl.call(() => {
+      if (targetArt) {
+        const rect = targetArt.getBoundingClientRect();
+        const startX = (window.innerWidth - 300) / 2;
+        const startY = (window.innerHeight - 300) / 2;
+        const endX = rect.left + (rect.width - 300) / 2;
+        const endY = rect.top + (rect.height - 300) / 2;
+        const scale = rect.width / 300;
+
+        gsap.to(cdPlayer, {
+          x: endX - startX,
+          y: endY - startY,
+          scale: scale,
+          duration: 1.2,
+          ease: 'power3.inOut',
+          onComplete: () => {
+            // 4. DOCK COMPLETE -> Play Audio -> Wait 10s
+            // Play Loading Audio if not already playing
+            if (!this.loadingAudio) {
+              this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
+              this.loadingAudio.volume = 0.8;
+              this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
+            }
+
+            // Wait 10 seconds before revealing UI
+            setTimeout(() => {
+              // 5. Reveal UI
+              if (targetArt) targetArt.style.opacity = '1';
+              overlay.remove(); // Swap with real DOM
+
+              const fadeIn = (el: HTMLElement | null, delay = 0) => {
+                if (el) {
+                  el.style.visibility = 'visible';
+                  gsap.to(el, { opacity: 1, duration: 0.8, delay });
+                }
+              };
+
+              fadeIn(nav);
+              fadeIn(tracklistSection, 0.2);
+              fadeIn(controlBar, 0.4);
+
+              // Pulse play button to invite interaction
+              if (this.playBtn) {
+                this.playBtn.classList.add('pulsating-play');
+              }
+
+            }, 10000); // 10 Second Delay
+          }
+        });
+      }
+    });
+  }
+
   private startIntroSequence() {
     if (!this.introOverlay) return;
-    
+
     // Setup initial state behind overlay
     this.setupInitialState();
-    
+
     this.introOverlay.classList.add('active');
-    
+
     const gsap = (window as any).gsap;
     if (!gsap) {
       // Fallback if GSAP not loaded
@@ -201,12 +339,12 @@ class StreamPlayer {
       }, 2000);
       return;
     }
-    
+
     const albumArt = document.getElementById('intro-album-art');
     const peelLayer = document.getElementById('intro-peel-layer');
-    
+
     const tl = gsap.timeline();
-    
+
     // Shake effect
     tl.to(albumArt, {
       x: -5,
@@ -215,33 +353,33 @@ class StreamPlayer {
       yoyo: true,
       ease: "power1.inOut"
     })
-    .to(albumArt, {
-      x: 5,
-      duration: 0.1,
-      repeat: 5,
-      yoyo: true,
-      ease: "power1.inOut"
-    }, "<")
-    
-    // Peel effect
-    .to(peelLayer, {
-      xPercent: -100,
-      yPercent: -100,
-      rotation: -45,
-      opacity: 0,
-      duration: 1.5,
-      ease: "power2.inOut"
-    })
-    
-    // Fade out overlay
-    .to(this.introOverlay, {
-      opacity: 0,
-      duration: 1,
-      onComplete: () => {
-        this.introOverlay?.classList.remove('active');
-        this.introOverlay!.style.display = 'none';
-      }
-    });
+      .to(albumArt, {
+        x: 5,
+        duration: 0.1,
+        repeat: 5,
+        yoyo: true,
+        ease: "power1.inOut"
+      }, "<")
+
+      // Peel effect
+      .to(peelLayer, {
+        xPercent: -100,
+        yPercent: -100,
+        rotation: -45,
+        opacity: 0,
+        duration: 1.5,
+        ease: "power2.inOut"
+      })
+
+      // Fade out overlay
+      .to(this.introOverlay, {
+        opacity: 0,
+        duration: 1,
+        onComplete: () => {
+          this.introOverlay?.classList.remove('active');
+          this.introOverlay!.style.display = 'none';
+        }
+      });
   }
 
   private async fetchSignedUrls() {
@@ -417,29 +555,29 @@ class StreamPlayer {
     this.isPlaying = true;
     if (this.playIcon) this.playIcon.style.display = 'none';
     if (this.pauseIcon) this.pauseIcon.style.display = 'block';
-    
+
     // Reveal UI if first play
     if (!this.hasStartedPlaying) {
       this.hasStartedPlaying = true;
       this.playBtn?.classList.remove('pulsating-play');
-      
+
       const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
       const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
       const streamContainer = document.querySelector('.stream-container') as HTMLElement;
-      
+
       if (streamContainer) {
         // Reset grid
         streamContainer.style.gridTemplateColumns = '1fr 400px';
         streamContainer.style.justifyItems = 'start'; // or default
       }
-      
+
       if (visualizerContainer) {
         visualizerContainer.style.height = 'auto'; // Let it grow
         visualizerContainer.style.overflow = 'visible';
         visualizerContainer.style.margin = ''; // Reset
         visualizerContainer.style.opacity = '1';
       }
-      
+
       if (tracklistSection) {
         tracklistSection.style.opacity = '1';
         tracklistSection.style.pointerEvents = 'auto';
@@ -478,7 +616,7 @@ class StreamPlayer {
     this.isPlaying = false;
     // Stop disk animation
     this.diskAnimator?.setPlaying(false);
-    
+
     if (this.playIcon) this.playIcon.style.display = 'block';
     if (this.pauseIcon) this.pauseIcon.style.display = 'none';
 
@@ -652,7 +790,7 @@ class StreamPlayer {
       const bufferLength = this.analyser.frequencyBinCount;
       this.dataArray = new Uint8Array(bufferLength);
     } catch (e) {
-      console.log('Web Audio API not supported or already initialized');
+      console.error('Web Audio API not supported or already initialized');
     }
   }
 

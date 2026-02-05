@@ -1,4 +1,5 @@
 import './style.css';
+import { UnicornSceneManager } from './unicorn-scene';
 import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
 import { initLitHover } from './lit-hover';
@@ -47,7 +48,7 @@ function initStickers() {
   // LIT Album Art Hover Effect is now handled by lit-hover.ts
   initLitHover();
 
-  console.log('Stickers initialized (LIT handled separately)');
+
 }
 
 function initPurchaseFlow() {
@@ -74,11 +75,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clean URL
     window.history.replaceState({}, '', window.location.pathname);
 
-    // Start Animation
-    const anim = new PurchaseAnimationController(() => {
-      renderTracklist(true); // Render unlocked
-    });
-    anim.start();
+    // Start Animation Mode
+    document.body.classList.add('animation-active'); // Hide dashboard elements
+    document.body.classList.add('dashboard-mode'); // Hide purchase UI immediately
+
+    // Pre-load Dashboard Elements but Keep Transparent/Hidden
+    const tracklist = document.querySelector('.tracklist-side') as HTMLElement;
+    const controls = document.querySelector('.player-controls') as HTMLElement;
+
+    // Ensure they are present in DOM (via dashboard-mode css) but opacity 0 for animation entrance
+    if (tracklist) tracklist.style.opacity = '0';
+    if (controls) {
+      controls.style.display = 'block';
+      controls.style.opacity = '0';
+      controls.classList.remove('dashboard-hidden');
+    }
+
+    // Ensure tracklist is rendered
+    renderTracklist(true);
+
+    const anim = new PurchaseAnimationController();
+
+    // Slight delay to ensure DOM is ready and styles applied
+    setTimeout(() => {
+      anim.start();
+    }, 100);
+
   } else {
     renderTracklist(false);
   }
@@ -86,5 +108,45 @@ document.addEventListener('DOMContentLoaded', () => {
   initStickers();
   initPurchaseFlow();
   initNavAuth();
-  console.log('Myind Sound Release Site Initialized');
+  UnicornSceneManager.init('unicorn-background');
+
 });
+
+function revealDashboard() {
+  const tracklistSide = document.querySelector('.tracklist-side') as HTMLElement;
+  const playerControls = document.querySelector('.player-controls') as HTMLElement;
+
+  // Hide the peel overlay on the dashboard
+  const stickerContainer = document.getElementById('lit-sticker-container');
+  if (stickerContainer) stickerContainer.style.display = 'none';
+
+  if (tracklistSide) {
+    tracklistSide.classList.add('slide-in-right');
+    // Remove inline opacity so animation takes over (though animation priority usually handles it)
+    // But safely we can leave it if animation overrides, but we MUST ensure it's 1 at the end.
+    // Let's clear it now to be safe, relying on the class to set start opacity 0.
+    tracklistSide.style.opacity = '';
+  }
+
+  // Controls slide in from bottom
+  setTimeout(() => {
+    if (playerControls) {
+      playerControls.classList.add('slide-in-bottom');
+      playerControls.style.opacity = '';
+    }
+  }, 200);
+
+  document.body.classList.remove('animation-active');
+
+  // Clean up classes after animation
+  setTimeout(() => {
+    if (tracklistSide) {
+      tracklistSide.classList.remove('slide-in-right');
+      tracklistSide.style.opacity = '1';
+    }
+    if (playerControls) {
+      playerControls.classList.remove('slide-in-bottom');
+      playerControls.style.opacity = '1';
+    }
+  }, 1500);
+}
