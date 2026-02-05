@@ -125,7 +125,7 @@ body {
 
 /* Digital Section (thefalloff style) */
 .digital-section {
-  padding: 4rem 0;
+  padding: 2rem 0;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -276,7 +276,7 @@ body {
 
 /* Coming Soon Section */
 .coming-soon-section {
-  padding: 6rem 0;
+  padding: 2rem 0;
 }
 
 .coming-soon-grid {
