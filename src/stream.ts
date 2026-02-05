@@ -7,7 +7,7 @@ import './style.css';
 import { logTrackPlay } from './supabase';
 import { getUserId } from './clerk';
 import { DiskPlayerAnimator, EnhancedDiskPlayerAnimator } from './disk-player';
-import { UnicornSceneManager } from './unicorn-scene';
+// import { UnicornSceneManager } from './unicorn-scene';
 
 interface Track {
   id: number;
@@ -174,7 +174,7 @@ class StreamPlayer {
     }
 
     // Initialize Unicorn Background
-    UnicornSceneManager.init('unicorn-background');
+    // UnicornSceneManager.init('unicorn-background');
 
     // Start idle visualizer animation
     this.drawIdleVisualizer();
