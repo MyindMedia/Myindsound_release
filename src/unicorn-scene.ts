@@ -48,7 +48,7 @@ export class UnicornSceneManager {
             console.log(`UnicornSceneManager: Loading local scene data for #${containerId}`);
 
             // Fetch local JSON with cache busting
-            const response = await fetch(`/assets/SITEBG.json?t=${Date.now()}`);
+            const response = await fetch(`/assets/huly_laser_remix.json?t=${Date.now()}`);
             if (!response.ok) throw new Error('Failed to load scene JSON');
             const sceneData = await response.json();
 
