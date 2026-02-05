@@ -4,6 +4,10 @@ import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
 import { initLitHover } from './lit-hover';
 
+// Ensure scroll is never locked on page load
+document.body.style.overflow = '';
+document.documentElement.style.overflow = '';
+
 const tracks = [
   { id: 1, title: 'L.I.T. (Living In Truth)' },
   { id: 2, title: 'G. O. D.' },

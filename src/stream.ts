@@ -9,17 +9,21 @@ import { getUserId } from './clerk';
 import { DiskPlayerAnimator, EnhancedDiskPlayerAnimator } from './disk-player';
 // import { UnicornSceneManager } from './unicorn-scene';
 
+// Ensure scroll is never locked on page load
+document.body.style.overflow = '';
+document.documentElement.style.overflow = '';
+
 interface Track {
   id: number;
   title: string;
-  artist: string;
+  artist: 'Myind Sound';
   duration: string;
   durationSeconds: number;
   src: string;
   cover: string;
 }
 
-// LIT Album Tracks - Update these URLs with actual audio files from Supabase
+// LIT Album Tracks - Supabase signed URLs
 const TRACKS: Track[] = [
   {
     id: 1,
@@ -27,7 +31,7 @@ const TRACKS: Track[] = [
     artist: 'Myind Sound',
     duration: '4:12',
     durationSeconds: 252,
-    src: '', // Add Supabase audio URL
+    src: 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/sign/LIT/1.%20L.I.T.%20(%20Living%20In%20Truth).mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNzkyMzE4YS00YWI2LTQwMTgtYjFkOS1iZWFiODAxZThhOGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJMSVQvMS4gTC5JLlQuICggTGl2aW5nIEluIFRydXRoKS5tcDMiLCJpYXQiOjE3NzAzMjc2NjEsImV4cCI6NDg5MjM5MTY2MX0.6q79m3rAVEwzb9xkrm_H_ubZ9n82octjru2WHDOkcto',
     cover: '/assets/images/lit-poster.png'
   },
   {
@@ -36,7 +40,7 @@ const TRACKS: Track[] = [
     artist: 'Myind Sound',
     duration: '3:45',
     durationSeconds: 225,
-    src: '',
+    src: 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/sign/LIT/2.%20G.%20O.%20D.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNzkyMzE4YS00YWI2LTQwMTgtYjFkOS1iZWFiODAxZThhOGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJMSVQvMi4gRy4gTy4gRC5tcDMiLCJpYXQiOjE3NzAzMjc2OTEsImV4cCI6NDg5MjM5MTY5MX0.GPhO_OWCjXzGofAHdhbLzasBIKFGMjnVRVa3Q_7z4gk',
     cover: '/assets/images/lit-poster.png'
   },
   {
@@ -45,7 +49,7 @@ const TRACKS: Track[] = [
     artist: 'Myind Sound',
     duration: '4:28',
     durationSeconds: 268,
-    src: '',
+    src: 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/sign/LIT/3.%20Victory%20In%20the%20Valley.wav?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNzkyMzE4YS00YWI2LTQwMTgtYjFkOS1iZWFiODAxZThhOGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJMSVQvMy4gVmljdG9yeSBJbiB0aGUgVmFsbGV5LndhdiIsImlhdCI6MTc3MDMyNzcwNywiZXhwIjo0ODkyMzkxNzA3fQ.hXI7OkXMYOZYHovd2ZIKxZBZXjqkHNmR7HlJcrNxJIY',
     cover: '/assets/images/lit-poster.png'
   },
   {
@@ -54,7 +58,7 @@ const TRACKS: Track[] = [
     artist: 'Myind Sound',
     duration: '3:52',
     durationSeconds: 232,
-    src: '',
+    src: 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/sign/LIT/4.%20Tired.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNzkyMzE4YS00YWI2LTQwMTgtYjFkOS1iZWFiODAxZThhOGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJMSVQvNC4gVGlyZWQubXAzIiwiaWF0IjoxNzcwMzI3NzU3LCJleHAiOjQ4OTIzOTE3NTd9.EzYIppm6cRw2FQECDhOZBJ1j6OSlaaJWMqT5ljLqIqk',
     cover: '/assets/images/lit-poster.png'
   },
   {
@@ -63,7 +67,7 @@ const TRACKS: Track[] = [
     artist: 'Myind Sound',
     duration: '4:05',
     durationSeconds: 245,
-    src: '',
+    src: 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/sign/LIT/5.%20Let%20Him%20Cook.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNzkyMzE4YS00YWI2LTQwMTgtYjFkOS1iZWFiODAxZThhOGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJMSVQvNS4gTGV0IEhpbSBDb29rLm1wMyIsImlhdCI6MTc3MDMyNzc3OCwiZXhwIjo0ODkyMzkxNzc4fQ.xFO2txas0PVIrouPi7VOWg7x-Pw1lCZoLuKu6soJNOA',
     cover: '/assets/images/lit-poster.png'
   },
   {
@@ -72,7 +76,7 @@ const TRACKS: Track[] = [
     artist: 'Myind Sound',
     duration: '4:10',
     durationSeconds: 250,
-    src: '',
+    src: 'https://luowwakouydxyzfnsyki.supabase.co/storage/v1/object/sign/LIT/6.%20Faith.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNzkyMzE4YS00YWI2LTQwMTgtYjFkOS1iZWFiODAxZThhOGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJMSVQvNi4gRmFpdGgubXAzIiwiaWF0IjoxNzcwMzI3ODAzLCJleHAiOjQ4OTIzOTE4MDN9.J5My_NPQ7dNGjegxRe5r_liqbA09RHsjxmv__p_55tI',
     cover: '/assets/images/lit-poster.png'
   }
 ];
@@ -82,22 +86,13 @@ class StreamPlayer {
   private tracks: Track[] = TRACKS;
   private currentTrackIndex: number = 0;
   private isPlaying: boolean = false;
-  private isShuffle: boolean = false;
-  private repeatMode: 'none' | 'all' | 'one' = 'none';
-  private audioContext: AudioContext | null = null;
-  private analyser: AnalyserNode | null = null;
-  private dataArray: Uint8Array | null = null;
-  private animationId: number | null = null;
   private diskAnimator: DiskPlayerAnimator | null = null;
   private introOverlay: HTMLElement | null = null;
-  // private isIntroMode: boolean = false;
   private hasStartedPlaying: boolean = false;
   private loadingAudio: HTMLAudioElement | null = null;
+  private repeatMode: 'none' | 'all' | 'one' = 'none';
 
   // DOM Elements
-  private playBtn: HTMLElement | null;
-  private playIcon: HTMLElement | null;
-  private pauseIcon: HTMLElement | null;
   private progressFill: HTMLElement | null;
   private progressBar: HTMLElement | null;
   private timeCurrent: HTMLElement | null;
@@ -105,14 +100,9 @@ class StreamPlayer {
   private nowPlayingTitle: HTMLElement | null;
   private nowPlayingArtist: HTMLElement | null;
   private tracklistEl: HTMLElement | null;
-  private visualizerCanvas: HTMLCanvasElement | null;
-  private canvasCtx: CanvasRenderingContext2D | null = null;
 
   constructor() {
     this.audio = document.getElementById('audio-player') as HTMLAudioElement;
-    this.playBtn = document.getElementById('play-btn');
-    this.playIcon = this.playBtn?.querySelector('.play-icon') as HTMLElement;
-    this.pauseIcon = this.playBtn?.querySelector('.pause-icon') as HTMLElement;
     this.progressFill = document.getElementById('progress-fill');
     this.progressBar = document.getElementById('progress-bar');
     this.timeCurrent = document.getElementById('time-current');
@@ -120,12 +110,7 @@ class StreamPlayer {
     this.nowPlayingTitle = document.getElementById('now-playing-title');
     this.nowPlayingArtist = document.getElementById('now-playing-artist');
     this.tracklistEl = document.getElementById('tracklist');
-    this.visualizerCanvas = document.getElementById('visualizer') as HTMLCanvasElement;
     this.introOverlay = document.getElementById('intro-overlay');
-
-    if (this.visualizerCanvas) {
-      this.canvasCtx = this.visualizerCanvas.getContext('2d');
-    }
 
     this.init();
   }
@@ -142,7 +127,6 @@ class StreamPlayer {
       const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
       const controlBar = document.querySelector('.player-controls') as HTMLElement;
       const nav = document.querySelector('nav');
-      const visualizer = document.querySelector('.visualizer-container') as HTMLElement;
 
       if (tracklistSection) {
         tracklistSection.style.opacity = '0';
@@ -150,7 +134,6 @@ class StreamPlayer {
       }
       if (controlBar) controlBar.style.opacity = '0';
       if (nav) nav.style.opacity = '0';
-      if (visualizer) visualizer.style.opacity = '0';
     }
 
     // Initialize Disk Animator
@@ -179,9 +162,6 @@ class StreamPlayer {
 
     // Initialize Unicorn Background
     // UnicornSceneManager.init('unicorn-background');
-
-    // Start idle visualizer animation
-    this.drawIdleVisualizer();
   }
 
   private setupInitialState() {
@@ -195,8 +175,110 @@ class StreamPlayer {
       tracklistSection.style.transition = 'none';
     }
 
-    // Add pulsating effect to play button
-    this.playBtn?.classList.add('pulsating-play');
+    // Play load sound on page load
+    if (!this.loadingAudio) {
+      this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
+      this.loadingAudio.volume = 0.8;
+      this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
+    }
+
+    // Run calibration spin on page load - wait for everything to be ready
+    const waitForGsapAndRun = () => {
+      const gsap = (window as any).gsap;
+      const layer3 = document.querySelector('.animated-disk-player .layer-3');
+
+      if (gsap && layer3) {
+        console.log('GSAP and layer3 ready, starting calibration...');
+        this.runCalibrationSpin();
+      } else {
+        console.log('Waiting for GSAP and layer3...', { gsap: !!gsap, layer3: !!layer3 });
+        setTimeout(waitForGsapAndRun, 200);
+      }
+    };
+
+    // Start checking after a short delay
+    setTimeout(waitForGsapAndRun, 300);
+  }
+
+  private runCalibrationSpin() {
+    const gsap = (window as any).gsap;
+    const layer3 = document.querySelector('.animated-disk-player .layer-3') as HTMLElement;
+
+    console.log('runCalibrationSpin called', { layer3: !!layer3, gsap: !!gsap });
+
+    if (!layer3 || !gsap) {
+      console.log('Calibration spin aborted - missing layer3 or gsap');
+      return;
+    }
+
+    // Force clear any CSS animation
+    layer3.style.animation = 'none';
+    layer3.style.animationPlayState = 'paused';
+
+    // Ensure GPU acceleration and proper transform origin
+    layer3.style.willChange = 'transform';
+    layer3.style.transformOrigin = 'center center';
+
+    // Kill any existing GSAP animations
+    gsap.killTweensOf(layer3);
+
+    // Reset rotation to 0 first
+    gsap.set(layer3, { rotation: 0, transformOrigin: 'center center' });
+
+    console.log('Starting calibration timeline...');
+
+    // Calibration spin timeline - stuttered varying speeds (only on page reveal)
+    const calibrationTl = gsap.timeline({
+      onStart: () => console.log('Calibration spin started'),
+      onComplete: () => {
+        console.log('Calibration spin complete');
+        // Reset rotation to 0 for clean playback start
+        gsap.set(layer3, { rotation: 0 });
+        layer3.style.willChange = 'auto';
+      }
+    });
+
+    // Fast spin (2 rotations in 1s)
+    calibrationTl.to(layer3, {
+      rotation: 720,
+      duration: 1,
+      ease: 'power1.inOut'
+    });
+
+    // Slow down (1 rotation in 1.5s)
+    calibrationTl.to(layer3, {
+      rotation: '+=360',
+      duration: 1.5,
+      ease: 'power2.out'
+    });
+
+    // Speed up again (3 rotations in 2s)
+    calibrationTl.to(layer3, {
+      rotation: '+=1080',
+      duration: 2,
+      ease: 'power1.inOut'
+    });
+
+    // Slow seeking motion (half rotation, slow)
+    calibrationTl.to(layer3, {
+      rotation: '+=180',
+      duration: 1.5,
+      ease: 'power3.out'
+    });
+
+    // Final calibration spin (2 rotations)
+    calibrationTl.to(layer3, {
+      rotation: '+=720',
+      duration: 2,
+      ease: 'power2.inOut'
+    });
+
+    // Decelerate to stop
+    calibrationTl.to(layer3, {
+      rotation: '+=90',
+      duration: 1.5,
+      ease: 'power3.out'
+    });
   }
 
   private startDockingSequence() {
@@ -210,7 +292,7 @@ class StreamPlayer {
     if (controlBar) controlBar.style.opacity = '0';
     if (nav) nav.style.opacity = '0';
 
-    // 2. Create Floating CD Player Overlay
+    // 2. Create Floating Disc Overlay (just the cdinsert.png disc)
     const overlay = document.createElement('div');
     overlay.id = 'dock-overlay';
     overlay.style.position = 'fixed';
@@ -225,37 +307,32 @@ class StreamPlayer {
     const backdrop = document.createElement('div');
     backdrop.style.position = 'absolute';
     backdrop.style.inset = '0';
-    backdrop.style.background = '#000'; // Match index page fade-out
+    backdrop.style.background = '#000';
     backdrop.style.opacity = '1';
     backdrop.style.zIndex = '-1';
     overlay.appendChild(backdrop);
 
-    // Container for the CD Player
-    const cdPlayer = document.createElement('div');
-    cdPlayer.className = 'animated-disk-player';
-    cdPlayer.style.width = '300px';
-    cdPlayer.style.height = '300px';
-    cdPlayer.style.position = 'absolute';
+    // Container for the disc (just cdinsert.png, not the full player) - matches player size
+    const discContainer = document.createElement('div');
+    discContainer.id = 'dock-disc-container';
+    discContainer.style.width = '550px';
+    discContainer.style.height = '550px';
+    discContainer.style.position = 'absolute';
+    discContainer.style.display = 'flex';
+    discContainer.style.alignItems = 'center';
+    discContainer.style.justifyContent = 'center';
 
-    // Layers
-    const layers = document.createElement('div');
-    layers.className = 'disk-layers';
-    layers.style.width = '100%';
-    layers.style.height = '100%';
+    // Disc image (cdinsert.png)
+    const discImg = document.createElement('img');
+    discImg.id = 'dock-disc-img';
+    discImg.src = '/assets/images/CD Casset/cdinsert.png';
+    discImg.style.width = '100%';
+    discImg.style.height = '100%';
+    discImg.style.objectFit = 'contain';
+    discImg.style.filter = 'drop-shadow(0 20px 40px rgba(0,0,0,0.8))';
 
-    ['layer5', 'layer4', 'layer3', 'layer2', 'layer1'].forEach((name) => {
-      const layerImg = document.createElement('img');
-      layerImg.src = `/assets/images/CD Casset/${name}.png`;
-      layerImg.className = `disk-layer layer-${name.replace('layer', '')}`;
-      layerImg.style.position = 'absolute';
-      layerImg.style.inset = '0';
-      layerImg.style.width = '100%';
-      layerImg.style.height = '100%';
-      layers.appendChild(layerImg);
-    });
-
-    cdPlayer.appendChild(layers);
-    overlay.appendChild(cdPlayer);
+    discContainer.appendChild(discImg);
+    overlay.appendChild(discContainer);
     document.body.appendChild(overlay);
 
     // 3. Animate Docking
@@ -265,62 +342,51 @@ class StreamPlayer {
     const gsap = (window as any).gsap;
     const tl = gsap.timeline();
 
-    // A. Spin the CD (L3)
-    const l3 = cdPlayer.querySelector('.layer-3');
-    if (l3) gsap.to(l3, { rotation: 360, duration: 4, repeat: -1, ease: 'none' });
+    // cdinsert.png is STATIC - no spinning during dock animation
 
-    // B. Dock Animation
-    // Fade out backdrop immediately to reveal "space" but UI is still hidden
+    // Dock Animation
+    // Fade out backdrop to reveal the stream page background
     tl.to(backdrop, { opacity: 0, duration: 1.0, ease: 'power2.in' });
 
-    // Move to Target
+    // Move disc to target (the CD player position)
     tl.call(() => {
       if (targetArt) {
         const rect = targetArt.getBoundingClientRect();
-        const startX = (window.innerWidth - 300) / 2;
-        const startY = (window.innerHeight - 300) / 2;
-        const endX = rect.left + (rect.width - 300) / 2;
-        const endY = rect.top + (rect.height - 300) / 2;
-        const scale = rect.width / 300;
+        const discSize = 550;
+        const startX = (window.innerWidth - discSize) / 2;
+        const startY = (window.innerHeight - discSize) / 2;
+        const endX = rect.left + (rect.width - discSize) / 2;
+        const endY = rect.top + (rect.height - discSize) / 2;
+        const scale = rect.width / discSize;
 
-        gsap.to(cdPlayer, {
+        gsap.to(discContainer, {
           x: endX - startX,
           y: endY - startY,
           scale: scale,
           duration: 1.2,
           ease: 'power3.inOut',
           onComplete: () => {
-            // 4. DOCK COMPLETE -> Play Audio -> Wait 10s
-            // Play Loading Audio if not already playing
+            // 4. DOCK COMPLETE -> Play Audio and Reveal UI immediately
             if (!this.loadingAudio) {
               this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
               this.loadingAudio.volume = 0.8;
               this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
             }
 
-            // Wait 10 seconds before revealing UI
-            setTimeout(() => {
-              // 5. Reveal UI
-              if (targetArt) targetArt.style.opacity = '1';
-              overlay.remove(); // Swap with real DOM
+            // Reveal UI immediately - no delay
+            if (targetArt) targetArt.style.opacity = '1';
+            overlay.remove();
 
-              const fadeIn = (el: HTMLElement | null, delay = 0) => {
-                if (el) {
-                  el.style.visibility = 'visible';
-                  gsap.to(el, { opacity: 1, duration: 0.8, delay });
-                }
-              };
-
-              fadeIn(nav);
-              fadeIn(tracklistSection, 0.2);
-              fadeIn(controlBar, 0.4);
-
-              // Pulse play button to invite interaction
-              if (this.playBtn) {
-                this.playBtn.classList.add('pulsating-play');
+            const fadeIn = (el: HTMLElement | null, delay = 0) => {
+              if (el) {
+                el.style.visibility = 'visible';
+                gsap.to(el, { opacity: 1, duration: 0.8, delay });
               }
+            };
 
-            }, 10000); // 10 Second Delay
+            fadeIn(nav);
+            fadeIn(tracklistSection, 0.2);
+            fadeIn(controlBar, 0.4);
           }
         });
       }
@@ -328,8 +394,8 @@ class StreamPlayer {
   }
 
   private revealUIAfterDock() {
-    // This is called when coming from success.html after the full animation
-    // The CD player is already "docked" conceptually, just reveal UI smoothly
+    // This is called when coming from success.html after the dock animation
+    // The disc has been "placed" into the player - reveal UI immediately with no delay
     const gsap = (window as any).gsap;
     if (!gsap) {
       // Fallback: just show everything
@@ -340,62 +406,42 @@ class StreamPlayer {
     const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
     const controlBar = document.querySelector('.player-controls') as HTMLElement;
     const nav = document.querySelector('nav');
-    const visualizer = document.querySelector('.visualizer-container') as HTMLElement;
 
-    // Start the disk spinning immediately (creates continuity from success.html animation)
-    this.diskAnimator?.setPlaying(true);
+    // Run calibration spin with audio
+    this.runCalibrationSpin();
 
-    // Staggered reveal animation
-    const tl = gsap.timeline({ delay: 0.3 });
+    // Immediate reveal - no delay, seamless transition from dock animation
+    const tl = gsap.timeline();
 
-    // Reveal nav first
+    // Reveal everything quickly to show the player is ready
     if (nav) {
       tl.to(nav, {
         opacity: 1,
-        duration: 0.5,
+        duration: 0.3,
         ease: 'power2.out'
       });
     }
 
-    // Reveal visualizer
-    if (visualizer) {
-      tl.to(visualizer, {
-        opacity: 1,
-        duration: 0.6,
-        ease: 'power2.out'
-      }, '-=0.3');
-    }
-
-    // Reveal tracklist section with slide
+    // Reveal tracklist section
     if (tracklistSection) {
-      tracklistSection.style.transform = 'translateX(50px)';
       tracklistSection.style.visibility = 'visible';
       tl.to(tracklistSection, {
         opacity: 1,
-        x: 0,
-        duration: 0.8,
+        duration: 0.4,
         ease: 'power2.out'
-      }, '-=0.4');
+      }, '-=0.2');
     }
 
     // Reveal controls
     if (controlBar) {
       tl.to(controlBar, {
         opacity: 1,
-        duration: 0.5,
+        duration: 0.3,
         ease: 'power2.out'
-      }, '-=0.5');
+      }, '-=0.3');
     }
 
-    // Stop the disk after reveal (user can start playing)
-    tl.call(() => {
-      this.diskAnimator?.setPlaying(false);
-
-      // Add pulsating effect to play button to invite interaction
-      if (this.playBtn) {
-        this.playBtn.classList.add('pulsating-play');
-      }
-    });
+    // Disc waits for song play after calibration
   }
 
   private startIntroSequence() {
@@ -490,25 +536,20 @@ class StreamPlayer {
   }
 
   private setupEventListeners() {
-    // Play/Pause
-    this.playBtn?.addEventListener('click', () => this.togglePlay());
+    // CD Player Button Overlays
+    document.getElementById('cd-pause-btn')?.addEventListener('click', () => this.pause());
+    document.getElementById('cd-stop-btn')?.addEventListener('click', () => this.stop());
+    document.getElementById('cd-rewind-btn')?.addEventListener('click', () => this.rewind10());
+    document.getElementById('cd-forward-btn')?.addEventListener('click', () => this.forward10());
+    document.getElementById('cd-play-btn')?.addEventListener('click', () => this.play());
+    document.getElementById('cd-repeat-btn')?.addEventListener('click', () => this.toggleRepeat());
 
-    // Previous/Next
-    document.getElementById('prev-btn')?.addEventListener('click', () => this.prevTrack());
-    document.getElementById('next-btn')?.addEventListener('click', () => this.nextTrack());
-
-    // Shuffle/Repeat
-    document.getElementById('shuffle-btn')?.addEventListener('click', () => this.toggleShuffle());
-    document.getElementById('repeat-btn')?.addEventListener('click', () => this.toggleRepeat());
-
-    // Volume
+    // Volume slider (integrated into CD player)
     const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
     volumeSlider?.addEventListener('input', (e) => {
       const value = parseInt((e.target as HTMLInputElement).value);
       this.setVolume(value / 100);
     });
-
-    document.getElementById('volume-btn')?.addEventListener('click', () => this.toggleMute());
 
     // Progress bar click
     this.progressBar?.addEventListener('click', (e) => this.seekTo(e));
@@ -607,6 +648,39 @@ class StreamPlayer {
     }
   }
 
+  private stop() {
+    this.pause();
+    // Reset to beginning
+    this.audio.currentTime = 0;
+    this.simulatedTime = 0;
+    if (this.progressFill) this.progressFill.style.width = '0%';
+    if (this.timeCurrent) this.timeCurrent.textContent = '0:00';
+  }
+
+  private rewind10() {
+    const track = this.tracks[this.currentTrackIndex];
+    if (track.src) {
+      this.audio.currentTime = Math.max(0, this.audio.currentTime - 10);
+    } else {
+      this.simulatedTime = Math.max(0, this.simulatedTime - 10);
+      const progress = (this.simulatedTime / track.durationSeconds) * 100;
+      if (this.progressFill) this.progressFill.style.width = `${progress}%`;
+      if (this.timeCurrent) this.timeCurrent.textContent = this.formatTime(this.simulatedTime);
+    }
+  }
+
+  private forward10() {
+    const track = this.tracks[this.currentTrackIndex];
+    if (track.src) {
+      this.audio.currentTime = Math.min(this.audio.duration, this.audio.currentTime + 10);
+    } else {
+      this.simulatedTime = Math.min(track.durationSeconds, this.simulatedTime + 10);
+      const progress = (this.simulatedTime / track.durationSeconds) * 100;
+      if (this.progressFill) this.progressFill.style.width = `${progress}%`;
+      if (this.timeCurrent) this.timeCurrent.textContent = this.formatTime(this.simulatedTime);
+    }
+  }
+
   private simulationInterval: ReturnType<typeof setInterval> | null = null;
   private simulatedTime: number = 0;
 
@@ -628,29 +702,18 @@ class StreamPlayer {
 
   private async onPlay() {
     this.isPlaying = true;
-    if (this.playIcon) this.playIcon.style.display = 'none';
-    if (this.pauseIcon) this.pauseIcon.style.display = 'block';
 
     // Reveal UI if first play
     if (!this.hasStartedPlaying) {
       this.hasStartedPlaying = true;
-      this.playBtn?.classList.remove('pulsating-play');
 
       const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
-      const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
       const streamContainer = document.querySelector('.stream-container') as HTMLElement;
 
       if (streamContainer) {
         // Reset grid
         streamContainer.style.gridTemplateColumns = '1fr 400px';
-        streamContainer.style.justifyItems = 'start'; // or default
-      }
-
-      if (visualizerContainer) {
-        visualizerContainer.style.height = 'auto'; // Let it grow
-        visualizerContainer.style.overflow = 'visible';
-        visualizerContainer.style.margin = ''; // Reset
-        visualizerContainer.style.opacity = '1';
+        streamContainer.style.justifyItems = 'start';
       }
 
       if (tracklistSection) {
@@ -675,28 +738,14 @@ class StreamPlayer {
       await logTrackPlay(currentTrack.title, 'f67a66b8-59a0-413f-b943-8fbb9cdee876', userId);
     }
 
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
-    }
-
     // Start disk animation
     this.diskAnimator?.setPlaying(true);
-
-    // Start visualizer
-    this.initAudioContext();
-    this.startVisualizer();
   }
 
   private onPause() {
     this.isPlaying = false;
     // Stop disk animation
     this.diskAnimator?.setPlaying(false);
-
-    if (this.playIcon) this.playIcon.style.display = 'block';
-    if (this.pauseIcon) this.pauseIcon.style.display = 'none';
-
-    // Keep visualizer in idle state
-    this.drawIdleVisualizer();
   }
 
   private prevTrack() {
@@ -709,14 +758,8 @@ class StreamPlayer {
   }
 
   private nextTrack() {
-    let newIndex: number;
-
-    if (this.isShuffle) {
-      newIndex = Math.floor(Math.random() * this.tracks.length);
-    } else {
-      newIndex = this.currentTrackIndex + 1;
-      if (newIndex >= this.tracks.length) newIndex = 0;
-    }
+    let newIndex = this.currentTrackIndex + 1;
+    if (newIndex >= this.tracks.length) newIndex = 0;
 
     this.simulatedTime = 0;
     this.loadTrack(newIndex);
@@ -725,59 +768,44 @@ class StreamPlayer {
 
   private onTrackEnd() {
     if (this.repeatMode === 'one') {
+      // Repeat current track
+      this.audio.currentTime = 0;
       this.simulatedTime = 0;
-      this.loadTrack(this.currentTrackIndex);
       this.play();
-    } else if (this.repeatMode === 'all' || this.currentTrackIndex < this.tracks.length - 1) {
+    } else if (this.repeatMode === 'all') {
+      // Auto-advance, loop at end of playlist
       this.nextTrack();
     } else {
-      this.pause();
-      this.loadTrack(0);
+      // No repeat - stop at end of playlist
+      if (this.currentTrackIndex < this.tracks.length - 1) {
+        this.nextTrack();
+      } else {
+        this.stop();
+      }
     }
   }
 
-  private toggleShuffle() {
-    this.isShuffle = !this.isShuffle;
-    document.getElementById('shuffle-btn')?.classList.toggle('active', this.isShuffle);
-  }
-
   private toggleRepeat() {
-    const modes: Array<'none' | 'all' | 'one'> = ['none', 'all', 'one'];
-    const currentIndex = modes.indexOf(this.repeatMode);
-    this.repeatMode = modes[(currentIndex + 1) % modes.length];
+    const btn = document.getElementById('cd-repeat-btn');
 
-    const btn = document.getElementById('repeat-btn');
-    btn?.classList.remove('active', 'repeat-one');
-
-    if (this.repeatMode === 'all') {
+    // Cycle through: none -> all -> one -> none
+    if (this.repeatMode === 'none') {
+      this.repeatMode = 'all';
       btn?.classList.add('active');
-    } else if (this.repeatMode === 'one') {
+      btn?.setAttribute('title', 'Repeat All');
+    } else if (this.repeatMode === 'all') {
+      this.repeatMode = 'one';
       btn?.classList.add('active', 'repeat-one');
+      btn?.setAttribute('title', 'Repeat One');
+    } else {
+      this.repeatMode = 'none';
+      btn?.classList.remove('active', 'repeat-one');
+      btn?.setAttribute('title', 'Repeat Off');
     }
   }
 
   private setVolume(value: number) {
     this.audio.volume = value;
-    this.updateVolumeIcon(value);
-  }
-
-  private toggleMute() {
-    this.audio.muted = !this.audio.muted;
-    const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
-    this.updateVolumeIcon(this.audio.muted ? 0 : parseFloat(volumeSlider?.value || '80') / 100);
-  }
-
-  private updateVolumeIcon(value: number) {
-    const volumeIcon = document.querySelector('.volume-icon') as HTMLElement;
-    const muteIcon = document.querySelector('.mute-icon') as HTMLElement;
-
-    if (value === 0 || this.audio.muted) {
-      if (volumeIcon) volumeIcon.style.display = 'none';
-      if (muteIcon) muteIcon.style.display = 'block';
-    } else {
-      if (volumeIcon) volumeIcon.style.display = 'block';
-      if (muteIcon) muteIcon.style.display = 'none';
-    }
   }
 
   private seekTo(e: MouseEvent) {
@@ -846,148 +874,6 @@ class StreamPlayer {
         e.preventDefault();
         this.setVolume(Math.max(0, this.audio.volume - 0.1));
         break;
-    }
-  }
-
-  // Audio Visualizer
-  private initAudioContext() {
-    if (this.audioContext) return;
-
-    try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 2048; // Increased for better waveform resolution
-
-      const source = this.audioContext.createMediaElementSource(this.audio);
-      source.connect(this.analyser);
-      this.analyser.connect(this.audioContext.destination);
-
-      const bufferLength = this.analyser.frequencyBinCount;
-      this.dataArray = new Uint8Array(bufferLength);
-    } catch (e) {
-      console.error('Web Audio API not supported or already initialized');
-    }
-  }
-
-  private startVisualizer() {
-    if (this.animationId) cancelAnimationFrame(this.animationId);
-    this.drawVisualizer();
-  }
-
-  private drawVisualizer() {
-    if (!this.canvasCtx || !this.visualizerCanvas) return;
-
-    this.animationId = requestAnimationFrame(() => this.drawVisualizer());
-
-    const width = this.visualizerCanvas.width;
-    const height = this.visualizerCanvas.height;
-
-    // Clear canvas
-    // Clear canvas with subtle transparency for trail effect
-    this.canvasCtx.fillStyle = '#0a0a0a';
-    this.canvasCtx.fillRect(0, 0, width, height);
-
-    if (this.isPlaying) {
-      if (this.analyser && this.dataArray && this.tracks[this.currentTrackIndex].src) {
-        // Real Audio Waveform
-        this.analyser.getByteTimeDomainData(this.dataArray as any);
-      } else {
-        // Simulated Waveform for tracks without files
-        this.generateSimulatedWaveform();
-      }
-
-      // Draw Premium Waveform (Symmetrical Bars)
-      const bufferLength = this.dataArray?.length || 0;
-      const barWidth = (width / bufferLength) * 2;
-      let x = 0;
-
-      this.canvasCtx.shadowBlur = 15;
-      this.canvasCtx.shadowColor = 'rgba(255, 215, 0, 0.5)';
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = (this.dataArray![i] / 128.0) - 1.0; // -1 to 1
-        const amplitude = Math.abs(v) * (height / 2) * 0.8;
-
-        // Create gold gradient for each bar
-        const gradient = this.canvasCtx.createLinearGradient(0, (height / 2) - amplitude, 0, (height / 2) + amplitude);
-        gradient.addColorStop(0, 'rgba(184, 134, 11, 0.2)'); // Darker Gold (Top)
-        gradient.addColorStop(0.5, '#FFD700');                // Bright Gold (Middle)
-        gradient.addColorStop(1, 'rgba(184, 134, 11, 0.2)');  // Darker Gold (Bottom)
-
-        this.canvasCtx.fillStyle = gradient;
-
-        // Draw the bar symmetrically from the middle
-        this.canvasCtx.fillRect(x, (height / 2) - amplitude, barWidth - 1, amplitude * 2);
-
-        x += barWidth;
-      }
-
-      // Add a persistent center line
-      this.canvasCtx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-      this.canvasCtx.fillRect(0, (height / 2) - 1, width, 2);
-    } else {
-      // Draw idle animation
-      this.drawIdleBars();
-    }
-  }
-
-  private generateSimulatedWaveform() {
-    if (!this.dataArray) return;
-    const time = performance.now() * 0.005;
-    for (let i = 0; i < this.dataArray.length; i++) {
-      // Create a complex wave using multiple sine waves for "active" look
-      const wave1 = Math.sin(i * 0.05 + time);
-      const wave2 = Math.sin(i * 0.1 + time * 1.5) * 0.5;
-      const wave3 = Math.sin(i * 0.02 + time * 0.5) * 0.3;
-      const combined = (wave1 + wave2 + wave3) / 1.8;
-
-      // Map to 0-255 range (middle is 128)
-      this.dataArray[i] = 128 + (combined * 64);
-    }
-  }
-
-  private drawIdleVisualizer() {
-    if (this.animationId) cancelAnimationFrame(this.animationId);
-    this.animationId = requestAnimationFrame(() => this.animateIdleVisualizer());
-  }
-
-  private idlePhase = 0;
-
-  private animateIdleVisualizer() {
-    if (this.isPlaying) return;
-
-    this.animationId = requestAnimationFrame(() => this.animateIdleVisualizer());
-
-    if (!this.canvasCtx || !this.visualizerCanvas) return;
-
-    const width = this.visualizerCanvas.width;
-    const height = this.visualizerCanvas.height;
-
-    this.canvasCtx.fillStyle = 'rgba(10, 10, 10, 0.2)';
-    this.canvasCtx.fillRect(0, 0, width, height);
-
-    this.idlePhase += 0.02;
-    this.drawIdleBars();
-  }
-
-  private drawIdleBars() {
-    if (!this.canvasCtx || !this.visualizerCanvas) return;
-
-    const width = this.visualizerCanvas.width;
-    const height = this.visualizerCanvas.height;
-    const barCount = 64;
-    const barWidth = (width / barCount) * 0.8;
-
-    for (let i = 0; i < barCount; i++) {
-      const x = (i / barCount) * width;
-      const barHeight = (Math.sin(this.idlePhase + i * 0.1) * 0.3 + 0.4) * (height * 0.3);
-
-      const gradient = this.canvasCtx.createLinearGradient(0, height - barHeight, 0, height);
-      gradient.addColorStop(0, 'rgba(255, 215, 0, 0.6)');
-      gradient.addColorStop(1, 'rgba(184, 134, 11, 0.3)');
-
-      this.canvasCtx.fillStyle = gradient;
-      this.canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
     }
   }
 }

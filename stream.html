@@ -77,9 +77,12 @@
 </head>
 
 <body class="stream-page">
-  <div id="background-overlay"></div>
-  <div id="unicorn-background"
+  <!-- Unicorn Studio WebGL Background -->
+  <div data-us-project="SrJiFKz8avO1GlImykxO" id="unicorn-background"
     style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; pointer-events: none;"></div>
+  <div id="background-overlay"></div>
+  <script src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.0.5/dist/unicornStudio.umd.js"></script>
+  <script>UnicornStudio.init();</script>
   <!-- Intro Overlay -->
   <div id="intro-overlay">
     <div id="intro-album-art">
@@ -110,11 +113,26 @@
           <img src="/assets/images/CD Casset/layer2.png" alt="Disk Layer 2" class="disk-layer layer-2" />
           <img src="/assets/images/CD Casset/layer1.png" alt="Disk Layer 1" class="disk-layer layer-1" />
         </div>
-      </div>
-
-      <!-- Placeholder -->
-      <div class="visualizer-container">
-        <canvas id="visualizer" width="400" height="80"></canvas>
+        <!-- CD Player Volume Slider (integrated into player) -->
+        <div class="cd-volume-slider-overlay">
+          <input type="range" class="cd-volume-slider" id="volume-slider" min="0" max="100" value="80" />
+        </div>
+        <!-- CD Player Button Overlays -->
+        <div class="cd-button-overlays">
+          <button class="cd-btn cd-btn-pause" id="cd-pause-btn" title="Pause" aria-label="Pause"></button>
+          <button class="cd-btn cd-btn-stop" id="cd-stop-btn" title="Stop" aria-label="Stop"></button>
+          <button class="cd-btn cd-btn-rewind" id="cd-rewind-btn" title="Rewind 10 seconds" aria-label="Rewind 10 seconds"></button>
+          <button class="cd-btn cd-btn-forward" id="cd-forward-btn" title="Forward 10 seconds" aria-label="Forward 10 seconds"></button>
+          <button class="cd-btn cd-btn-play" id="cd-play-btn" title="Play" aria-label="Play"></button>
+          <button class="cd-btn cd-btn-repeat" id="cd-repeat-btn" title="Repeat" aria-label="Repeat">
+            <svg class="repeat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Player Controls -->
@@ -127,62 +145,6 @@
             <div class="progress-handle" id="progress-handle"></div>
           </div>
           <span class="time-total" id="time-total">0:00</span>
-        </div>
-
-        <!-- Control Buttons -->
-        <div class="control-buttons">
-          <button class="control-btn" id="shuffle-btn" title="Shuffle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="16 3 21 3 21 8"></polyline>
-              <line x1="4" y1="20" x2="21" y2="3"></line>
-              <polyline points="21 16 21 21 16 21"></polyline>
-              <line x1="15" y1="15" x2="21" y2="21"></line>
-              <line x1="4" y1="4" x2="9" y2="9"></line>
-            </svg>
-          </button>
-          <button class="control-btn" id="prev-btn" title="Previous">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-            </svg>
-          </button>
-          <button class="control-btn play-btn" id="play-btn" title="Play">
-            <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            <svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-            </svg>
-          </button>
-          <button class="control-btn" id="next-btn" title="Next">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-            </svg>
-          </button>
-          <button class="control-btn" id="repeat-btn" title="Repeat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="17 1 21 5 17 9"></polyline>
-              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-              <polyline points="7 23 3 19 7 15"></polyline>
-              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Volume Control -->
-        <div class="volume-control">
-          <button class="control-btn volume-btn" id="volume-btn">
-            <svg class="volume-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-            </svg>
-            <svg class="mute-icon" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
-              <path
-                d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-            </svg>
-          </button>
-          <div class="volume-slider-container">
-            <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="80" />
-          </div>
         </div>
       </div>
 
@@ -210,14 +172,6 @@
           <span class="album-year">2025</span>
           <span class="album-duration" id="album-duration">24:32</span>
         </div>
-        <a href="/" class="purchase-link">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <path d="M16 10a4 4 0 0 1-8 0"></path>
-          </svg>
-          PURCHASE ALBUM
-        </a>
       </div>
     </section>
   </main>
