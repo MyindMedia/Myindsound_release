@@ -104,7 +104,7 @@ export class CheckoutFlow {
     }
 
     const email = (document.getElementById('customer-email') as HTMLInputElement).value;
-    const total = this.data.amount + (this.data.withUpsell ? 9 : 0);
+    // const total = this.data.amount + (this.data.withUpsell ? 9 : 0);
 
 
 

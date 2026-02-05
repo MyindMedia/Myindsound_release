@@ -112,41 +112,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-function revealDashboard() {
-  const tracklistSide = document.querySelector('.tracklist-side') as HTMLElement;
-  const playerControls = document.querySelector('.player-controls') as HTMLElement;
-
-  // Hide the peel overlay on the dashboard
-  const stickerContainer = document.getElementById('lit-sticker-container');
-  if (stickerContainer) stickerContainer.style.display = 'none';
-
-  if (tracklistSide) {
-    tracklistSide.classList.add('slide-in-right');
-    // Remove inline opacity so animation takes over (though animation priority usually handles it)
-    // But safely we can leave it if animation overrides, but we MUST ensure it's 1 at the end.
-    // Let's clear it now to be safe, relying on the class to set start opacity 0.
-    tracklistSide.style.opacity = '';
-  }
-
-  // Controls slide in from bottom
-  setTimeout(() => {
-    if (playerControls) {
-      playerControls.classList.add('slide-in-bottom');
-      playerControls.style.opacity = '';
-    }
-  }, 200);
-
-  document.body.classList.remove('animation-active');
-
-  // Clean up classes after animation
-  setTimeout(() => {
-    if (tracklistSide) {
-      tracklistSide.classList.remove('slide-in-right');
-      tracklistSide.style.opacity = '1';
-    }
-    if (playerControls) {
-      playerControls.classList.remove('slide-in-bottom');
-      playerControls.style.opacity = '1';
-    }
-  }, 1500);
-}
+// function revealDashboard() {
+// const tracklistSide = document.querySelector('.tracklist-side') as HTMLElement;
+// const playerControls = document.querySelector('.player-controls') as HTMLElement;
+//
+// // Hide the peel overlay on the dashboard
+// const stickerContainer = document.getElementById('lit-sticker-container');
+// if (stickerContainer) stickerContainer.style.display = 'none';
+//
+// if (tracklistSide) {
+//   tracklistSide.classList.add('slide-in-right');
+//   // Remove inline opacity so animation takes over (though animation priority usually handles it)
+//   // But safely we can leave it if animation overrides, but we MUST ensure it's 1 at the end.
+//   // Let's clear it now to be safe, relying on the class to set start opacity 0.
+//   tracklistSide.style.opacity = '';
+// }
+//
+// // Controls slide in from bottom
+// setTimeout(() => {
+//   if (playerControls) {
+//     playerControls.classList.add('slide-in-bottom');
+//     playerControls.style.opacity = '';
+//   }
+// }, 200);
+//
+// document.body.classList.remove('animation-active');
+//
+// // Clean up classes after animation
+// setTimeout(() => {
+//   if (tracklistSide) {
+//     tracklistSide.classList.remove('slide-in-right');
+//     tracklistSide.style.opacity = '1';
+//   }
+//   if (playerControls) {
+//     playerControls.classList.remove('slide-in-bottom');
+//     playerControls.style.opacity = '1';
+//   }
+//   }, 1500);
+// }

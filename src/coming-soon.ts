@@ -31,7 +31,7 @@ class ComingSoonController {
         });
     }
 
-    private setupCard(card: HTMLElement, index: number) {
+    private setupCard(card: HTMLElement, _index: number) {
         const posterGroup = card.querySelector('.poster-group') as HTMLElement;
         const cardMedia = card.querySelector('.card-media') as HTMLElement;
         const posterLayer = card.querySelector('.poster-layer') as HTMLElement;
@@ -62,7 +62,7 @@ class ComingSoonController {
 
                 const mediaRect = cardMedia.getBoundingClientRect();
                 const targetWidth = mediaRect.width;
-                const targetHeight = mediaRect.height;
+                // const _targetHeight = mediaRect.height;
 
 
                 // Get peel configuration from data attributes

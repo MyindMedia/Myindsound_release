@@ -198,7 +198,7 @@ class StreamPlayer {
   private startDockingSequence() {
     // 1. Hide UI initially
     const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
-    const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
+    // const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
     const controlBar = document.querySelector('.player-controls') as HTMLElement; // Updated selector
     const nav = document.querySelector('nav');
 

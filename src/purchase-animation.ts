@@ -7,7 +7,7 @@ export class PurchaseAnimationController {
     private diskContainer: HTMLElement | null = null;
     private originalRect: DOMRect | null = null;
     private albumContainer: HTMLElement | null = null;
-    private stickerPeel: StickerPeel | null = null;
+    // private _stickerPeel: StickerPeel | null = null;
 
     constructor() {
     }
@@ -100,7 +100,8 @@ export class PurchaseAnimationController {
 
         // Init StickerPeel
         // We pass the Peel Overlay Image as the 'image' for the sticker.
-        this.stickerPeel = new StickerPeel({
+        // this._stickerPeel = new StickerPeel({
+        new StickerPeel({
             container: peelContainer,
             imageSrc: '/assets/images/buypeeloverlay.png',
             width: this.originalRect?.width || 500, // Should match container

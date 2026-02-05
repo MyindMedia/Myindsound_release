@@ -48,7 +48,7 @@ export class UnicornSceneManager {
             console.log(`UnicornSceneManager: Loading local scene data for #${containerId}`);
 
             // Fetch local JSON with cache busting
-            const response = await fetch(`/assets/unicorn-scene.json?t=${Date.now()}`);
+            const response = await fetch(`/assets/SITEBG.json?t=${Date.now()}`);
             if (!response.ok) throw new Error('Failed to load scene JSON');
             const sceneData = await response.json();
 
@@ -83,7 +83,7 @@ export class UnicornSceneManager {
         }
     }
 
-    private static removeBadge(containerId: string) {
+    private static removeBadge(_containerId: string) {
         const checkForBadge = () => {
             // 1. Check Light DOM
             const badges = document.querySelectorAll('a[href*="unicorn.studio"], .us-badge, .us-logo');
@@ -115,7 +115,7 @@ export class UnicornSceneManager {
         setTimeout(() => clearInterval(interval), 5000); // Stop after 5 seconds
 
         // Mutation Observer for long-term (if it reinjects)
-        const observer = new MutationObserver((mutations) => {
+        const observer = new MutationObserver((_mutations) => {
             checkForBadge();
         });
         observer.observe(document.body, { childList: true, subtree: true });
