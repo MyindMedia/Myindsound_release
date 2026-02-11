@@ -121,10 +121,14 @@ function showPlayAlbumUI() {
   `;
 
   // Add click handler for play album button
-  const playBtn = document.getElementById('play-album-btn');
-  playBtn?.addEventListener('click', () => {
-    window.location.href = '/stream.html';
-  });
+    const playBtn = document.getElementById('play-album-btn');
+    playBtn?.addEventListener('click', () => {
+      // Start Animation Mode
+      document.body.classList.add('animation-active');
+      
+      const anim = new PurchaseAnimationController();
+      anim.start();
+    });
 }
 
 import { PurchaseAnimationController } from './purchase-animation';
