@@ -227,6 +227,21 @@ body {
   transform: translateY(-2px);
 }
 
+/* Play Album Button - for users who already purchased */
+.play-album-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-gold) !important;
+  color: black !important;
+  font-size: 1.1rem;
+}
+
+.play-album-btn:hover {
+  background: #fff !important;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
 .min-price-note {
   font-size: 0.6rem;
   text-align: center;

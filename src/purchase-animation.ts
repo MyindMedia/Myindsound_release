@@ -39,7 +39,7 @@ export class PurchaseAnimationController {
         this.overlay.style.display = 'flex';
         this.overlay.style.alignItems = 'center';
         this.overlay.style.justifyContent = 'center';
-        this.overlay.style.perspective = '1500px'; // Deep perspective for flip
+        this.overlay.style.perspective = '1500px'; 
         this.overlay.style.pointerEvents = 'none';
 
         // Backdrops
@@ -52,69 +52,20 @@ export class PurchaseAnimationController {
         backdrop.id = 'anim-backdrop';
         this.overlay.appendChild(backdrop);
 
-        // 2. 3D Flipper Container
-        // This will contain the "Card" with proper 3D preservation
-        const flipperContainer = document.createElement('div');
-        flipperContainer.style.position = 'absolute';
-        flipperContainer.style.transformStyle = 'preserve-3d';
-        flipperContainer.id = 'anim-flipper';
+        // 2. Main Container
+        const mainContainer = document.createElement('div');
+        mainContainer.style.position = 'absolute';
+        mainContainer.id = 'anim-main-container';
 
         // Initial position to match original
         if (this.originalRect) {
-            flipperContainer.style.top = `${this.originalRect.top}px`;
-            flipperContainer.style.left = `${this.originalRect.left}px`;
-            flipperContainer.style.width = `${this.originalRect.width}px`;
-            flipperContainer.style.height = `${this.originalRect.height}px`;
+            mainContainer.style.top = `${this.originalRect.top}px`;
+            mainContainer.style.left = `${this.originalRect.left}px`;
+            mainContainer.style.width = `${this.originalRect.width}px`;
+            mainContainer.style.height = `${this.originalRect.height}px`;
         }
 
-        // --- FRONT SIDE: Album Art + Sticker Peel ---
-        this.albumContainer = document.createElement('div');
-        this.albumContainer.id = 'anim-album-front';
-        this.albumContainer.style.position = 'absolute';
-        this.albumContainer.style.inset = '0';
-        this.albumContainer.style.width = '100%';
-        this.albumContainer.style.height = '100%';
-        this.albumContainer.style.backfaceVisibility = 'hidden'; // Hide when flipped
-        // this.albumContainer.style.zIndex = '2';
-
-        // Background of Front Face (The Album Art)
-        const albumArtImg = document.createElement('img');
-        albumArtImg.src = '/assets/images/lit-poster.png';
-        albumArtImg.style.position = 'absolute';
-        albumArtImg.style.inset = '0';
-        albumArtImg.style.width = '100%';
-        albumArtImg.style.height = '100%';
-        albumArtImg.style.objectFit = 'cover';
-        albumArtImg.style.borderRadius = '4px';
-        albumArtImg.style.boxShadow = '0 30px 60px rgba(0,0,0,0.8)';
-        this.albumContainer.appendChild(albumArtImg);
-
-        // Container for StickerPeel (On top of Album Art)
-        const peelContainer = document.createElement('div');
-        peelContainer.style.position = 'absolute';
-        peelContainer.style.inset = '0';
-        peelContainer.style.width = '100%';
-        peelContainer.style.height = '100%';
-        peelContainer.style.zIndex = '10'; // Top
-        this.albumContainer.appendChild(peelContainer);
-
-        // Init StickerPeel
-        // We pass the Peel Overlay Image as the 'image' for the sticker.
-        // this._stickerPeel = new StickerPeel({
-        new StickerPeel({
-            container: peelContainer,
-            imageSrc: '/assets/images/buypeeloverlay.png',
-            width: this.originalRect?.width || 500, // Should match container
-            rotate: 0,
-            peelBackHoverPct: 0, // No initial peel
-            peelBackActivePct: 100,
-            peelDirection: 45, // Diagonal peel from top right
-            shadowIntensity: 0.1,
-            lightingIntensity: 0.1,
-            className: 'purchase-peel'
-        });
-
-        // --- BACK SIDE: CD Player ---
+        // --- LAYER 1 (BOTTOM): CD Player ---
         this.diskContainer = document.createElement('div');
         this.diskContainer.id = 'anim-disk-player';
         this.diskContainer.className = 'animated-disk-player';
@@ -122,16 +73,36 @@ export class PurchaseAnimationController {
         this.diskContainer.style.inset = '0';
         this.diskContainer.style.width = '100%';
         this.diskContainer.style.height = '100%';
-        this.diskContainer.style.backfaceVisibility = 'hidden';
-        this.diskContainer.style.transform = 'rotateY(180deg)'; // Start flipped away
-        // this.diskContainer.style.zIndex = '1';
+        this.diskContainer.style.zIndex = '1'; 
 
         this.buildDiskPlayer();
+        mainContainer.appendChild(this.diskContainer);
 
-        // Assemble
-        flipperContainer.appendChild(this.albumContainer);
-        flipperContainer.appendChild(this.diskContainer);
-        this.overlay.appendChild(flipperContainer);
+        // --- LAYER 2 (TOP): Album Art (Sticker Peel) ---
+        this.albumContainer = document.createElement('div');
+        this.albumContainer.id = 'anim-album-front';
+        this.albumContainer.style.position = 'absolute';
+        this.albumContainer.style.inset = '0';
+        this.albumContainer.style.width = '100%';
+        this.albumContainer.style.height = '100%';
+        this.albumContainer.style.zIndex = '2'; 
+
+        // Init StickerPeel with Album Art
+        new StickerPeel({
+            container: this.albumContainer,
+            imageSrc: '/assets/images/lit-poster.png', // The Art itself
+            width: this.originalRect?.width || 500, 
+            rotate: 0,
+            peelBackHoverPct: 0, 
+            peelBackActivePct: 100,
+            peelDirection: 45, // Diagonal peel
+            shadowIntensity: 0.2,
+            lightingIntensity: 0.1,
+            className: 'purchase-peel'
+        });
+
+        mainContainer.appendChild(this.albumContainer);
+        this.overlay.appendChild(mainContainer);
         document.body.appendChild(this.overlay);
 
         // Hide original immediately
@@ -148,21 +119,16 @@ export class PurchaseAnimationController {
         layers.style.width = '100%';
         layers.style.height = '100%';
 
-        // Create layers L1 (top) to L5 (bottom)
-        ['layer5', 'layer4', 'layer3', 'layer2', 'layer1'].forEach((name) => {
-            const layerImg = document.createElement('img');
-            layerImg.src = `/assets/images/CD Casset/${name}.png`;
-            layerImg.className = `disk-layer layer-${name.replace('layer', '')}`;
-
-            // Fix styles for absolute positioning inside the container
-            layerImg.style.position = 'absolute';
-            layerImg.style.top = '0';
-            layerImg.style.left = '0';
-            layerImg.style.width = '100%';
-            layerImg.style.height = '100%';
-
-            layers.appendChild(layerImg);
-        });
+        // --- CHANGE: Use single cdinsert.png instead of multiple layers ---
+        const layerImg = document.createElement('img');
+        layerImg.src = '/assets/images/CD Casset/cdinsert.png';
+        layerImg.className = 'disk-layer layer-base';
+        layerImg.style.position = 'absolute';
+        layerImg.style.top = '0';
+        layerImg.style.left = '0';
+        layerImg.style.width = '100%';
+        layerImg.style.height = '100%';
+        layers.appendChild(layerImg);
 
         // Play Button Overlay
         const playBtn = document.createElement('div');
@@ -181,8 +147,8 @@ export class PurchaseAnimationController {
         playBtn.style.cursor = 'pointer';
         playBtn.style.boxShadow = '0 0 20px rgba(255,215,0, 0.6)';
         playBtn.style.zIndex = '10';
-        playBtn.style.pointerEvents = 'auto'; // Enable clicks
-        playBtn.style.opacity = '0'; // Start hidden
+        playBtn.style.pointerEvents = 'auto'; 
+        playBtn.style.opacity = '0'; 
         playBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="black"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
 
         this.diskContainer.appendChild(layers);
@@ -191,13 +157,13 @@ export class PurchaseAnimationController {
         // Glitch Text Instruction
         const glitchText = document.createElement('div');
         glitchText.className = 'glitch-instruction';
-        glitchText.innerText = 'CLICK PLAYER TO START';
-        glitchText.setAttribute('data-text', 'CLICK PLAYER TO START');
+        glitchText.innerText = 'CLICK TO START';
+        glitchText.setAttribute('data-text', 'CLICK TO START');
         glitchText.style.position = 'absolute';
-        glitchText.style.top = '100%'; // Below the player
+        glitchText.style.top = '100%'; 
         glitchText.style.left = '50%';
         glitchText.style.transform = 'translateX(-50%)';
-        glitchText.style.marginTop = '120px'; // Space below button (which is at -80px)
+        glitchText.style.marginTop = '120px'; 
         glitchText.style.fontFamily = '"Courier New", monospace';
         glitchText.style.fontWeight = 'bold';
         glitchText.style.fontSize = '18px';
@@ -257,7 +223,7 @@ export class PurchaseAnimationController {
         if (!this.overlay) return;
 
         const backdrop = this.overlay.querySelector('#anim-backdrop');
-        const flipper = this.overlay.querySelector('#anim-flipper') as HTMLElement;
+        const mainContainer = this.overlay.querySelector('#anim-main-container') as HTMLElement;
         const playBtn = this.diskContainer?.querySelector('.disk-play-btn');
 
         // Center Calculation
@@ -270,10 +236,10 @@ export class PurchaseAnimationController {
 
         const tl = gsap.timeline();
 
-        // 1. LIFT OFF (Move Flipper to Center)
+        // 1. LIFT OFF (Move Container to Center)
         // Instant Black Background
         tl.to(backdrop, { opacity: 1, duration: 0.1, ease: 'power2.inOut' }, 0);
-        tl.to(flipper, {
+        tl.to(mainContainer, {
             x: deltaX,
             y: deltaY,
             scale: 1.2,
@@ -288,58 +254,47 @@ export class PurchaseAnimationController {
             if (overlay) {
                 // Access internal elements we know exist in StickerPeel
                 const main = overlay.querySelector('.sticker-peel-main') as HTMLElement;
-                const flap = overlay.querySelector('.sticker-peel-flap') as HTMLElement;
+                const flaps = overlay.querySelectorAll('.sticker-peel-flap') as NodeListOf<HTMLElement>;
 
+                // Animate main: peel away from top to bottom (like Coming Soon cards)
                 if (main) {
-                    main.style.transition = 'clip-path 1.2s cubic-bezier(0.6, 0.1, 0.3, 1)';
-                    // Wipe away to left
-                    main.style.clipPath = 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)';
+                    main.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1)';
+                    // Reset to full first
+                    main.style.setProperty('clip-path', 'polygon(0 3%, 100% 3%, 100% 100%, 0 100%)', 'important');
+                    void main.getBoundingClientRect();
+                    // Peel to reveal (top to bottom)
+                    main.style.setProperty('clip-path', 'polygon(0 100%, 100% 100%, 100% 100%, 0 100%)', 'important');
                 }
-                if (flap) {
-                    // Flap follows the peel
-                    flap.style.transition = 'all 1.2s cubic-bezier(0.6, 0.1, 0.3, 1)';
-                    flap.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)';
-                    flap.style.top = '100%'; // Fly off bottom
-                    flap.style.opacity = '0'; // Fade out eventually
-                }
+
+                // Animate all flaps (including shadow flap)
+                flaps.forEach(flap => {
+                    flap.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), top 1.8s cubic-bezier(0.2, 0.7, 0, 1)';
+                    // Initial state
+                    flap.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 3%, 0 3%)', 'important');
+                    flap.style.setProperty('top', 'calc(-100% + 2 * 3% - 1px)', 'important');
+                    void flap.getBoundingClientRect();
+                    // Final state
+                    flap.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', 'important');
+                    flap.style.setProperty('top', 'calc(100% - 1px)', 'important');
+                });
             }
         }, [], '+=0.2');
 
         // Wait for peel to finish
         tl.to({}, { duration: 1.0 });
 
-        // 2.5 SHAKE ANIMATION
-        // Brief wobble before flip
-        tl.to(flipper, {
-            x: `+=${Math.random() * 10 - 5}`,
-            rotation: 2,
-            duration: 0.1,
-            yoyo: true,
-            repeat: 5,
-            ease: 'rough'
-        });
-        tl.to(flipper, { rotation: 0, x: deltaX, duration: 0.1 }); // Reset
-
-        // 3. FLIP (Album -> Disk Player)
-        // Horizontal Flip (Rotate Y)
-        tl.to(flipper, {
-            rotationY: 180,
-            duration: 0.8,
-            ease: 'back.inOut(1.2)'
-        });
-
-        // 4. SPIN & PLAY BUTTON
+        // 3. REVEAL CONTROLS (Spin & Play Button)
         if (this.diskContainer) {
-            tl.call(() => {
-                // Start spinning L3
-                const l3 = this.diskContainer!.querySelector('.layer-3');
-                if (l3) {
-                    gsap.to(l3, { rotation: 360, duration: 4, repeat: -1, ease: 'none' });
-                }
-            }, [], '-=0.4'); // Start spin just before flip ends
+            // REMOVED SPINNING LOGIC for single image
+            // tl.call(() => {
+            //     // Start spinning L3
+            //     const l3 = this.diskContainer!.querySelector('.layer-3');
+            //     if (l3) {
+            //         gsap.to(l3, { rotation: 360, duration: 4, repeat: -1, ease: 'none' });
+            //     }
+            // }, [], '-=0.4'); 
 
             // Show Play Button
-            // Ensure playBtn is found - we selected it earlier
             if (playBtn) {
                 tl.to(playBtn, {
                     opacity: 1,

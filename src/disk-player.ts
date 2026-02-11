@@ -63,15 +63,18 @@ class EnhancedDiskPlayerAnimator extends DiskPlayerAnimator {
       // Kill any existing tweens
       this.gsap.killTweensOf(layer3);
 
-      // Get current rotation to ensure smooth start
+      // Start infinite rotation (30 RPM)
+      // 30 RPM = 2s per rotation (slower, smoother)
+      // Use a very long tween to simulate infinite spin smoothly
       const currentRotation = this.gsap.getProperty(layer3, "rotation") || 0;
-
-      // Start infinite rotation (100 RPM = 0.6s per rotation)
+      const rotations = 100000;
+      const durationPerRotation = 2.0;
+      
       this.gsap.to(layer3, {
-        rotation: currentRotation + 360,
-        duration: 0.6,
-        repeat: -1,
-        ease: "none"
+        rotation: currentRotation + (360 * rotations),
+        duration: durationPerRotation * rotations,
+        ease: "none",
+        overwrite: true // Ensure this overwrites any conflicting tweens
       });
     } else {
       super.startSpinningAnimation();

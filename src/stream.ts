@@ -175,13 +175,6 @@ class StreamPlayer {
       tracklistSection.style.transition = 'none';
     }
 
-    // Play load sound on page load
-    if (!this.loadingAudio) {
-      this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
-      this.loadingAudio.volume = 0.8;
-      this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
-    }
-
     // Run calibration spin on page load - wait for everything to be ready
     const waitForGsapAndRun = () => {
       const gsap = (window as any).gsap;
@@ -204,201 +197,192 @@ class StreamPlayer {
     const gsap = (window as any).gsap;
     const layer3 = document.querySelector('.animated-disk-player .layer-3') as HTMLElement;
 
-    console.log('runCalibrationSpin called', { layer3: !!layer3, gsap: !!gsap });
+    if (!layer3 || !gsap) return;
 
-    if (!layer3 || !gsap) {
-      console.log('Calibration spin aborted - missing layer3 or gsap');
-      return;
+    // Play load audio (only if not already playing from docking sequence)
+    if (!this.loadingAudio) {
+      this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
+      this.loadingAudio.volume = 0.8;
+    }
+    if (this.loadingAudio.paused) {
+      this.loadingAudio.currentTime = 0;
+      this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
     }
 
     // Force clear any CSS animation
     layer3.style.animation = 'none';
     layer3.style.animationPlayState = 'paused';
-
-    // Ensure GPU acceleration and proper transform origin
     layer3.style.willChange = 'transform';
     layer3.style.transformOrigin = 'center center';
 
-    // Kill any existing GSAP animations
     gsap.killTweensOf(layer3);
-
-    // Reset rotation to 0 first
     gsap.set(layer3, { rotation: 0, transformOrigin: 'center center' });
 
-    console.log('Starting calibration timeline...');
-
-    // Calibration spin timeline - stuttered varying speeds (only on page reveal)
+    // Sequence: Slow stop fast spin stop to slow then fast spin
     const calibrationTl = gsap.timeline({
-      onStart: () => console.log('Calibration spin started'),
       onComplete: () => {
-        console.log('Calibration spin complete');
-        // Reset rotation to 0 for clean playback start
-        gsap.set(layer3, { rotation: 0 });
-        layer3.style.willChange = 'auto';
+        // Auto play first track and continuous spin
+        this.play();
       }
     });
 
-    // Fast spin (2 rotations in 1s)
+    // 1. Slow spin (360 in 2s)
     calibrationTl.to(layer3, {
-      rotation: 720,
-      duration: 1,
-      ease: 'power1.inOut'
+      rotation: "+=360", // Use relative rotation
+      duration: 2,
+      ease: 'linear'
     });
 
-    // Slow down (1 rotation in 1.5s)
+    // 2. Stop (Decelerate)
     calibrationTl.to(layer3, {
-      rotation: '+=360',
-      duration: 1.5,
+      rotation: '+=90',
+      duration: 1,
       ease: 'power2.out'
     });
 
-    // Speed up again (3 rotations in 2s)
-    calibrationTl.to(layer3, {
-      rotation: '+=1080',
-      duration: 2,
-      ease: 'power1.inOut'
-    });
+    // Pause briefly
+    calibrationTl.to({}, { duration: 0.2 });
 
-    // Slow seeking motion (half rotation, slow)
-    calibrationTl.to(layer3, {
-      rotation: '+=180',
-      duration: 1.5,
-      ease: 'power3.out'
-    });
-
-    // Final calibration spin (2 rotations)
+    // 3. Fast spin (720 in 1s)
     calibrationTl.to(layer3, {
       rotation: '+=720',
-      duration: 2,
+      duration: 1,
       ease: 'power2.inOut'
     });
 
-    // Decelerate to stop
+    // 4. Stop (Decelerate fast)
     calibrationTl.to(layer3, {
-      rotation: '+=90',
+      rotation: '+=180',
+      duration: 0.5,
+      ease: 'power2.out'
+    });
+
+    // Pause briefly
+    calibrationTl.to({}, { duration: 0.2 });
+
+    // 5. Slow (180 in 1.5s)
+    calibrationTl.to(layer3, {
+      rotation: '+=180',
       duration: 1.5,
-      ease: 'power3.out'
+      ease: 'linear'
+    });
+
+    // 6. Fast Spin (Accelerate into playback)
+    // We accelerate and then the onComplete triggers this.play() which handles the infinite loop
+    calibrationTl.to(layer3, {
+      rotation: '+=360',
+      duration: 0.5,
+      ease: 'power1.in'
     });
   }
 
   private startDockingSequence() {
-    // 1. Hide UI initially
+    const gsap = (window as any).gsap;
+    if (!gsap) { this.setupInitialState(); return; }
+
+    // 1. Hide UI elements initially — they'll slide in later
     const tracklistSection = document.querySelector('.tracklist-section') as HTMLElement;
-    // const visualizerContainer = document.querySelector('.visualizer-container') as HTMLElement;
-    const controlBar = document.querySelector('.player-controls') as HTMLElement; // Updated selector
+    const controlBar = document.querySelector('.player-controls') as HTMLElement;
+    const nowPlaying = document.querySelector('.now-playing') as HTMLElement;
     const nav = document.querySelector('nav');
 
-    if (tracklistSection) tracklistSection.style.opacity = '0';
-    if (controlBar) controlBar.style.opacity = '0';
+    if (tracklistSection) {
+      tracklistSection.style.opacity = '0';
+      tracklistSection.style.visibility = 'hidden';
+      gsap.set(tracklistSection, { x: 200 }); // Start off-screen right
+    }
+    if (controlBar) {
+      controlBar.style.opacity = '0';
+      gsap.set(controlBar, { y: 60 }); // Start below
+    }
+    if (nowPlaying) {
+      nowPlaying.style.opacity = '0';
+      gsap.set(nowPlaying, { y: 40 }); // Start below
+    }
     if (nav) nav.style.opacity = '0';
 
-    // 2. Create Floating Disc Overlay (just the cdinsert.png disc)
+    // 2. Create a simple black overlay that fades out
     const overlay = document.createElement('div');
     overlay.id = 'dock-overlay';
     overlay.style.position = 'fixed';
     overlay.style.inset = '0';
+    overlay.style.background = '#000';
     overlay.style.zIndex = '9999';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
     overlay.style.pointerEvents = 'none';
-
-    // Seamless Transition Backdrop
-    const backdrop = document.createElement('div');
-    backdrop.style.position = 'absolute';
-    backdrop.style.inset = '0';
-    backdrop.style.background = '#000';
-    backdrop.style.opacity = '1';
-    backdrop.style.zIndex = '-1';
-    overlay.appendChild(backdrop);
-
-    // Container for the disc (just cdinsert.png, not the full player) - matches player size
-    const discContainer = document.createElement('div');
-    discContainer.id = 'dock-disc-container';
-    discContainer.style.width = '550px';
-    discContainer.style.height = '550px';
-    discContainer.style.position = 'absolute';
-    discContainer.style.display = 'flex';
-    discContainer.style.alignItems = 'center';
-    discContainer.style.justifyContent = 'center';
-
-    // Disc image (cdinsert.png)
-    const discImg = document.createElement('img');
-    discImg.id = 'dock-disc-img';
-    discImg.src = '/assets/images/CD Casset/cdinsert.png';
-    discImg.style.width = '100%';
-    discImg.style.height = '100%';
-    discImg.style.objectFit = 'contain';
-    discImg.style.filter = 'drop-shadow(0 20px 40px rgba(0,0,0,0.8))';
-
-    discContainer.appendChild(discImg);
-    overlay.appendChild(discContainer);
     document.body.appendChild(overlay);
 
-    // 3. Animate Docking
-    const targetArt = document.querySelector('.animated-disk-player') as HTMLElement;
-    if (targetArt) targetArt.style.opacity = '0';
+    // Remove the instant black cover now that our overlay is in place
+    const instantCover = document.getElementById('instant-black-cover');
+    if (instantCover) instantCover.remove();
 
-    const gsap = (window as any).gsap;
+    // 3. Start loading sound immediately (while still black)
+    if (!this.loadingAudio) {
+      this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
+      this.loadingAudio.volume = 0.8;
+    }
+    this.loadingAudio.currentTime = 0;
+    this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
+
+    // 4. Animate: fade from black → reveal page → slide in UI
     const tl = gsap.timeline();
 
-    // cdinsert.png is STATIC - no spinning during dock animation
-
-    // Dock Animation
-    // Fade out backdrop to reveal the stream page background
-    tl.to(backdrop, { opacity: 0, duration: 1.0, ease: 'power2.in' });
-
-    // Move disc to target (the CD player position)
-    tl.call(() => {
-      if (targetArt) {
-        const rect = targetArt.getBoundingClientRect();
-        const discSize = 550;
-        const startX = (window.innerWidth - discSize) / 2;
-        const startY = (window.innerHeight - discSize) / 2;
-        const endX = rect.left + (rect.width - discSize) / 2;
-        const endY = rect.top + (rect.height - discSize) / 2;
-        const scale = rect.width / discSize;
-
-        gsap.to(discContainer, {
-          x: endX - startX,
-          y: endY - startY,
-          scale: scale,
-          duration: 1.2,
-          ease: 'power3.inOut',
-          onComplete: () => {
-            // 4. DOCK COMPLETE -> Play Audio and Reveal UI immediately
-            if (!this.loadingAudio) {
-              this.loadingAudio = new Audio('/assets/audio/dockload10sec.wav');
-              this.loadingAudio.volume = 0.8;
-              this.loadingAudio.play().catch(e => console.error("Audio play failed", e));
-            }
-
-            // Reveal UI immediately - no delay
-            if (targetArt) targetArt.style.opacity = '1';
-            overlay.remove();
-
-            const fadeIn = (el: HTMLElement | null, delay = 0) => {
-              if (el) {
-                el.style.visibility = 'visible';
-                gsap.to(el, { opacity: 1, duration: 0.8, delay });
-              }
-            };
-
-            fadeIn(nav);
-            fadeIn(tracklistSection, 0.2);
-            fadeIn(controlBar, 0.4);
-          }
-        });
-      }
+    // Fade from black to reveal the stream page with player
+    tl.to(overlay, {
+      opacity: 0,
+      duration: 1.2,
+      ease: 'power2.out',
+      onComplete: () => overlay.remove()
     });
+
+    // Show nav
+    if (nav) {
+      tl.to(nav, { opacity: 1, duration: 0.4, ease: 'power2.out' }, '-=0.4');
+    }
+
+    // Slide tracklist in from the right
+    if (tracklistSection) {
+      tracklistSection.style.visibility = 'visible';
+      tl.to(tracklistSection, {
+        opacity: 1,
+        x: 0,
+        duration: 0.8,
+        ease: 'power3.out'
+      }, '-=0.3');
+    }
+
+    // Slide progress/controls up from below the player
+    if (controlBar) {
+      tl.to(controlBar, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: 'power3.out'
+      }, '-=0.6');
+    }
+
+    // Slide now-playing info up from below the player
+    if (nowPlaying) {
+      tl.to(nowPlaying, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: 'power3.out'
+      }, '-=0.5');
+    }
+
+    // 5. Start calibration spin (sound is already playing)
+    tl.call(() => {
+      this.runCalibrationSpin();
+    }, [], '-=0.3');
   }
 
   private revealUIAfterDock() {
-    // This is called when coming from success.html after the dock animation
-    // The disc has been "placed" into the player - reveal UI immediately with no delay
+    // Remove instant black cover
+    const instantCover = document.getElementById('instant-black-cover');
+    if (instantCover) instantCover.remove();
+
     const gsap = (window as any).gsap;
     if (!gsap) {
-      // Fallback: just show everything
       this.setupInitialState();
       return;
     }
@@ -558,8 +542,6 @@ class StreamPlayer {
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('ended', () => this.onTrackEnd());
     this.audio.addEventListener('loadedmetadata', () => this.updateTimeDisplay());
-    this.audio.addEventListener('play', () => this.onPlay());
-    this.audio.addEventListener('pause', () => this.onPause());
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -629,9 +611,10 @@ class StreamPlayer {
   }
 
   private play() {
-    // For demo purposes, simulate playing even without audio source
     if (this.tracks[this.currentTrackIndex].src) {
-      this.audio.play().catch(console.error);
+      this.audio.play().then(() => {
+        this.onPlay();
+      }).catch(console.error);
     } else {
       // Simulate play for demo
       this.onPlay();
@@ -649,7 +632,13 @@ class StreamPlayer {
   }
 
   private stop() {
-    this.pause();
+    // Pause first (triggers deceleration)
+    this.audio.pause();
+    this.onPause();
+    if (this.simulationInterval) {
+      clearInterval(this.simulationInterval);
+      this.simulationInterval = null;
+    }
     // Reset to beginning
     this.audio.currentTime = 0;
     this.simulatedTime = 0;

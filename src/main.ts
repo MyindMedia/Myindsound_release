@@ -3,6 +3,11 @@ import './style.css';
 import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
 import { initLitHover } from './lit-hover';
+import { getUserId, isClerkConfigured } from './clerk';
+import { hasProductAccess, isSupabaseConfigured } from './supabase';
+
+// LIT Album Product ID
+const LIT_PRODUCT_ID = 'f67a66b8-59a0-413f-b943-8fbb9cdee876';
 
 // Ensure scroll is never locked on page load
 document.body.style.overflow = '';
@@ -69,6 +74,59 @@ function initPurchaseFlow() {
   });
 }
 
+/**
+ * Check if user has already purchased and show Play Album button
+ */
+async function checkUserPurchase() {
+  // Only check if both Clerk and Supabase are configured
+  if (!isClerkConfigured() || !isSupabaseConfigured()) {
+    return;
+  }
+
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      // User not logged in, show purchase UI
+      return;
+    }
+
+    // Check if user has access to LIT album
+    const hasPurchased = await hasProductAccess(userId, LIT_PRODUCT_ID);
+
+    if (hasPurchased) {
+      // User has purchased - show Play Album button instead
+      showPlayAlbumUI();
+      renderTracklist(true); // Show unlocked tracklist
+    }
+  } catch (error) {
+    console.error('Error checking purchase status:', error);
+  }
+}
+
+/**
+ * Replace purchase box with Play Album button
+ */
+function showPlayAlbumUI() {
+  const purchaseBox = document.querySelector('.purchase-box');
+  if (!purchaseBox) return;
+
+  purchaseBox.innerHTML = `
+    <button id="play-album-btn" class="primary-btn play-album-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+      PLAY ALBUM
+    </button>
+    <p class="min-price-note" style="color: var(--accent-gold);">YOU OWN THIS RELEASE</p>
+  `;
+
+  // Add click handler for play album button
+  const playBtn = document.getElementById('play-album-btn');
+  playBtn?.addEventListener('click', () => {
+    window.location.href = '/stream.html';
+  });
+}
+
 import { PurchaseAnimationController } from './purchase-animation';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -107,6 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   } else {
     renderTracklist(false);
+    // Check if user has already purchased
+    checkUserPurchase();
   }
 
   initStickers();
