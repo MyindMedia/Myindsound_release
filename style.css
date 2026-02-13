@@ -1888,9 +1888,8 @@ body.dashboard-mode .player-controls {
   }
 
   .album-art-container {
-    width: 100%;
+    width: 90%;
     aspect-ratio: 1;
-    max-width: 500px;
   }
 
   .main-album-art {
@@ -1900,8 +1899,7 @@ body.dashboard-mode .player-controls {
   }
 
   .purchase-box {
-    width: 100%;
-    max-width: 500px;
+    width: 90%;
     padding: 1.5rem;
   }
 
@@ -1955,7 +1953,7 @@ body.dashboard-mode .player-controls {
     font-size: 0.9rem;
   }
 
-  /* Mobile Coming Soon Section - Match Dashboard Width */
+  /* Mobile Coming Soon Section - Match Dashboard */
   .coming-soon-section {
     padding: 2rem 0;
     width: 100%;
@@ -1973,12 +1971,7 @@ body.dashboard-mode .player-controls {
   }
 
   .coming-soon-card {
-    width: 100%;
-    max-width: 500px;
-  }
-
-  .card-media {
-    width: 100%;
+    width: 90%;
     aspect-ratio: 1;
   }
 
@@ -2151,13 +2144,11 @@ body.dashboard-mode .player-controls {
   }
 
   .album-art-container {
-    width: 100%;
-    max-width: 400px;
+    width: 90%;
   }
 
   .purchase-box {
-    width: 100%;
-    max-width: 400px;
+    width: 90%;
     padding: 1.25rem;
   }
 
@@ -2167,8 +2158,7 @@ body.dashboard-mode .player-controls {
   }
 
   .coming-soon-card {
-    width: 100%;
-    max-width: 400px;
+    width: 90%;
   }
 
   .products-grid {
