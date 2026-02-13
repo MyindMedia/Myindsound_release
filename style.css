@@ -1123,6 +1123,172 @@ body {
 }
 
 
+/* Mobile Player Controls (Below Player) */
+.mobile-player-controls {
+  display: none;
+  width: 100%;
+  max-width: 400px;
+  padding: 1.5rem 1rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* Progress Bar */
+.mobile-player-controls .progress-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.mobile-player-controls .time-current,
+.mobile-player-controls .time-total {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: 'Courier New', monospace;
+  min-width: 35px;
+}
+
+.mobile-player-controls .time-current {
+  text-align: right;
+}
+
+.mobile-player-controls .progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-player-controls .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-gold), #B8860B);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.mobile-player-controls .progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.mobile-player-controls .progress-bar:hover .progress-handle {
+  opacity: 1;
+}
+
+/* Playback Buttons */
+.playback-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.control-btn-small {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #333;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.control-btn-small:hover {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: var(--accent-gold);
+}
+
+.control-btn-small:active {
+  transform: scale(0.95);
+}
+
+.control-btn-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent-gold);
+  color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.control-btn-large:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+.control-btn-large:active {
+  transform: scale(0.95);
+}
+
+/* Volume Control */
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 250px;
+}
+
+.volume-control svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.volume-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #1a1a1a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+
 /* Now Playing Info */
 .now-playing {
   text-align: center;
@@ -1375,6 +1541,17 @@ body {
     max-width: 100%;
   }
 
+  /* Hide desktop overlay buttons on mobile */
+  .cd-button-overlays,
+  .cd-volume-slider-overlay {
+    display: none !important;
+  }
+
+  /* Show mobile player controls below player */
+  .mobile-player-controls {
+    display: flex;
+  }
+
   /* Full width now playing info */
   .now-playing {
     width: 100%;
@@ -1525,6 +1702,17 @@ body {
   .tracklist-section {
     position: sticky;
     top: 100px;
+  }
+
+  /* Hide mobile player controls on desktop */
+  .mobile-player-controls {
+    display: none !important;
+  }
+
+  /* Show desktop overlay buttons on desktop */
+  .cd-button-overlays,
+  .cd-volume-slider-overlay {
+    display: flex !important;
   }
 
   /* Hide upcoming tracks on desktop (shown in sidebar) */
