@@ -36,6 +36,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+body.animation-active {
+  overflow: hidden !important;
+}
+
 /* Dark overlay for Unicorn Studio background */
 #background-overlay {
   position: fixed;
@@ -148,6 +152,12 @@ body {
 /* Main Content Layout */
 .main-content {
   flex: 1;
+  min-height: 100vh;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 4rem;
 }
 
 /* Digital Section (thefalloff style) */
@@ -159,7 +169,7 @@ body {
 .digital-container {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
-  gap: 4rem;
+  gap: 2rem;
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 2rem;
@@ -167,6 +177,26 @@ body {
 
 .album-art-side {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 350px;
+  margin: 0 auto;
+}
+
+.album-art-container {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  background: #000;
+  margin-bottom: 1.5rem;
+  position: relative;
+  max-height: 40vh;
+  object-fit: contain;
 }
 
 .sticky-art {
@@ -640,12 +670,11 @@ body {
 
 .layer-3 {
   z-index: 3;
-  /* Original positioning for desktop */
   width: 63%;
   height: 63%;
   top: auto;
   bottom: 0;
-  left: 1px;
+  left: 0;
   right: 0;
   margin: auto;
   transform-origin: center center;
@@ -1739,7 +1768,7 @@ body {
     height: 63%;
     top: auto;
     bottom: 0;
-    left: 1px;
+    left: 0;
     right: 0;
     margin: auto;
     transform-origin: center center;
@@ -1790,11 +1819,11 @@ body {
   .layer-3 {
     width: 60%;
     height: 60%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, calc(-50% + 2px));
-    margin: 0;
-    bottom: auto;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
   }
 }
 

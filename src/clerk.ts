@@ -16,7 +16,7 @@ let clerkError: Error | null = null;
  * Check if Clerk key is configured
  */
 export function isClerkConfigured(): boolean {
-  return !!CLERK_PUBLISHABLE_KEY && CLERK_PUBLISHABLE_KEY !== 'pk_test_...';
+  return !!CLERK_PUBLISHABLE_KEY && CLERK_PUBLISHABLE_KEY !== 'pk_test_your_clerk_key_here';
 }
 
 /**
@@ -34,7 +34,9 @@ export async function getClerk(): Promise<Clerk> {
   if (!isClerkConfigured()) {
     const error = new Error('VITE_CLERK_PUBLISHABLE_KEY is not configured. Add it to Netlify environment variables and redeploy.');
     clerkError = error;
-    throw error;
+    // Don't throw, just return a mock object or handle gracefully to prevent page crash
+    console.warn("Clerk is not configured. Authentication features will be disabled.");
+    return {} as any; 
   }
 
   if (clerkInstance) {

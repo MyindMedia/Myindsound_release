@@ -1,13 +1,24 @@
 import './style.css';
-// import { UnicornSceneManager } from './unicorn-scene';
+import { UnicornSceneManager } from './unicorn-scene';
 import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
 import { initLitHover } from './lit-hover';
 import { getUserId, isClerkConfigured } from './clerk';
 import { hasProductAccess, isSupabaseConfigured } from './supabase';
 
+import { PurchaseAnimationController } from './purchase-animation';
+
 // LIT Album Product ID
 const LIT_PRODUCT_ID = 'f67a66b8-59a0-413f-b943-8fbb9cdee876';
+
+// Initialize global animation controller
+// We attach it to window to debug and control it.
+if (typeof window !== 'undefined' && !(window as any).purchaseAnimationInitialized) {
+    const purchaseAnimation = new PurchaseAnimationController();
+    (window as any).purchaseAnimation = purchaseAnimation;
+    (window as any).startPurchaseAnimation = () => purchaseAnimation.start();
+    (window as any).purchaseAnimationInitialized = true;
+}
 
 // Ensure scroll is never locked on page load
 document.body.style.overflow = '';
@@ -131,8 +142,6 @@ function showPlayAlbumUI() {
     });
 }
 
-import { PurchaseAnimationController } from './purchase-animation';
-
 document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const success = urlParams.get('success');
@@ -176,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initStickers();
   initPurchaseFlow();
   initNavAuth();
-  // UnicornSceneManager.init('unicorn-background');
+  UnicornSceneManager.init('unicorn-background');
 
 });
 

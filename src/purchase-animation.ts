@@ -10,6 +10,8 @@ export class PurchaseAnimationController {
     // private _stickerPeel: StickerPeel | null = null;
 
     constructor() {
+        // Expose this instance globally for testing
+        (window as any).purchaseAnimation = this;
     }
 
     public start() {

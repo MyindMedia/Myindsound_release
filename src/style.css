@@ -13,6 +13,11 @@
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   /* Prevent scrolling globally */
+
+  --accent-gold: #FFD700;
+  --bg-dark: #121212;
+  --text-light: #ffffff;
+  --nav-height: 60px;
 }
 
 a {
@@ -31,8 +36,12 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  overflow: auto;
+  /* Allow scrolling */
+}
+
+body.animation-active {
   overflow: hidden;
-  /* Prevent scrollbars from zoomed background */
 }
 
 h1 {
@@ -41,10 +50,13 @@ h1 {
 }
 
 #app {
+  width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {
@@ -124,9 +136,7 @@ button:focus-visible {
   width: 100%;
   height: 100%;
   z-index: -2;
-
   pointer-events: none;
-  /* Pass clicks through to canvas if needed, or block if just bg */
 }
 
 /* Hide Unicorn Studio Badge (User has license) */
@@ -149,4 +159,290 @@ a[href*="unicorn.studio"],
   height: 0 !important;
   position: absolute;
   z-index: -9999;
+}
+
+/* =========================================
+   Navigation
+   ========================================= */
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  height: var(--nav-height);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-link {
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.9rem;
+  transition: color 0.3s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #fff;
+}
+
+/* =========================================
+   Main Content Layout
+   ========================================= */
+.main-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: var(--nav-height);
+  width: 100%;
+  min-height: 100vh;
+  height: auto;
+  box-sizing: border-box;
+  padding-bottom: 4rem;
+  /* Add some bottom padding for scrolling */
+}
+
+.digital-section {
+  width: 100%;
+  max-width: 1200px;
+  padding: 2rem;
+}
+
+.digital-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+/* =========================================
+   Album Art Side
+   ========================================= */
+.album-art-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 450px;
+  /* Slightly reduced max-width */
+  margin: 0 auto;
+}
+
+.album-art-container {
+  width: 100%;
+  max-width: 400px;
+  /* Constrain max width further */
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  background: #000;
+  margin-bottom: 1.5rem;
+  position: relative;
+  /* Ensure it doesn't take up too much vertical space on small screens */
+  max-height: 45vh;
+  object-fit: contain;
+}
+
+.main-album-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* =========================================
+   Purchase Box
+   ========================================= */
+.purchase-box {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.price-input-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+}
+
+.currency {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+#pwyw-amount {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  width: 120px;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+#pwyw-amount:focus {
+  outline: none;
+  border-bottom-color: var(--accent-gold);
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 1rem;
+  background: #fff;
+  color: #000;
+  font-weight: bold;
+  letter-spacing: 1px;
+  border: none;
+  border-radius: 4px;
+  margin-top: 1rem;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.primary-btn:hover {
+  background: var(--accent-gold);
+  transform: translateY(-2px);
+  border-color: transparent;
+}
+
+.min-price-note {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  margin: 0;
+}
+
+/* =========================================
+   Tracklist Side
+   ========================================= */
+.tracklist-side {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(5px);
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  height: 100%;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.section-header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 1rem;
+}
+
+.section-label {
+  font-size: 0.9rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+}
+
+.tracklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.track-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s;
+}
+
+.track-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.track-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.track-number {
+  font-family: monospace;
+  opacity: 0.5;
+}
+
+.track-name {
+  font-weight: 500;
+}
+
+.track-status {
+  opacity: 0.5;
+}
+
+.track-status.unlocked {
+  color: var(--accent-gold);
+  opacity: 1;
+}
+
+/* =========================================
+   Player Controls (Hidden by default)
+   ========================================= */
+.player-controls.dashboard-hidden {
+  display: none;
+}
+
+/* =========================================
+   Mobile Responsive
+   ========================================= */
+@media (max-width: 768px) {
+  .digital-container {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    padding-bottom: 4rem;
+    /* Space for scrolling */
+  }
+
+  .main-content {
+    height: auto;
+    padding-bottom: 2rem;
+    overflow-y: auto;
+    display: block;
+    /* Allow scrolling on mobile */
+  }
+
+  .tracklist-side {
+    max-height: none;
+  }
+}
+
+/* =========================================
+   Coming Soon Section
+   ========================================= */
+.coming-soon-section {
+  display: none;
+  /* Hide for now as focus is on digital */
 }
