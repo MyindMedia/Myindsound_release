@@ -1853,16 +1853,21 @@ body.dashboard-mode .player-controls {
     letter-spacing: 2px;
   }
 
-  /* Mobile Main Content */
+  /* Mobile Main Content - Match Dashboard Width */
   .main-content {
     width: 100%;
     overflow-x: hidden;
+    padding: 0 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
-  /* Mobile Digital Section - Full Width */
+  /* Mobile Digital Section - Match Dashboard */
   .digital-section {
     padding: 1.5rem 0;
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   .digital-container {
@@ -1870,9 +1875,9 @@ body.dashboard-mode .player-controls {
     flex-direction: column;
     align-items: center;
     gap: 2rem;
-    padding: 0 1rem;
+    padding: 0;
     width: 100%;
-    max-width: 100%;
+    max-width: 1200px;
   }
 
   .album-art-side {
@@ -1885,7 +1890,7 @@ body.dashboard-mode .player-controls {
   .album-art-container {
     width: 100%;
     aspect-ratio: 1;
-    max-width: 100%;
+    max-width: 500px;
   }
 
   .main-album-art {
@@ -1896,6 +1901,7 @@ body.dashboard-mode .player-controls {
 
   .purchase-box {
     width: 100%;
+    max-width: 500px;
     padding: 1.5rem;
   }
 
@@ -1918,9 +1924,11 @@ body.dashboard-mode .player-controls {
     font-size: 0.8rem;
   }
 
-  /* Mobile Tracklist Side - Full Width */
+  /* Mobile Tracklist Side - Match Dashboard Width */
   .tracklist-side {
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 1rem;
   }
 
@@ -1947,10 +1955,12 @@ body.dashboard-mode .player-controls {
     font-size: 0.9rem;
   }
 
-  /* Mobile Coming Soon Section - Full Width */
+  /* Mobile Coming Soon Section - Match Dashboard Width */
   .coming-soon-section {
     padding: 2rem 0;
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   .coming-soon-grid {
@@ -1958,13 +1968,13 @@ body.dashboard-mode .player-controls {
     flex-direction: column;
     align-items: center;
     gap: 3rem;
-    padding: 0 1rem;
+    padding: 0;
     width: 100%;
   }
 
   .coming-soon-card {
     width: 100%;
-    max-width: 100%;
+    max-width: 500px;
   }
 
   .card-media {
@@ -2129,7 +2139,7 @@ body.dashboard-mode .player-controls {
   }
 }
 
-/* Extra Small Mobile - Full Width */
+/* Extra Small Mobile - Match Dashboard Width */
 @media (max-width: 480px) {
   .nav-links {
     gap: 1rem;
@@ -2140,19 +2150,14 @@ body.dashboard-mode .player-controls {
     letter-spacing: 1px;
   }
 
-  .album-art-side,
-  .tracklist-side {
-    width: 100%;
-  }
-
   .album-art-container {
     width: 100%;
-    max-width: 100%;
+    max-width: 400px;
   }
 
   .purchase-box {
     width: 100%;
-    max-width: 100%;
+    max-width: 400px;
     padding: 1.25rem;
   }
 
@@ -2163,12 +2168,12 @@ body.dashboard-mode .player-controls {
 
   .coming-soon-card {
     width: 100%;
-    max-width: 100%;
+    max-width: 400px;
   }
 
   .products-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
   }
 
   .product-card {
