@@ -11,11 +11,23 @@
 
 <body>
   <!-- Unicorn Studio WebGL Background -->
-  <div data-us-project="SrJiFKz8avO1GlImykxO" id="unicorn-background"
+  <div id="unicorn-background"
+    data-us-project="h4HiZ0HrC5hQkgRlxuEw"
+    data-us-scale="1"
+    data-us-dpi="1.5"
+    data-us-lazyload="true"
     style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; pointer-events: none;"></div>
   <div id="background-overlay"></div>
   <script src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.0.5/dist/unicornStudio.umd.js"></script>
-  <script>UnicornStudio.init();</script>
+  <script>
+    // Initialize Unicorn Studio automatically if not handled by main.ts
+    // This provides a fallback if the programmatic init fails
+    window.addEventListener('load', () => {
+        if (typeof UnicornStudio !== 'undefined' && !document.querySelector('#unicorn-background canvas')) {
+             UnicornStudio.init();
+        }
+    });
+  </script>
   <div id="app">
     <nav class="top-nav">
       <div class="nav-links">
