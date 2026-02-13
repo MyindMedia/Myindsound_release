@@ -1712,59 +1712,72 @@ body {
 /* Desktop Stream Page */
 @media (min-width: 769px) {
   .stream-container {
-    grid-template-columns: 1fr 400px;
-    gap: 4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
     padding: 120px 3rem 4rem;
   }
 
-  .tracklist-section {
-    position: sticky;
-    top: 100px;
+  /* Large CD Player on Desktop */
+  .animated-disk-player {
+    width: 550px;
+    height: 550px;
+    max-width: 100%;
   }
 
-  /* Hide mobile player controls on desktop */
-  .mobile-player-controls {
+  .layer-3 {
+    width: 63%;
+    height: 63%;
+    top: auto;
+    bottom: 0;
+    left: 1px;
+    right: 0;
+    margin: auto;
+    transform-origin: center center;
+  }
+
+  /* Hide overlay buttons on desktop - using controls below player */
+  .cd-button-overlays,
+  .cd-volume-slider-overlay {
     display: none !important;
   }
 
-  /* Show desktop overlay buttons on desktop */
-  .cd-button-overlays,
-  .cd-volume-slider-overlay {
+  /* Show mobile player controls on desktop */
+  .mobile-player-controls {
     display: flex !important;
+    max-width: 550px;
+  }
+
+  /* Tracklist */
+  .tracklist-section {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
   }
 
   /* Hide upcoming tracks on desktop (shown in sidebar) */
   .upcoming-tracks {
     display: none;
   }
-
-  /* Expand tracklist by default on desktop */
-  .tracklist-section .tracklist {
-    max-height: 400px;
-    overflow-y: auto;
-  }
 }
 
 /* Tablet adjustments */
 @media (min-width: 769px) and (max-width: 1200px) {
-  .stream-container {
-    grid-template-columns: 1fr;
-    gap: 3rem;
-    padding: 100px 2rem 4rem;
+  .animated-disk-player {
+    width: 450px;
+    height: 450px;
   }
 
-  .tracklist-section {
-    position: relative;
-    top: 0;
-    max-width: 600px;
-    margin: 0 auto;
+  .mobile-player-controls {
+    max-width: 450px !important;
   }
 }
 
 /* Mobile CD Player Adjustments */
 @media (max-width: 480px) {
   .animated-disk-player {
-    max-width: 320px;
+    max-width: 100%;
   }
 
   .layer-3 {
