@@ -258,17 +258,18 @@ export class PurchaseAnimationController {
 
                 // Animate main: peel away from top to bottom (like Coming Soon cards)
                 if (main) {
-                    main.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1)';
+                    main.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), opacity 1.8s ease';
                     // Reset to full first
                     main.style.setProperty('clip-path', 'polygon(0 3%, 100% 3%, 100% 100%, 0 100%)', 'important');
                     void main.getBoundingClientRect();
                     // Peel to reveal (top to bottom)
                     main.style.setProperty('clip-path', 'polygon(0 100%, 100% 100%, 100% 100%, 0 100%)', 'important');
+                    main.style.opacity = '0';
                 }
 
                 // Animate all flaps (including shadow flap)
                 flaps.forEach(flap => {
-                    flap.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), top 1.8s cubic-bezier(0.2, 0.7, 0, 1)';
+                    flap.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), top 1.8s cubic-bezier(0.2, 0.7, 0, 1), opacity 1.8s ease';
                     // Initial state
                     flap.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 3%, 0 3%)', 'important');
                     flap.style.setProperty('top', 'calc(-100% + 2 * 3% - 1px)', 'important');
@@ -276,7 +277,14 @@ export class PurchaseAnimationController {
                     // Final state
                     flap.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', 'important');
                     flap.style.setProperty('top', 'calc(100% - 1px)', 'important');
+                    flap.style.opacity = '0';
                 });
+
+                // Fade out the entire peel overlay container
+                if (overlay) {
+                    overlay.style.transition = 'opacity 1s ease-out';
+                    overlay.style.opacity = '0';
+                }
             }
         }, [], '+=0.2');
 

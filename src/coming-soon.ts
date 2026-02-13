@@ -196,7 +196,7 @@ class ComingSoonController {
             const overlay = card._overlayContainer;
             const sticker = card._stickerPeel;
             const main = overlay ? overlay.querySelector('.sticker-peel-main') as HTMLElement : null;
-            const flap = overlay ? overlay.querySelector('.sticker-peel-flap') as HTMLElement : null;
+            const flap = overlay ? overlay.querySelectorAll('.sticker-peel-flap') as NodeListOf<HTMLElement> : null;
             const dragEl = overlay ? overlay.querySelector('.sticker-peel-draggable') as HTMLElement : null;
 
             if (overlay) overlay.style.pointerEvents = 'none';
@@ -204,18 +204,28 @@ class ComingSoonController {
 
             // Animate the peel
             if (main) {
-                main.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1)';
+                main.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), opacity 1.8s ease';
                 main.style.setProperty('clip-path', 'polygon(0 3%, 100% 3%, 100% 100%, 0 100%)', 'important');
                 void main.getBoundingClientRect();
                 main.style.setProperty('clip-path', 'polygon(0 100%, 100% 100%, 100% 100%, 0 100%)', 'important');
+                main.style.opacity = '0';
             }
             if (flap) {
-                flap.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), top 1.8s cubic-bezier(0.2, 0.7, 0, 1)';
-                flap.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 3%, 0 3%)', 'important');
-                flap.style.setProperty('top', 'calc(-100% + 2 * 3% - 1px)', 'important');
-                void flap.getBoundingClientRect();
-                flap.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', 'important');
-                flap.style.setProperty('top', 'calc(100% - 1px)', 'important');
+                flap.forEach(f => {
+                    f.style.transition = 'clip-path 1.8s cubic-bezier(0.2, 0.7, 0, 1), top 1.8s cubic-bezier(0.2, 0.7, 0, 1), opacity 1.8s ease';
+                    f.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 3%, 0 3%)', 'important');
+                    f.style.setProperty('top', 'calc(-100% + 2 * 3% - 1px)', 'important');
+                    void f.getBoundingClientRect();
+                    f.style.setProperty('clip-path', 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', 'important');
+                    f.style.setProperty('top', 'calc(100% - 1px)', 'important');
+                    f.style.opacity = '0';
+                });
+            }
+
+            // Fade out overlay container after peel animation
+            if (overlay) {
+                overlay.style.transition = 'opacity 1s ease-out';
+                overlay.style.opacity = '0';
             }
 
             // Reveal video with smooth cross-dissolve
