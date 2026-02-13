@@ -1616,3 +1616,400 @@ body.animation-active .player-controls {
 body.dashboard-mode .player-controls {
   pointer-events: auto;
 }
+
+/* ============================================
+   COMPREHENSIVE MOBILE LAYOUT
+   All-Page Mobile Optimization
+   ============================================ */
+
+/* Mobile Global Defaults */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .container {
+    padding: 0 1rem;
+    max-width: 100%;
+  }
+
+  /* Mobile Navigation */
+  .top-nav {
+    padding: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .nav-links {
+    gap: 1.5rem;
+  }
+
+  .nav-link {
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+  }
+
+  /* Mobile Main Content */
+  .main-content {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Mobile Digital Section */
+  .digital-section {
+    padding: 1.5rem 0;
+  }
+
+  .digital-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    padding: 0 1rem;
+    max-width: 100%;
+  }
+
+  .album-art-side {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .album-art-container {
+    width: 100%;
+    max-width: 350px;
+    aspect-ratio: 1;
+  }
+
+  .main-album-art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .purchase-box {
+    width: 100%;
+    max-width: 350px;
+    padding: 1.5rem;
+  }
+
+  .price-input-wrapper {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .currency {
+    font-size: 1.25rem;
+  }
+
+  #pwyw-amount {
+    font-size: 2.5rem;
+    width: 120px;
+  }
+
+  .primary-btn {
+    padding: 1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Mobile Tracklist Side */
+  .tracklist-side {
+    width: 100%;
+    max-width: 400px;
+    padding: 1rem;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-label {
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+  }
+
+  .track-item {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .track-info {
+    gap: 0.5rem;
+  }
+
+  .track-name {
+    font-size: 0.9rem;
+  }
+
+  /* Mobile Coming Soon Section */
+  .coming-soon-section {
+    padding: 2rem 0;
+  }
+
+  .coming-soon-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rem;
+    padding: 0 1rem;
+  }
+
+  .coming-soon-card {
+    width: 100%;
+    max-width: 350px;
+  }
+
+  .card-media {
+    width: 100%;
+    aspect-ratio: 1;
+  }
+
+  .card-title {
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+  }
+
+  /* Mobile Modal Dialogs */
+  .modal-overlay {
+    padding: 1rem;
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 2rem;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .modal-step-title {
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+    margin-bottom: 2rem;
+  }
+
+  .upsell-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .upsell-img {
+    width: 100%;
+    height: auto;
+    max-width: 150px;
+  }
+
+  .modal-actions {
+    gap: 0.75rem;
+  }
+
+  .primary-input {
+    padding: 1rem;
+  }
+
+  .secondary-btn {
+    padding: 1rem;
+    font-size: 0.65rem;
+  }
+
+  /* Mobile Physical Page */
+  .merch-hero {
+    padding: 3rem 1rem 1.5rem;
+    text-align: center;
+  }
+
+  .merch-title {
+    font-size: 1.75rem;
+    letter-spacing: 3px;
+    word-break: break-word;
+  }
+
+  .merch-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .merch-section {
+    padding: 1.5rem 1rem;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .product-card {
+    border-radius: 8px;
+  }
+
+  .product-info {
+    padding: 1rem;
+  }
+
+  .product-name {
+    font-size: 0.75rem;
+  }
+
+  .product-price {
+    font-size: 0.9rem;
+  }
+
+  /* Mobile Cart & Quick View Modals */
+  .cart-modal-content,
+  .quickview-content {
+    max-height: 85vh;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .cart-header {
+    padding: 1rem;
+  }
+
+  .cart-header h2 {
+    font-size: 0.85rem;
+  }
+
+  .cart-item {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .cart-item-image {
+    width: 60px;
+    height: 60px;
+  }
+
+  .quickview-body {
+    grid-template-columns: 1fr;
+  }
+
+  .quickview-image {
+    max-height: 250px;
+  }
+
+  .quickview-info {
+    padding: 1.5rem;
+  }
+
+  .quickview-info h2 {
+    font-size: 1.1rem;
+  }
+
+  .quickview-price {
+    font-size: 1.25rem;
+  }
+
+  .quickview-desc {
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .quickview-actions {
+    flex-direction: column;
+  }
+
+  .quantity-selector {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Mobile Stream Page Already Handled Above */
+
+  /* Mobile Animations */
+  .slide-in-right,
+  .slide-in-bottom {
+    animation-duration: 0.6s;
+  }
+}
+
+/* Extra Small Mobile */
+@media (max-width: 480px) {
+  .nav-links {
+    gap: 1rem;
+  }
+
+  .nav-link {
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+  }
+
+  .album-art-side,
+  .tracklist-side {
+    max-width: 100%;
+  }
+
+  .album-art-container {
+    max-width: 280px;
+  }
+
+  .purchase-box {
+    max-width: 280px;
+    padding: 1.25rem;
+  }
+
+  #pwyw-amount {
+    font-size: 2rem;
+    width: 100px;
+  }
+
+  .coming-soon-card {
+    max-width: 280px;
+  }
+
+  .products-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .product-card {
+    max-width: 280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .quickview-info {
+    padding: 1.25rem;
+  }
+
+  .variant-options {
+    gap: 0.5rem;
+  }
+
+  .variant-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Landscape Mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .quickview-body {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .quickview-image {
+    max-height: 100%;
+    flex: 1;
+  }
+
+  .quickview-info {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .album-art-container {
+    max-width: 200px;
+  }
+}
