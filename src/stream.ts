@@ -593,30 +593,34 @@ class StreamPlayer {
   private renderUpcomingTracks() {
     if (!this.upcomingScrollEl) return;
 
-    // Get next 5 tracks (wrapping around)
-    const upcomingTracks: { track: Track; offset: number }[] = [];
-    for (let i = 1; i <= 5; i++) {
-      const nextIndex = (this.currentTrackIndex + i) % this.tracks.length;
-      upcomingTracks.push({ track: this.tracks[nextIndex], offset: i });
-    }
+    // Get only the next track
+    const nextIndex = (this.currentTrackIndex + 1) % this.tracks.length;
+    const nextTrack = this.tracks[nextIndex];
 
-    this.upcomingScrollEl.innerHTML = upcomingTracks.map(({ track, offset }, i) => `
-      <div class="upcoming-item" data-offset="${offset}" data-index="${(this.currentTrackIndex + offset) % this.tracks.length}">
-        <div class="upcoming-index">${(i + 1)}</div>
+    this.upcomingScrollEl.innerHTML = `
+      <div class="upcoming-item" data-offset="1" data-index="${nextIndex}">
+        <div class="upcoming-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </div>
         <div class="upcoming-info">
-          <span class="upcoming-title">${track.title}</span>
-          <span class="upcoming-duration">${track.duration}</span>
+          <span class="upcoming-label-small">UP NEXT</span>
+          <span class="upcoming-title">${nextTrack.title}</span>
+          <span class="upcoming-duration">${nextTrack.duration}</span>
+        </div>
+        <div class="upcoming-chevron">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
         </div>
       </div>
-    `).join('');
+    `;
 
-    // Add click handlers for upcoming tracks
-    this.upcomingScrollEl.querySelectorAll('.upcoming-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const index = parseInt(item.getAttribute('data-index') || '0');
-        this.loadTrack(index);
-        this.play();
-      });
+    // Add click handler
+    this.upcomingScrollEl.querySelector('.upcoming-item')?.addEventListener('click', () => {
+      this.loadTrack(nextIndex);
+      this.play();
     });
   }
 
