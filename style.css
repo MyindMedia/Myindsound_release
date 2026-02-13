@@ -1298,6 +1298,16 @@ body {
   overflow: hidden;
 }
 
+.now-playing-label {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
 .now-playing-title {
   font-size: 1.25rem;
   font-weight: 700;
@@ -1853,21 +1863,17 @@ body.dashboard-mode .player-controls {
     letter-spacing: 2px;
   }
 
-  /* Mobile Main Content - Match Dashboard Width */
+  /* Mobile Main Content - Match Dashboard */
   .main-content {
     width: 100%;
     overflow-x: hidden;
     padding: 0 1rem;
-    max-width: 1200px;
-    margin: 0 auto;
   }
 
   /* Mobile Digital Section - Match Dashboard */
   .digital-section {
     padding: 1.5rem 0;
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
   }
 
   .digital-container {
@@ -1877,7 +1883,6 @@ body.dashboard-mode .player-controls {
     gap: 2rem;
     padding: 0;
     width: 100%;
-    max-width: 1200px;
   }
 
   .album-art-side {
@@ -1888,8 +1893,9 @@ body.dashboard-mode .player-controls {
   }
 
   .album-art-container {
-    width: 90%;
+    width: 100%;
     aspect-ratio: 1;
+    max-width: 100%;
   }
 
   .main-album-art {
@@ -1899,7 +1905,7 @@ body.dashboard-mode .player-controls {
   }
 
   .purchase-box {
-    width: 90%;
+    width: 100%;
     padding: 1.5rem;
   }
 
@@ -1922,11 +1928,9 @@ body.dashboard-mode .player-controls {
     font-size: 0.8rem;
   }
 
-  /* Mobile Tracklist Side - Match Dashboard Width */
+  /* Mobile Tracklist Side - Match Dashboard */
   .tracklist-side {
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
     padding: 1rem;
   }
 
@@ -1957,8 +1961,6 @@ body.dashboard-mode .player-controls {
   .coming-soon-section {
     padding: 2rem 0;
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
   }
 
   .coming-soon-grid {
@@ -1971,7 +1973,8 @@ body.dashboard-mode .player-controls {
   }
 
   .coming-soon-card {
-    width: 90%;
+    width: 100%;
+    max-width: 100%;
     aspect-ratio: 1;
   }
 
@@ -2132,7 +2135,7 @@ body.dashboard-mode .player-controls {
   }
 }
 
-/* Extra Small Mobile - Match Dashboard Width */
+/* Extra Small Mobile - Match Dashboard */
 @media (max-width: 480px) {
   .nav-links {
     gap: 1rem;
@@ -2144,11 +2147,11 @@ body.dashboard-mode .player-controls {
   }
 
   .album-art-container {
-    width: 90%;
+    width: 100%;
   }
 
   .purchase-box {
-    width: 90%;
+    width: 100%;
     padding: 1.25rem;
   }
 
@@ -2158,7 +2161,7 @@ body.dashboard-mode .player-controls {
   }
 
   .coming-soon-card {
-    width: 90%;
+    width: 100%;
   }
 
   .products-grid {
@@ -2168,7 +2171,6 @@ body.dashboard-mode .player-controls {
 
   .product-card {
     width: 100%;
-    max-width: 100%;
   }
 
   .quickview-info {
