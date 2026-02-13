@@ -632,12 +632,14 @@ body {
 
 .layer-3 {
   z-index: 3;
-  /* Responsive sizing - positioned in the CD case window */
-  width: 58%;
-  height: 58%;
-  top: 38%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  /* Original positioning for desktop */
+  width: 63%;
+  height: 63%;
+  top: auto;
+  bottom: 0;
+  left: 1px;
+  right: 0;
+  margin: auto;
   transform-origin: center center;
 }
 
