@@ -632,10 +632,10 @@ body {
 
 .layer-3 {
   z-index: 3;
-  /* Responsive sizing - centered with transform instead of fixed pixels */
-  width: 55%;
-  height: 55%;
-  top: 50%;
+  /* Responsive sizing - positioned in the CD case window */
+  width: 58%;
+  height: 58%;
+  top: 38%;
   left: 50%;
   transform: translate(-50%, -50%);
   transform-origin: center center;
@@ -1547,6 +1547,19 @@ body {
     top: 0;
     max-width: 600px;
     margin: 0 auto;
+  }
+}
+
+/* Mobile CD Player Adjustments */
+@media (max-width: 480px) {
+  .animated-disk-player {
+    max-width: 320px;
+  }
+
+  .layer-3 {
+    width: 60%;
+    height: 60%;
+    top: 36%;
   }
 }
 
