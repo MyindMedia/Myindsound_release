@@ -635,7 +635,7 @@ body {
   /* Responsive sizing - positioned in the CD case window */
   width: 58%;
   height: 58%;
-  top: 32%;
+  top: 38%;
   left: 50%;
   transform: translate(-50%, -50%);
   transform-origin: center center;
