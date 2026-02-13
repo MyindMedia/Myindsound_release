@@ -1336,8 +1336,206 @@ body {
   color: black;
 }
 
-/* Stream Page Responsive */
-@media (max-width: 1200px) {
+/* ============================================
+   STREAM PAGE MOBILE LAYOUT
+   Mobile-First Responsive Design
+   ============================================ */
+
+/* Mobile Stream Container - Centered Stack */
+@media (max-width: 768px) {
+  .stream-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 100px 1rem 2rem;
+    max-width: 100%;
+  }
+
+  /* Center the player section */
+  .player-section {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Full width now playing info */
+  .now-playing {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+    padding: 1rem 0;
+  }
+
+  .now-playing-title {
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+
+  .now-playing-artist {
+    font-size: 0.75rem;
+  }
+
+  /* Collapsible Tracklist */
+  .tracklist-section {
+    width: 100%;
+    max-width: 450px;
+    position: relative;
+    top: 0;
+    padding: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .tracklist-header {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tracklist-header::after {
+    content: '▼';
+    font-size: 0.6rem;
+    transition: transform 0.3s ease;
+  }
+
+  .tracklist-section.collapsed .tracklist {
+    max-height: 0;
+    overflow: hidden;
+  }
+
+  .tracklist-section.collapsed .album-info {
+    display: none;
+  }
+
+  .tracklist-section.expanded .tracklist-header::after {
+    transform: rotate(180deg);
+  }
+
+  /* Upcoming Tracks Preview - Horizontal Scroll */
+  .upcoming-tracks {
+    width: 100%;
+    max-width: 450px;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #1a1a1a;
+  }
+
+  .upcoming-label {
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .upcoming-scroll {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .upcoming-scroll::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .upcoming-scroll::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 2px;
+  }
+
+  .upcoming-scroll::-webkit-scrollbar-thumb {
+    background: var(--accent-gold);
+    border-radius: 2px;
+  }
+
+  .upcoming-item {
+    flex: 0 0 auto;
+    width: 140px;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    scroll-snap-align: start;
+  }
+
+  .upcoming-item:hover {
+    background: rgba(255, 215, 0, 0.08);
+    border-color: var(--accent-gold);
+  }
+
+  .upcoming-index {
+    font-size: 0.6rem;
+    color: var(--accent-gold);
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+  }
+
+  .upcoming-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .upcoming-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .upcoming-duration {
+    font-size: 0.55rem;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .tracklist-section .tracklist {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .track-playing-indicator {
+    display: none;
+  }
+}
+
+/* Desktop Stream Page */
+@media (min-width: 769px) {
+  .stream-container {
+    grid-template-columns: 1fr 400px;
+    gap: 4rem;
+    padding: 120px 3rem 4rem;
+  }
+
+  .tracklist-section {
+    position: sticky;
+    top: 100px;
+  }
+
+  /* Hide upcoming tracks on desktop (shown in sidebar) */
+  .upcoming-tracks {
+    display: none;
+  }
+
+  /* Expand tracklist by default on desktop */
+  .tracklist-section .tracklist {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1200px) {
   .stream-container {
     grid-template-columns: 1fr;
     gap: 3rem;
@@ -1347,24 +1545,8 @@ body {
   .tracklist-section {
     position: relative;
     top: 0;
-  }
-}
-
-@media (max-width: 640px) {
-  .stream-container {
-    padding: 90px 1rem 2rem;
-  }
-
-  .disc-case {
-    padding: 1rem;
-  }
-
-  .tracklist-section .track-item {
-    grid-template-columns: 24px 1fr 40px;
-  }
-
-  .track-playing-indicator {
-    display: none;
+    max-width: 600px;
+    margin: 0 auto;
   }
 }
 

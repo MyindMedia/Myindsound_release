@@ -21,6 +21,8 @@ interface Track {
   durationSeconds: number;
   src: string;
   cover: string;
+  isUpcoming?: boolean;
+  offset?: number;
 }
 
 // LIT Album Tracks - Supabase signed URLs
@@ -100,6 +102,8 @@ class StreamPlayer {
   private nowPlayingTitle: HTMLElement | null;
   private nowPlayingArtist: HTMLElement | null;
   private tracklistEl: HTMLElement | null;
+  private upcomingScrollEl: HTMLElement | null;
+  private tracklistSection: HTMLElement | null;
 
   constructor() {
     this.audio = document.getElementById('audio-player') as HTMLAudioElement;
@@ -110,6 +114,8 @@ class StreamPlayer {
     this.nowPlayingTitle = document.getElementById('now-playing-title');
     this.nowPlayingArtist = document.getElementById('now-playing-artist');
     this.tracklistEl = document.getElementById('tracklist');
+    this.upcomingScrollEl = document.getElementById('upcoming-scroll');
+    this.tracklistSection = document.getElementById('tracklist-section');
     this.introOverlay = document.getElementById('intro-overlay');
 
     this.init();
@@ -545,6 +551,13 @@ class StreamPlayer {
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+    // Mobile tracklist toggle
+    const tracklistHeader = document.getElementById('tracklist-header');
+    tracklistHeader?.addEventListener('click', () => {
+      this.tracklistSection?.classList.toggle('collapsed');
+      this.tracklistSection?.classList.toggle('expanded');
+    });
   }
 
   private renderTracklist() {
@@ -566,6 +579,39 @@ class StreamPlayer {
 
     // Add click handlers
     this.tracklistEl.querySelectorAll('.track-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const index = parseInt(item.getAttribute('data-index') || '0');
+        this.loadTrack(index);
+        this.play();
+      });
+    });
+
+    // Render upcoming tracks preview
+    this.renderUpcomingTracks();
+  }
+
+  private renderUpcomingTracks() {
+    if (!this.upcomingScrollEl) return;
+
+    // Get next 5 tracks (wrapping around)
+    const upcomingTracks: { track: Track; offset: number }[] = [];
+    for (let i = 1; i <= 5; i++) {
+      const nextIndex = (this.currentTrackIndex + i) % this.tracks.length;
+      upcomingTracks.push({ track: this.tracks[nextIndex], offset: i });
+    }
+
+    this.upcomingScrollEl.innerHTML = upcomingTracks.map(({ track, offset }, i) => `
+      <div class="upcoming-item" data-offset="${offset}" data-index="${(this.currentTrackIndex + offset) % this.tracks.length}">
+        <div class="upcoming-index">${(i + 1)}</div>
+        <div class="upcoming-info">
+          <span class="upcoming-title">${track.title}</span>
+          <span class="upcoming-duration">${track.duration}</span>
+        </div>
+      </div>
+    `).join('');
+
+    // Add click handlers for upcoming tracks
+    this.upcomingScrollEl.querySelectorAll('.upcoming-item').forEach(item => {
       item.addEventListener('click', () => {
         const index = parseInt(item.getAttribute('data-index') || '0');
         this.loadTrack(index);
@@ -595,6 +641,9 @@ class StreamPlayer {
     this.tracklistEl?.querySelectorAll('.track-item').forEach((item, i) => {
       item.classList.toggle('active', i === index);
     });
+
+    // Update upcoming tracks preview
+    this.renderUpcomingTracks();
 
     // Update time display
     if (this.timeTotal) this.timeTotal.textContent = track.duration;
