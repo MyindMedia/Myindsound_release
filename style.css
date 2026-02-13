@@ -678,6 +678,7 @@ body.animation-active {
   right: 0;
   margin: auto;
   transform-origin: center center;
+  object-fit: cover;
 }
 
 .layer-4 {

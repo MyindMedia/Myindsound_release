@@ -1,5 +1,4 @@
 import './style.css';
-import { UnicornSceneManager } from './unicorn-scene';
 import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
 import { initLitHover } from './lit-hover';
@@ -185,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initStickers();
   initPurchaseFlow();
   initNavAuth();
-  UnicornSceneManager.init('unicorn-background');
 
 });
 
