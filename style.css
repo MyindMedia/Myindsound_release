@@ -1842,7 +1842,7 @@ body.dashboard-mode .player-controls {
 /* Mobile Global Defaults */
 @media (max-width: 768px) {
   html {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   body {
@@ -1850,25 +1850,29 @@ body.dashboard-mode .player-controls {
   }
 
   .container {
-    padding: 0 1rem;
+    padding: 0;
     max-width: 100%;
   }
 
-  /* Mobile Navigation */
+  /* Mobile Navigation - Larger */
   .top-nav {
-    padding: 1rem;
+    padding: 1.25rem;
     flex-wrap: wrap;
     gap: 0.5rem;
     width: 100%;
+    background: rgba(0, 0, 0, 0.95);
   }
 
   .nav-links {
-    gap: 1.5rem;
+    gap: 2rem;
+    width: 100%;
+    justify-content: center;
   }
 
   .nav-link {
-    font-size: 0.65rem;
-    letter-spacing: 2px;
+    font-size: 1rem;
+    letter-spacing: 3px;
+    padding: 0.75rem 0;
   }
 
   /* Mobile Main Content - Full Width */
@@ -1880,7 +1884,7 @@ body.dashboard-mode .player-controls {
 
   /* Mobile Digital Section - Full Width */
   .digital-section {
-    padding: 1.5rem 0;
+    padding: 2rem 0;
     width: 100%;
   }
 
