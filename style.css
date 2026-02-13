@@ -1361,21 +1361,25 @@ body {
     max-width: 100%;
   }
 
-  /* Center the player section */
+  /* Center the player section - Full Width */
   .player-section {
     width: 100%;
-    max-width: 400px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
 
+  .animated-disk-player {
+    width: 100%;
+    max-width: 100%;
+  }
+
   /* Full width now playing info */
   .now-playing {
     width: 100%;
-    max-width: 100%;
     text-align: center;
-    padding: 1rem 0;
+    padding: 1rem;
   }
 
   .now-playing-title {
@@ -1387,10 +1391,10 @@ body {
     font-size: 0.75rem;
   }
 
-  /* Collapsible Tracklist */
+  /* Collapsible Tracklist - Full Width */
   .tracklist-section {
     width: 100%;
-    max-width: 450px;
+    max-width: 100%;
     position: relative;
     top: 0;
     padding: 1.5rem;
@@ -1421,12 +1425,12 @@ body {
     transform: rotate(180deg);
   }
 
-  /* Upcoming Tracks Preview - Single Card */
+  /* Upcoming Tracks Preview - Full Width */
   .upcoming-tracks {
     width: 100%;
-    max-width: 450px;
+    max-width: 100%;
     margin-top: 1.5rem;
-    padding-top: 1rem;
+    padding: 1rem;
     border-top: 1px solid #1a1a1a;
   }
 
@@ -1649,6 +1653,7 @@ body.dashboard-mode .player-controls {
     padding: 1rem;
     flex-wrap: wrap;
     gap: 0.5rem;
+    width: 100%;
   }
 
   .nav-links {
@@ -1666,9 +1671,10 @@ body.dashboard-mode .player-controls {
     overflow-x: hidden;
   }
 
-  /* Mobile Digital Section */
+  /* Mobile Digital Section - Full Width */
   .digital-section {
     padding: 1.5rem 0;
+    width: 100%;
   }
 
   .digital-container {
@@ -1677,12 +1683,12 @@ body.dashboard-mode .player-controls {
     align-items: center;
     gap: 2rem;
     padding: 0 1rem;
+    width: 100%;
     max-width: 100%;
   }
 
   .album-art-side {
     width: 100%;
-    max-width: 400px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1690,8 +1696,8 @@ body.dashboard-mode .player-controls {
 
   .album-art-container {
     width: 100%;
-    max-width: 350px;
     aspect-ratio: 1;
+    max-width: 100%;
   }
 
   .main-album-art {
@@ -1702,7 +1708,6 @@ body.dashboard-mode .player-controls {
 
   .purchase-box {
     width: 100%;
-    max-width: 350px;
     padding: 1.5rem;
   }
 
@@ -1725,10 +1730,9 @@ body.dashboard-mode .player-controls {
     font-size: 0.8rem;
   }
 
-  /* Mobile Tracklist Side */
+  /* Mobile Tracklist Side - Full Width */
   .tracklist-side {
     width: 100%;
-    max-width: 400px;
     padding: 1rem;
   }
 
@@ -1755,9 +1759,10 @@ body.dashboard-mode .player-controls {
     font-size: 0.9rem;
   }
 
-  /* Mobile Coming Soon Section */
+  /* Mobile Coming Soon Section - Full Width */
   .coming-soon-section {
     padding: 2rem 0;
+    width: 100%;
   }
 
   .coming-soon-grid {
@@ -1766,11 +1771,12 @@ body.dashboard-mode .player-controls {
     align-items: center;
     gap: 3rem;
     padding: 0 1rem;
+    width: 100%;
   }
 
   .coming-soon-card {
     width: 100%;
-    max-width: 350px;
+    max-width: 100%;
   }
 
   .card-media {
@@ -1935,7 +1941,7 @@ body.dashboard-mode .player-controls {
   }
 }
 
-/* Extra Small Mobile */
+/* Extra Small Mobile - Full Width */
 @media (max-width: 480px) {
   .nav-links {
     gap: 1rem;
@@ -1948,15 +1954,17 @@ body.dashboard-mode .player-controls {
 
   .album-art-side,
   .tracklist-side {
-    max-width: 100%;
+    width: 100%;
   }
 
   .album-art-container {
-    max-width: 280px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .purchase-box {
-    max-width: 280px;
+    width: 100%;
+    max-width: 100%;
     padding: 1.25rem;
   }
 
@@ -1966,18 +1974,18 @@ body.dashboard-mode .player-controls {
   }
 
   .coming-soon-card {
-    max-width: 280px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .products-grid {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
   }
 
   .product-card {
-    max-width: 280px;
-    margin: 0 auto;
     width: 100%;
+    max-width: 100%;
   }
 
   .quickview-info {
