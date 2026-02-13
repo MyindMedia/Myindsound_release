@@ -72,6 +72,14 @@ body {
   padding: 0 2rem;
 }
 
+/* Mobile Container - Full Width */
+@media (max-width: 768px) {
+  .container {
+    padding: 0;
+    max-width: 100%;
+  }
+}
+
 /* Top Navigation */
 .top-nav {
   position: sticky;
@@ -1863,14 +1871,14 @@ body.dashboard-mode .player-controls {
     letter-spacing: 2px;
   }
 
-  /* Mobile Main Content - Match Dashboard */
+  /* Mobile Main Content - Full Width */
   .main-content {
     width: 100%;
     overflow-x: hidden;
-    padding: 0 1rem;
+    padding: 0;
   }
 
-  /* Mobile Digital Section - Match Dashboard */
+  /* Mobile Digital Section - Full Width */
   .digital-section {
     padding: 1.5rem 0;
     width: 100%;
