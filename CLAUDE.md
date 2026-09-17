@@ -136,7 +136,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 ## Key integration points
 
 - Products are referenced by **slug** (`lit`, `the-source`). Stripe product IDs live on `products.stripeProductIds`.
-- Clerk user IDs (`users.clerkId`) are the identity across Convex. The live site currently uses the Clerk **dev** instance `main-grouper-12`.
+- Clerk user IDs (`users.clerkId`) are the identity across Convex. Both deployments and the live site use the Clerk instance of the **Myind Sound Releases** app (`assured-marlin-6172.clerk.accounts.dev`), which has the `convex` JWT template. The old `main-grouper-12` instance is not in this Clerk account and is no longer used.
 - Paid audio is in Convex file storage: each track's `streamFile` (MP3) and `originalFile` (the WAV for track 3), plus the product's `downloadFile` (album zip). Storage links allow this site's origin and byte ranges. They don't expire, so only purchase-checked functions return them.
 - **Compliance rules:**
   - Never print customer PII in the Claude session. Migrations and debugging use counts and IDs.
