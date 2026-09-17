@@ -22,11 +22,8 @@ declare const UnicornStudio: {
 
 export class UnicornSceneManager {
     private static scenes: Map<string, any> = new Map();
-    private static defaultProjectId = "ryXCGIJHz1KVR0TZRWND";
+    private static defaultProjectId = "h4HiZ0HrC5hQkgRlxuEw";
 
-    /**
-     * Initialize a Unicorn Studio scene in a specific container
-     */
     /**
      * Initialize a Unicorn Studio scene in a specific container
      */
@@ -45,34 +42,26 @@ export class UnicornSceneManager {
         }
 
         try {
-            console.log(`UnicornSceneManager: Loading local scene data for #${containerId}`);
+            console.log(`UnicornSceneManager: Loading scene for #${containerId} with Project ID: ${_projectId}`);
 
-            // Fetch local JSON with cache busting
-            const response = await fetch(`/assets/huly_laser_remix.json?t=${Date.now()}`);
-            if (!response.ok) throw new Error('Failed to load scene JSON');
-            const sceneData = await response.json();
-
-            // Initialize with local data
-            // We use the ID from the JSON or the default, but passing 'data' is key if supported
-            // If the SDK supports offline loading, it typically overrides projectId lookup
+            // Initialize using Unicorn Studio SDK with Project ID
             const scene = await UnicornStudio.addScene({
                 elementId: containerId,
-                projectId: sceneData.id || _projectId, // Still provide ID 
-                data: sceneData, // Pass the full JSON data
+                projectId: _projectId,
                 scale: 1,
                 dpi: 1.5,
                 fps: 60,
                 lazyLoad: true,
-                production: true, // Should hide badge if licensed
-                interactivity: {       // Add interactivity from JSON options if needed, but safe defaults here
+                production: true, // Enable CDN caching
+                interactivity: {
                     mouse: {
                         disableMobile: true
                     }
                 }
-            } as any); // Cast to any to bypass our limited interface definition
+            } as any);
 
             this.scenes.set(containerId, scene);
-            console.log(`UnicornSceneManager: Scene initialized with local data`, scene);
+            console.log(`UnicornSceneManager: Scene initialized`, scene);
 
             // Programmatically remove badge with aggressive checking
             this.removeBadge(containerId);
