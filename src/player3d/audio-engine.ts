@@ -41,6 +41,11 @@ export class AudioEngine {
     this.element.addEventListener('error', () => events.onError?.());
   }
 
+  /** The Web Audio context, once `unlock()` has created it. */
+  get context(): AudioContext | null {
+    return this.ctx;
+  }
+
   get simulated(): boolean {
     return !this.routed;
   }

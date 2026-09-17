@@ -1,5 +1,6 @@
 import type { Vector3 } from 'three';
 import type { Deck } from './deck';
+import { DISC_SOUNDS } from './disc-sounds';
 import type { CartridgeInspector } from './inspect';
 import type { PlayerScene } from './scene';
 
@@ -20,14 +21,21 @@ function getGsap(): Gsap | null {
 }
 
 export interface InsertHooks {
+  /** The disc is seated: start the spin-up sound (the deck follows its RPM curve). */
+  onSpinUp(): void;
   onInserted(): void;
   onReady(): void;
 }
 
 export const PLAY_RPM = 300;
 
+/** When the cartridge is seated in the insert timeline; the disc mechanics sound starts here. */
+const SEAT_AT = 1.8;
+
 /**
- * Cartridge flies from wherever it floats in the inspector → slot → seat → spin-up (about 2.6 s).
+ * Cartridge flies from wherever it floats in the inspector → slot → seat (1.8 s) → spin-up, timed to the drive
+ * recording (`disc-sounds.json`): the spindle clamps on the loading clunk, the disc follows the motor whine, and
+ * playback starts as the spin-up sound hands over to the spinning loop (about 5.6 s in all).
  * Reduced motion (or no GSAP) seats the cartridge immediately.
  */
 export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertHooks): { cancel(): void } {
@@ -39,6 +47,7 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
     deck.setSpindleEngaged(true, true);
     deck.forceDiscRpm(PLAY_RPM);
     hooks.onInserted();
+    hooks.onSpinUp();
     hooks.onReady();
     return { cancel() {} };
   }
@@ -47,7 +56,7 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
   // Clear the top face before moving into depth, so the cartridge never cuts through the front.
   const hoverY = deck.bodyTop + deck.cartridgeHeight / 2 + 0.03;
   const camera = { dolly: scene.getDolly(), look: scene.getLookOffset() };
-  const spin = { rpm: 0 };
+  const spinUp = DISC_SOUNDS.spinUp;
   const applyCamera = () => {
     scene.setDolly(camera.dolly);
     scene.setLookOffset(camera.look);
@@ -69,11 +78,19 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
     .to(deck.glare, { opacity: 0.14, duration: 0.45 }, 1.83)
     .to(deck.doorPivot.rotation, { x: 0, duration: 0.22, ease: 'power2.in' }, 1.8)
     .to(camera, { dolly: 1, look: 0, duration: 1.1, ease: 'sine.inOut', onUpdate: applyCamera }, 1.25)
-    // Seated: the spindle rises into the hub before the motor spins it up.
-    .call(() => deck.setSpindleEngaged(true), null, 1.8)
-    .call(() => hooks.onInserted(), null, 1.8)
-    .to(spin, { rpm: PLAY_RPM, duration: 0.8, ease: 'power2.in', onUpdate: () => deck.forceDiscRpm(spin.rpm) }, 1.8)
-    .call(() => hooks.onReady(), null, 2.6);
+    // Seated: the drive sound starts, the spindle rises to clamp the hub on its loading clunk, the disc speeds
+    // up with the motor whine, and playback starts as the sound reaches full speed.
+    .call(() => hooks.onInserted(), null, SEAT_AT)
+    .call(
+      () => {
+        deck.playRpmCurve(spinUp.rpm, PLAY_RPM);
+        hooks.onSpinUp();
+      },
+      null,
+      SEAT_AT,
+    )
+    .call(() => deck.setSpindleEngaged(true), null, SEAT_AT + spinUp.clampAt - 0.2)
+    .call(() => hooks.onReady(), null, SEAT_AT + spinUp.duration);
 
   return { cancel: () => tl.kill() };
 }
@@ -111,8 +128,8 @@ export interface EjectHooks {
   onEjected(): void;
 }
 
-/** How long the disc takes to wind down after the red key, before the cartridge is released. */
-export const EJECT_SPIN_DOWN_SECONDS = 3;
+/** How long the disc takes to wind down after the red key (the spin-down sound), before the cartridge is released. */
+export const EJECT_SPIN_DOWN_SECONDS = DISC_SOUNDS.spinDown.duration;
 
 /**
  * Spin-down (about 3 s) → door opens → spring pops the cartridge up out of the slot → it flies forward
@@ -142,17 +159,15 @@ export function runEjectSequence(
   }
 
   const hoverY = deck.bodyTop + deck.cartridgeHeight / 2 + 0.03;
-  const spin = { rpm: deck.getDiscRpm() };
-  // The mechanism waits for the disc to wind down, then releases it.
-  const release = EJECT_SPIN_DOWN_SECONDS - 0.2;
+  // The disc winds down with the spin-down sound, then the mechanism releases it. A disc that has already
+  // stopped (paused) is released straight away.
+  const spinning = deck.getDiscRpm() > 5;
+  if (spinning) deck.playRpmCurve(DISC_SOUNDS.spinDown.rpm, deck.getDiscRpm());
+  else deck.forceDiscRpm(0);
+  const release = spinning ? EJECT_SPIN_DOWN_SECONDS - 0.2 : 0.4;
   const tl = gsap.timeline();
-  tl.to(
-    spin,
-    { rpm: 0, duration: EJECT_SPIN_DOWN_SECONDS, ease: 'power1.out', onUpdate: () => deck.forceDiscRpm(spin.rpm) },
-    0,
-  )
-    // Once stopped, the spindle drops clear of the hub, then the door opens.
-    .call(() => deck.setSpindleEngaged(false), null, release - 0.25)
+  // Once stopped, the spindle drops clear of the hub, then the door opens.
+  tl.call(() => deck.setSpindleEngaged(false), null, release - 0.25)
     .to(deck.doorPivot.rotation, { x: -1.35, duration: 0.22, ease: 'power2.out' }, release)
     // Push-to-release catch, then the spring throws it clear of the slot.
     .to(cart.position, { y: seated.y - 0.012, duration: 0.1, ease: 'power2.in' }, release + 0.15)

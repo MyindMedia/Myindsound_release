@@ -5,6 +5,7 @@ import { AudioEngine } from './audio-engine';
 import { createStudioEnvironment } from './cartridge-detail';
 import { ComicCity } from './backdrop';
 import { Deck } from './deck';
+import { DISC_SOUNDS, DiscMechanics } from './disc-sounds';
 import { DiscHalo } from './halo';
 import { Hud } from './hud';
 import { PLAY_RPM, runEjectSequence, runFloatInSequence, runInsertSequence } from './insert-sequence';
@@ -46,6 +47,8 @@ export class PlayerApp {
   private state: DeckState = initialState();
   private hud!: Hud;
   private engine!: AudioEngine;
+  /** Drive sounds: spin-up, spinning loop, spin-down (fetched now, decoded once audio unlocks). */
+  private readonly mechanics = new DiscMechanics();
   private keys!: KeyController;
   private scene: PlayerScene | null = null;
   private deck: Deck | null = null;
@@ -87,6 +90,7 @@ export class PlayerApp {
     });
     const volume = storedVolume();
     this.engine.setVolume(volume);
+    this.mechanics.setVolume(volume);
     this.hud.setVolume(volume);
 
     const sceneReady = hasWebGL() ? this.initScene().catch((err) => this.initFallback(err)) : this.initFallback();
@@ -206,6 +210,7 @@ export class PlayerApp {
     this.keys?.update();
     deck.update(dt);
     this.halo?.update(dt, elapsed, deck.getDiscRpm() / PLAY_RPM);
+    this.mechanics.setSpeed(deck.getDiscRpm() / PLAY_RPM);
     this.inspector?.update(dt, elapsed);
     // The neon accents sit near the floating cartridge and would blow out its edges.
     const presence = this.inspector?.getPresence() ?? 0;
@@ -312,6 +317,7 @@ export class PlayerApp {
 
   private setVolume(value: number): void {
     this.engine.setVolume(value);
+    this.mechanics.setVolume(value);
     try {
       localStorage.setItem(VOLUME_KEY, String(value));
     } catch {
@@ -375,6 +381,7 @@ export class PlayerApp {
       window.clearTimeout(this.seekTimer);
       this.halo?.hide();
       this.engine.fadeOutAndStop(0.35);
+      if ((this.deck?.getDiscRpm() ?? 0) > 5) this.mechanics.spinDown();
       this.resetListen();
       this.keys?.setInspecting(true);
       this.scene?.setTiltEnabled(false);
@@ -396,6 +403,7 @@ export class PlayerApp {
     if (prev.status === 'ejected' && next.status === 'inserting') {
       if (track) this.engine.load(track.streamUrl);
       this.engine.unlock();
+      this.mechanics.attach(this.engine.context);
       this.resetListen();
       this.halo?.boot();
       this.inspector?.release();
@@ -404,9 +412,11 @@ export class PlayerApp {
       if (this.deck && this.scene) {
         runInsertSequence(this.deck, this.scene, {
           onInserted: () => this.dispatch({ type: 'inserted' }),
+          onSpinUp: () => this.mechanics.spinUp(),
           onReady: () => this.dispatch({ type: 'ready' }),
         });
       } else {
+        this.mechanics.spinUp();
         this.dispatch({ type: 'inserted' });
         this.dispatch({ type: 'ready' });
       }
@@ -422,6 +432,8 @@ export class PlayerApp {
       if (track) this.engine.load(track.streamUrl);
       const waitMs = Math.max(MIN_CALIBRATION_MS, this.engine.playCalibration() * 1000);
       this.halo?.boot(waitMs / 1000);
+      // Picked while paused or stopped: the disc was still, so the motor starts again under the calibration.
+      if ((this.deck?.getDiscRpm() ?? PLAY_RPM) < 5) this.mechanics.spinUp(DISC_SOUNDS.spinUp.resumeFrom);
       this.deck?.setDiscRpm(PLAY_RPM * SEEK_RPM_FRACTION);
       const index = next.trackIndex;
       const stillSeeking = () => this.state.status === 'seeking' && this.state.trackIndex === index;
@@ -442,7 +454,7 @@ export class PlayerApp {
       } else {
         this.halo?.hide();
         if (next.status === 'stopped') this.engine.stop();
-        this.deck?.setDiscRpm(0);
+        this.spinDownDisc();
       }
       return;
     }
@@ -467,14 +479,34 @@ export class PlayerApp {
         void this.engine.play();
         if (prev.status !== 'playing') this.engine.setVolume(this.engine.getVolume());
       }
-      this.deck?.setDiscRpm(PLAY_RPM);
+      // After the insert, the spin-up curve is already finishing; a resume spins the still disc back up.
+      if (prev.status === 'paused' || prev.status === 'stopped') this.spinUpDisc();
+      else if (prev.status !== 'reading') this.deck?.setDiscRpm(PLAY_RPM);
     } else if (next.status === 'paused' && prev.status !== 'paused') {
       this.engine.pause();
-      this.deck?.setDiscRpm(0);
+      this.spinDownDisc();
     } else if (next.status === 'stopped' && prev.status !== 'stopped') {
       this.engine.stop();
-      this.deck?.setDiscRpm(0);
+      this.spinDownDisc();
     }
+  }
+
+  /** Pause, stop or the end of the album: the disc winds down with the spin-down sound. */
+  private spinDownDisc(): void {
+    const rpm = this.deck?.getDiscRpm() ?? 0;
+    if (rpm <= 5) {
+      this.deck?.setDiscRpm(0);
+      return;
+    }
+    this.deck?.playRpmCurve(DISC_SOUNDS.spinDown.rpm, rpm);
+    this.mechanics.spinDown();
+  }
+
+  /** Resuming a loaded disc: spin-up without the loading clunks; the music starts straight away. */
+  private spinUpDisc(): void {
+    const from = DISC_SOUNDS.spinUp.resumeFrom;
+    this.deck?.playRpmCurve(DISC_SOUNDS.spinUp.rpm, PLAY_RPM, from);
+    this.mechanics.spinUp(from);
   }
 
   private resetListen(): void {

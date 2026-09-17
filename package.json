@@ -11,7 +11,8 @@
     "test": "vitest run",
     "textures": "python3 scripts/build-player-assets.py",
     "upload:audio": "tsx scripts/upload-lit-audio.ts",
-    "previews": "python3 scripts/build-lit-previews.py"
+    "previews": "python3 scripts/build-lit-previews.py",
+    "disc-sounds": "python3 scripts/build-disc-sounds.py"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1134.0",

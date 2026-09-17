@@ -1,0 +1,86 @@
+{
+ "source": "CD_Drive_06_11.wav",
+ "spinUp": {
+  "url": "/assets/audio/disc/disc-spin-up.mp3",
+  "duration": 3.8,
+  "clampAt": 0.85,
+  "resumeFrom": 1.7,
+  "rpm": [
+   [
+    0,
+    0
+   ],
+   [
+    2.55,
+    0
+   ],
+   [
+    2.8,
+    0.3
+   ],
+   [
+    3.1,
+    0.55
+   ],
+   [
+    3.4,
+    0.78
+   ],
+   [
+    3.7,
+    0.95
+   ],
+   [
+    3.8,
+    1
+   ]
+  ]
+ },
+ "loop": {
+  "url": "/assets/audio/disc/disc-spin-loop.mp3",
+  "guard": 0.3,
+  "length": 6.0
+ },
+ "spinDown": {
+  "url": "/assets/audio/disc/disc-spin-down.mp3",
+  "duration": 2.794,
+  "rpm": [
+   [
+    0,
+    1
+   ],
+   [
+    1.0,
+    1
+   ],
+   [
+    1.2,
+    0.9
+   ],
+   [
+    1.4,
+    0.66
+   ],
+   [
+    1.6,
+    0.42
+   ],
+   [
+    1.8,
+    0.29
+   ],
+   [
+    2.0,
+    0.2
+   ],
+   [
+    2.4,
+    0.1
+   ],
+   [
+    2.79,
+    0
+   ]
+  ]
+ }
+}

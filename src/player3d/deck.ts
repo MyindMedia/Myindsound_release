@@ -18,6 +18,7 @@ import {
   type Texture,
   type UVGenerator,
 } from 'three';
+import { curveAt } from './audio-math';
 import { addCartridgeDetail, paperGrainNormal, type DetailQuality } from './cartridge-detail';
 import geometry from './geometry.json';
 import { Spindle } from './spindle';
@@ -136,6 +137,8 @@ export class Deck {
   private readonly spindle: Spindle;
   private rpm = 0;
   private rpmTarget = 0;
+  /** A timed speed curve (from the disc mechanics sound) that overrides the eased target while it runs. */
+  private rpmCurve: { keys: number[][]; peak: number; elapsed: number; end: number } | null = null;
   private readonly spinScale: number;
   private readonly environment: Texture | null;
   private readonly quality: DetailQuality;
@@ -413,13 +416,24 @@ export class Deck {
   }
 
   setDiscRpm(rpm: number): void {
+    this.rpmCurve = null;
     this.rpmTarget = rpm;
   }
 
-  /** Immediate RPM, used by the insert timeline tween. */
+  /** Immediate RPM. */
   forceDiscRpm(rpm: number): void {
+    this.rpmCurve = null;
     this.rpm = rpm;
     this.rpmTarget = rpm;
+  }
+
+  /**
+   * Follow a [seconds, fraction of `peak`] curve from `from` seconds in, then hold its final speed. Used with
+   * the spin-up and spin-down sounds so the disc speeds up and slows down exactly as they do.
+   */
+  playRpmCurve(keys: number[][], peak: number, from = 0): void {
+    this.rpmCurve = { keys, peak, elapsed: from, end: keys[keys.length - 1][0] };
+    this.rpm = this.rpmTarget = curveAt(keys, from) * peak;
   }
 
   getDiscRpm(): number {
@@ -437,7 +451,14 @@ export class Deck {
   }
 
   update(dt: number): void {
-    this.rpm += (this.rpmTarget - this.rpm) * (1 - Math.exp(-dt * RPM_RESPONSE));
+    if (this.rpmCurve) {
+      const curve = this.rpmCurve;
+      curve.elapsed += dt;
+      this.rpm = this.rpmTarget = curveAt(curve.keys, curve.elapsed) * curve.peak;
+      if (curve.elapsed >= curve.end) this.rpmCurve = null;
+    } else {
+      this.rpm += (this.rpmTarget - this.rpm) * (1 - Math.exp(-dt * RPM_RESPONSE));
+    }
     const angle = ((this.rpm * Math.PI * 2) / 60) * dt * this.spinScale;
     for (const disc of this.discs) disc.rotation.z -= angle;
     this.spindle.update(dt, angle);

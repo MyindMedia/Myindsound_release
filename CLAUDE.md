@@ -78,6 +78,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 
 - `state.ts`: pure deck state machine and key latches (unit-tested). Selecting a track while running enters `seeking` (laser calibration of at least 2 s) before `playing`.
 - `audio-engine.ts`: one `<audio>` element through Web Audio when CORS allows; otherwise direct playback with a simulated spectrum. `unlock()` must run inside the user gesture. Also exposes `waveform()` and `playCalibration()`.
+- `disc-sounds.ts`: drive mechanics from a real recording (`npm run disc-sounds` → `public/assets/audio/disc/`, `disc-sounds.json`): spin-up, seamless spinning loop, spin-down. The deck's `playRpmCurve` follows the same curves so sound and motion line up.
 - `calibration-sound.ts`: synthesised laser calibration sound (servo, seek clicks, focus chirps), about 2.2 s.
 - `track-source.ts`: `ConvexTrackSource` (paid, signed R2 links). `preview-track-source.ts`: `PreviewTrackSource`, 30-second LIT previews for the public demo (`npm run previews` cuts them from the local LIT files into `public/assets/audio/lit-previews/` and writes `lit-previews.json`).
 - `scene.ts`: renderer, framing to the HUD's `.p3d-frame`, tilt spring, bloom + CRT pass, visibility pause.

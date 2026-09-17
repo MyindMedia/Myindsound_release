@@ -48,3 +48,19 @@ describe('spectrum', () => {
     expect(rmsLevel(square)).toBeGreaterThan(0.99);
   });
 });
+
+describe('curveAt', () => {
+  const keys = [
+    [0, 0],
+    [1, 0],
+    [2, 1],
+  ];
+  test('interpolates between keys, holds before the first and after the last', async () => {
+    const { curveAt } = await import('./audio-math');
+    expect(curveAt(keys, -1)).toBe(0);
+    expect(curveAt(keys, 0.5)).toBe(0);
+    expect(curveAt(keys, 1.5)).toBeCloseTo(0.5);
+    expect(curveAt(keys, 2)).toBe(1);
+    expect(curveAt(keys, 9)).toBe(1);
+  });
+});
