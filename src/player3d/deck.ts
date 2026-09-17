@@ -224,6 +224,8 @@ export class Deck {
         uMap: { value: textures.shell },
         uDisc: { value: [disc.cx, disc.cy, disc.rx, disc.ry] },
         uDim: { value: 1 },
+        uWells: { value: [new Vector3(), new Vector3(), new Vector3(), new Vector3()] },
+        uWellAspect: { value: 1 },
       },
       transparent: true,
     });
@@ -316,6 +318,8 @@ export class Deck {
     addCartridgeDetail({
       cartridge: this.cartridge,
       slabGeometry,
+      shellMaterial,
+      backMaterial: back,
       slabZ: slab.position.z,
       frontZ: CART_DEPTH / 2,
       backZ: -CART_DEPTH / 2,

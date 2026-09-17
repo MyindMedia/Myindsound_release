@@ -15,9 +15,11 @@ import {
   RingGeometry,
   SRGBColorSpace,
   Vector2,
+  Vector3,
   type BufferGeometry,
   type Material,
   type MeshStandardMaterialParameters,
+  type ShaderMaterial,
   type Texture,
   type WebGLRenderer,
 } from 'three';
@@ -25,7 +27,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /**
  * Realism layer for the MiniDisc cartridge, on top of the Canva artwork:
- * - real Phillips screws (lathe heads, brushed steel, recessed cross),
+ * - real Phillips screws (lathe heads, brushed steel, recessed cross) seated in counterbored wells: the shell
+ *   is cut open at each screw and a plastic well (wall + floor) sinks below the surface,
  * - steel hub rings (the disc's clamp plate, and the hub on the back),
  * - clear-plastic gloss: an additive clearcoat pass over the shell, with normals from the artwork,
  * - a rainbow sheen on the disc that shows at an angle,
@@ -34,6 +37,10 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
  */
 
 export type DetailQuality = 'high' | 'low';
+
+/** Screw well radius as a multiple of the head radius (matches the printed dark ring), and its depth. */
+const WELL_RATIO = 1.38;
+const WELL_DEPTH = 0.008;
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -193,6 +200,37 @@ function screwHead(radius: number, facing: 1 | -1): LatheGeometry {
   );
 }
 
+/** Open counterbore: wall from the surface down to a flat floor (height measured up from the floor). */
+function wellCup(radius: number, depth: number, facing: 1 | -1): LatheGeometry {
+  return lathe(
+    [
+      [radius, depth],
+      [radius, depth * 0.18],
+      [radius * 0.9, 0],
+      [0, 0],
+    ],
+    radius,
+    facing,
+  );
+}
+
+/** White with black ellipses at the well openings, in shell UV space (for alphaMap cut-outs). */
+function wellMask(points: number[][], radiusU: number, aspect: number): CanvasTexture {
+  const size = 512;
+  const [element, ctx] = canvas(size);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000';
+  for (const [u, v] of points) {
+    ctx.beginPath();
+    ctx.ellipse(u * size, (1 - v) * size, radiusU * size, radiusU * aspect * size, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const texture = new CanvasTexture(element);
+  texture.colorSpace = NoColorSpace;
+  return texture;
+}
+
 function ring(inner: number, outer: number, height: number, facing: 1 | -1): LatheGeometry {
   const lip = (outer - inner) * 0.25;
   return lathe(
@@ -213,6 +251,9 @@ export interface CartridgeDetailInput {
   cartridge: Group;
   /** The shell slab (caps: group 0 front, group 2 back; sides: group 1) and its z offset. */
   slabGeometry: BufferGeometry;
+  /** Front cap (SHELL shader, `uWells`) and back cap materials; the screw openings are cut into both. */
+  shellMaterial: ShaderMaterial;
+  backMaterial: MeshBasicMaterial;
   slabZ: number;
   /** Outer faces of the shell, in cartridge space. */
   frontZ: number;
@@ -237,7 +278,18 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
   const steel = (overrides: MeshStandardMaterialParameters = {}) =>
     new MeshStandardMaterial({ color: '#c4c7cd', metalness: 1, roughness: 0.38, envMap, envMapIntensity: 0.35, ...overrides });
 
-  // Screws, sunk slightly into their wells.
+  // Screw wells: openings cut in both caps, a plastic counterbore below each, the screw head on its floor.
+  const aspect = width / height;
+  const wellRadiusU = input.screws.radius * WELL_RATIO;
+  const frontMask = wellMask(input.screws.front, wellRadiusU, aspect);
+  const backMask = wellMask(input.screws.back, wellRadiusU, aspect);
+  input.shellMaterial.uniforms.uWells.value = input.screws.front.map(([u, v]) => new Vector3(u, v, wellRadiusU));
+  input.shellMaterial.uniforms.uWellAspect.value = aspect;
+  input.backMaterial.alphaMap = backMask;
+  input.backMaterial.alphaTest = 0.5;
+  input.backMaterial.needsUpdate = true;
+  const wellMaterial = new MeshStandardMaterial({ color: '#1b1f29', roughness: 0.42, envMap, envMapIntensity: 0.4 });
+
   const { map, aoMap, normalMap } = screwMaps();
   const screwMaterial = steel({
     color: '#ffffff',
@@ -248,16 +300,19 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
     envMapIntensity: 0.28,
   });
   const radius = input.screws.radius * width;
-  for (const [side, facing, z] of [
-    ['front', 1, input.frontZ - 0.0008],
-    ['back', -1, input.backZ + 0.0008],
+  for (const [side, facing, floorZ] of [
+    ['front', 1, input.frontZ - WELL_DEPTH],
+    ['back', -1, input.backZ + WELL_DEPTH],
   ] as const) {
-    const geometry = screwHead(radius, facing);
+    const head = screwHead(radius, facing);
+    const cup = wellCup(radius * WELL_RATIO, WELL_DEPTH, facing);
     for (const point of input.screws[side]) {
       const [x, y] = toLocal(point);
-      const screw = new Mesh(geometry, screwMaterial);
-      screw.position.set(x, y, z);
-      input.cartridge.add(screw);
+      const well = new Mesh(cup, wellMaterial);
+      const screw = new Mesh(head, screwMaterial);
+      well.position.set(x, y, floorZ);
+      screw.position.set(x, y, floorZ);
+      input.cartridge.add(well, screw);
     }
   }
 
@@ -296,10 +351,11 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
   input.cartridge.add(clamp, sheen);
 
   // Clear-plastic gloss over the whole shell: reflections and highlights only, the artwork untouched.
-  const gloss = (normals: Texture | null) => {
+  const gloss = (normals: Texture | null, openings: Texture | null) => {
     const shared = {
       color: 0x000000,
       normalMap: normals,
+      alphaMap: openings,
       normalScale: new Vector2(0.8, 0.8),
       envMap,
       polygonOffset: true,
@@ -311,7 +367,11 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
       ? new MeshPhysicalMaterial({ ...shared, roughness: 0.14, clearcoat: 0.5, clearcoatRoughness: 0.05, envMapIntensity: 0.15 })
       : new MeshStandardMaterial({ ...shared, roughness: 0.14, envMapIntensity: 0.15 });
   };
-  const coat = new Mesh(input.slabGeometry, [gloss(input.normals.front), gloss(null), gloss(input.normals.back)]);
+  const coat = new Mesh(input.slabGeometry, [
+    gloss(input.normals.front, frontMask),
+    gloss(null, null),
+    gloss(input.normals.back, backMask),
+  ]);
   coat.position.z = input.slabZ;
   coat.renderOrder = 6;
   input.cartridge.add(coat);

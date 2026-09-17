@@ -110,10 +110,17 @@ export const SHELL = {
   fragmentShader: /* glsl */ `
     uniform sampler2D uMap;
     uniform vec4 uDisc;
+    // Screw well openings: (u, v, u-radius); v radius = u-radius * uWellAspect.
+    uniform vec3 uWells[4];
+    uniform float uWellAspect;
     uniform float uDim;
     varying vec2 vUv;
     const vec3 PLASTIC = vec3(0.012, 0.014, 0.022);
     void main() {
+      for (int i = 0; i < 4; i++) {
+        vec3 well = uWells[i];
+        if (well.z > 0.0 && length((vUv - well.xy) / vec2(well.z, well.z * uWellAspect)) < 1.0) discard;
+      }
       vec4 tex = texture2D(uMap, vUv);
       float d = length((vUv - uDisc.xy) / uDisc.zw);
       float inside = 1.0 - smoothstep(0.93, 1.0, d);
