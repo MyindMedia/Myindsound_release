@@ -79,7 +79,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 - `state.ts`: pure deck state machine and key latches (unit-tested). Selecting a track while running enters `seeking` (laser calibration of at least 2 s) before `playing`.
 - `audio-engine.ts`: one `<audio>` element through Web Audio when CORS allows; otherwise direct playback with a simulated spectrum. `unlock()` must run inside the user gesture. Also exposes `waveform()` and `playCalibration()`.
 - `calibration-sound.ts`: synthesised laser calibration sound (servo, seek clicks, focus chirps), about 2.2 s.
-- `track-source.ts`: `ConvexTrackSource` / `MockTrackSource`.
+- `track-source.ts`: `ConvexTrackSource` (paid, signed R2 links). `preview-track-source.ts`: `PreviewTrackSource`, 30-second LIT previews for the public demo (`npm run previews` cuts them from the local LIT files into `public/assets/audio/lit-previews/` and writes `lit-previews.json`).
 - `scene.ts`: renderer, framing to the HUD's `.p3d-frame`, tilt spring, bloom + CRT pass, visibility pause.
 - `deck.ts`: extruded body/cartridge/keys from `geometry.json` + WebP textures. The disc face is the LIT cover; the cartridge label is "Do Not Duplicate".
 - `cartridge-detail.ts`: realism layer over the Canva art. Lathe-turned steel Phillips screws (occlusion-mapped recess) in counterbored wells cut into the shell, a disc with real thickness and a separate machined hub in its centre opening, a steel hub ring on the back, an additive clearcoat pass with normals baked from the artwork, iridescent disc sheen, paper-grain label, and a studio environment map tinted with the city's neon. Coarse pointers get standard materials instead of clearcoat/iridescence.

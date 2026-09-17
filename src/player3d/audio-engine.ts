@@ -64,17 +64,19 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Loads a track from `startAt` (default: the beginning). Loading the file that is already loaded restarts
+   * it rather than carrying on, so picking a track always plays it from the top.
+   */
   load(url: string, startAt = 0): void {
-    if (this.element.src !== new URL(url, window.location.href).href) {
-      this.element.src = url;
-    }
-    if (startAt > 0) {
-      const seek = () => {
-        this.element.currentTime = startAt;
-      };
-      if (this.element.readyState >= 1) seek();
-      else this.element.addEventListener('loadedmetadata', seek, { once: true });
-    }
+    const sameFile = this.element.src === new URL(url, window.location.href).href;
+    if (!sameFile) this.element.src = url;
+    if (!sameFile && startAt <= 0) return;
+    const seek = () => {
+      this.element.currentTime = startAt;
+    };
+    if (this.element.readyState >= 1) seek();
+    else this.element.addEventListener('loadedmetadata', seek, { once: true });
   }
 
   /**

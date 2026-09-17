@@ -40,27 +40,3 @@ export class ConvexTrackSource implements TrackSource {
     await getConvex().mutation(api.plays.log, { trackId: trackId as Id<'tracks'> });
   }
 }
-
-const MOCK_TITLES = ['L.I.T. (Living In Truth)', 'G. O. D.', 'Victory In the Valley', 'Tired', 'Let Him Cook', 'Faith'];
-const MOCK_DURATIONS = [191.84, 224.96, 157.89, 141.64, 139.24, 182.53];
-
-/** Dev-only source (`?mock=1` under `npm run dev`): the public demo clip for every track. */
-export class MockTrackSource implements TrackSource {
-  readonly label = 'mock';
-
-  async list(): Promise<TrackList> {
-    return {
-      expiresAt: Date.now() + 2 * 60 * 60_000,
-      tracks: MOCK_TITLES.map((title, index) => ({
-        id: `mock-${index + 1}`,
-        position: index + 1,
-        title,
-        durationSeconds: MOCK_DURATIONS[index],
-        format: 'mp3',
-        streamUrl: '/assets/audio/Cook-Demo.mp3',
-      })),
-    };
-  }
-
-  async logPlay(): Promise<void> {}
-}

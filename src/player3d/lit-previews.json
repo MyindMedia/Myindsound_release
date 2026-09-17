@@ -1,0 +1,47 @@
+{
+ "lengthSeconds": 30.0,
+ "tracks": [
+  {
+   "position": 1,
+   "title": "L.I.T. (Living In Truth)",
+   "streamUrl": "/assets/audio/lit-previews/01-lit.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 48.0
+  },
+  {
+   "position": 2,
+   "title": "G. O. D.",
+   "streamUrl": "/assets/audio/lit-previews/02-god.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 56.2
+  },
+  {
+   "position": 3,
+   "title": "Victory In the Valley",
+   "streamUrl": "/assets/audio/lit-previews/03-victory-in-the-valley.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 39.5
+  },
+  {
+   "position": 4,
+   "title": "Tired",
+   "streamUrl": "/assets/audio/lit-previews/04-tired.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 35.4
+  },
+  {
+   "position": 5,
+   "title": "Let Him Cook",
+   "streamUrl": "/assets/audio/lit-previews/05-let-him-cook.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 34.8
+  },
+  {
+   "position": 6,
+   "title": "Faith",
+   "streamUrl": "/assets/audio/lit-previews/06-faith.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 45.6
+  }
+ ]
+}
