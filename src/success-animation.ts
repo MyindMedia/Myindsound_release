@@ -10,6 +10,16 @@
  * 5. Navigate to stream.html seamlessly (disc appears to dock into player)
  */
 
+import { initAnalytics, track } from './analytics';
+
+// Init analytics when this module loads (success.html entry point)
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    initAnalytics();
+    track('success_page_viewed');
+  }, { once: true });
+}
+
 const gsap = (window as any).gsap;
 
 export class SuccessAnimationController {

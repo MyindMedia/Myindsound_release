@@ -4,124 +4,138 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Myind Sound Releases is a music release platform with pay-what-you-want (PWYW) digital sales and physical merchandise. It is a multi-page vanilla TypeScript site deployed on Netlify. There is also a separate React app under `stream/` for authenticated streaming (not currently the primary player).
+Myind Sound Releases is a music release platform with pay-what-you-want (PWYW) digital sales and physical merchandise.
+- **Site:** a multi-page vanilla TypeScript site on Netlify (stream.myindsound.com, Netlify site `myindreleases`, builds branch `master`).
+- **Backend:** Convex, with paid audio in Cloudflare R2.
+- **Stream page:** a Three.js MiniDisc deck.
+- **Legacy:** a separate React app under `stream/`, still on Supabase and not the primary player.
+
+Read `Grilled.md` first: it records goals, decisions, constraints and open questions. Specs and the plan are in `docs/superpowers/`.
 
 ## Commands
 
 ```bash
-# Main site (root)
-npm run dev      # Start Vite dev server
-npm run build    # TypeScript check + Vite build
+# Use Node 22 for the Convex CLI (Node 25 breaks codegen on this machine)
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
 
-# Stream app (separate project with its own node_modules)
-cd stream
-npm run dev      # Start React dev server
-npm run build    # TypeScript check + Vite build
+npm run dev          # Vite dev server (reads VITE_* from .env.local)
+npx convex dev       # Push Convex functions to the dev deployment on save
+npm run build        # prebuild (convex codegen) + tsc + vite build
+npm test             # vitest: convex/ (edge-runtime, convex-test) + src/ (node)
+npm run textures     # Rebuild player textures + geometry from the Canva export
+npm run upload:audio -- --dry-run   # Plan the R2 upload; --seed-only seeds Convex tracks without R2
 ```
 
-For local testing with Netlify Functions: `netlify dev` (requires Netlify CLI). The main site `npm run dev` won't serve `/.netlify/functions/*` endpoints.
+The 3D player runs without auth or backend at `http://localhost:5173/stream.html?mock=1` (dev only).
 
 ## Architecture
 
-### Multi-Page Vite Build
+### Multi-page Vite build
 
-The main site is **not** an SPA. Vite is configured with multiple HTML entry points in `vite.config.ts`:
+Not an SPA. The entry points are listed in `vite.config.ts`:
 
-`index.html`, `login.html`, `dashboard.html`, `physical.html`, `stream.html`, `success.html`, `cancel.html`
+`index.html`, `login.html`, `dashboard.html`, `physical.html`, `stream.html`, `success.html`, `cancel.html`, `admin.html`
 
-Each page loads its own TypeScript module(s) via `<script type="module">`. Clean URLs (`/physical` → `physical.html`) are handled by redirects in `netlify.toml`.
+Each page loads its own module(s). Clean URLs come from redirects in `netlify.toml`.
 
-### Main Site Source (`src/`)
+### Convex backend (`convex/`)
 
-- `main.ts` - Index page: tracklist rendering, purchase flow init, post-purchase animation sequence, checks existing purchase status via Clerk+Supabase
-- `checkout.ts` - `CheckoutFlow` class: modal-based 3-step flow (upsell → email capture → Stripe redirect via `create-checkout` function)
-- `stream.ts` - `StreamPlayer` class on `stream.html`: Y2K-inspired CD player with full audio playback, GSAP animations, calibration spin sequence, docking animation from purchase flow
-- `disk-player.ts` - `DiskPlayerAnimator` / `EnhancedDiskPlayerAnimator`: controls disc spinning with CSS fallback and GSAP-enhanced smooth rotation (100 RPM = 0.6s/rotation)
-- `purchase-animation.ts` - `PurchaseAnimationController`: post-purchase overlay animation (lift-off → sticker peel → disc reveal → redirect to `stream.html?state=animate_dock`)
-- `sticker-peel.ts` - `StickerPeel` class for interactive album art peel effects using GSAP
-- `clerk.ts` - Singleton Clerk initialization, auth utilities (`getUserId`, `isSignedIn`, `mountSignIn`, `mountSignUp`, `requireAuth`)
-- `supabase.ts` - Supabase client, DB type definitions, query helpers (`hasProductAccess`, `getUserPurchases`, `getUserOrders`, `logTrackPlay`)
-- `physical.ts` / `cart.ts` / `shopify.ts` - Physical merchandise store
-- `nav-auth.ts` - Navigation auth state (shows user button when signed in)
-- `login.ts` - Mounts Clerk sign-in/sign-up components
-- `dashboard.ts` - User dashboard showing purchases and orders
-- `admin.ts` - Admin panel with play stats
+Auth is Clerk, via the JWT template `convex` (`auth.config.ts`, issuer from `CLERK_JWT_ISSUER_DOMAIN`). Functions read the caller from `ctx.auth` and never trust client-sent user IDs. User-facing errors are `ConvexError({ code, message })` (`lib/errors.ts`).
 
-### Post-Purchase Animation Flow
+- `schema.ts`: tables `products`, `tracks`, `users`, `entitlements`, `orders`, `orderItems`, `plays`, `stripeEvents`.
+- `lib/auth.ts`: `getViewer`, `requireViewer`, `ensureViewer`, `requireAdmin`. Admin means `users.isAdmin` or a verified email in `ADMIN_EMAILS`.
+- `tracks.ts`: `listForPlayer` action. Checks entitlement, then returns the tracklist with R2 links signed for 2 hours.
+- `payments.ts`: Stripe (fetch client, default runtime).
+  - `createDigitalSession`
+  - `downloadsForCheckoutSession`: 24 h window after payment.
+  - `handleWebhook`
+  - `rebuildFromStripe`: internal. Prints counts only.
+- `fulfilment.ts`: the single, idempotent path that grants entitlements and creates orders.
+- `http.ts`: `POST /stripe/webhook`.
+- `ghl.ts` / `leads.ts`: Go High Level sync. Marketing tags only with recorded consent.
+- `downloads.ts`, `orders.ts`, `products.ts`, `admin.ts`, `users.ts`: dashboard, admin and nav queries.
+- `privacy.ts`: `exportMyData` and `deleteMyData` (cascades to Clerk and GHL; orders are anonymised, amounts kept).
+- `plays.ts` + `crons.ts`: play logging, deleted after 12 months.
+- `lib/r2.ts`: `@convex-dev/r2` signing (`convex.config.ts` registers the component).
 
-This is a key multi-page animation sequence:
-1. After Stripe checkout, user returns to `/?success=true`
-2. `main.ts` detects `success` param → starts `PurchaseAnimationController`
-3. Animation: album art lifts to center → sticker peels off → CD player revealed → spinning disc
-4. User clicks play button → redirects to `stream.html?state=animate_dock`
-5. `stream.ts` detects `animate_dock` → runs docking sequence (floating disc → shrinks into CD player position)
-6. After docking → UI reveals → calibration spin → auto-play first track
+### Main site source (`src/`)
 
-### CDN Dependencies
+- `convex.ts`: `ConvexClient` singleton, `connectConvexAuth()` (Clerk token → Convex), error helpers.
+- `clerk.ts`: Clerk singleton and helpers (`getClerk`, `requireAuth`, `mountSignIn`, …).
+- `main.ts` / `checkout.ts`: home page and PWYW checkout modal (upsell → email + marketing-consent checkbox → Stripe redirect via Convex).
+- `success.ts`: success page downloads (Convex) and sign-in prompt.
+- `dashboard.ts`: purchases, downloads, orders, export/delete my data.
+- `admin.ts`: stats from `api.admin.stats`, with access enforced server-side.
+- `nav-auth.ts`: nav auth state; ADMIN link from `api.users.me`.
+- `stream.ts`: mounts the 3D player (`src/player3d`).
+- `purchase-animation.ts`, `disk-player.ts`, `sticker-peel.ts`: home page post-purchase reveal, which hands off to `stream.html?state=animate_dock`.
+- `physical.ts` / `cart.ts` / `shopify.ts`: physical store (Shopify Storefront).
+- `analytics.ts`: PostHog.
 
-GSAP (`gsap.min.js`, `Draggable.min.js`) and Unicorn Studio are loaded via CDN `<script>` tags in HTML files, not npm. Access them as `(window as any).gsap`. The `EnhancedDiskPlayerAnimator` checks for GSAP availability and falls back to CSS animation.
+### 3D MiniDisc player (`src/player3d/`)
 
-### Stream App (`stream/`) - Separate React Project
+See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the build updates in `Grilled.md`.
 
-- Uses Clerk (`@clerk/clerk-react`) + Supabase + Framer Motion
-- `stream/src/App.tsx` - `SignedIn`/`SignedOut` guards
-- `stream/src/components/Library.tsx` - Fetches purchased products
-- Has its own `package.json`, `node_modules`, and Vite config
+- `state.ts`: pure deck state machine and key latches (unit-tested). Selecting a track while running enters `seeking` (laser calibration of at least 2 s) before `playing`.
+- `audio-engine.ts`: one `<audio>` element through Web Audio when CORS allows; otherwise direct playback with a simulated spectrum. `unlock()` must run inside the user gesture. Also exposes `waveform()` and `playCalibration()`.
+- `calibration-sound.ts`: synthesised laser calibration sound (servo, seek clicks, focus chirps), about 2.2 s.
+- `track-source.ts`: `ConvexTrackSource` / `MockTrackSource`.
+- `scene.ts`: renderer, framing to the HUD's `.p3d-frame`, tilt spring, bloom + CRT pass, visibility pause.
+- `deck.ts`: extruded body/cartridge/keys from `geometry.json` + WebP textures. The disc face is the LIT cover; the cartridge label is "Do Not Duplicate".
+- `halo.ts`: 3D start-up halo hovering in front of the disc while inserting or calibrating; dissipates when playback starts.
+- `backdrop.ts` / `backdrop-shaders.ts`: comic-book 90s-anime city (`city-comic.webp`, 21:9), depth-map parallax (`city-depth.webp`), pulsing neon and beam shimmer (`city-mask.webp`), flying craft, embers, rain.
+- `insert-sequence.ts`: GSAP cartridge insert and eject timelines (GSAP comes from the CDN, `window.gsap`). Insert can start from the cartridge's current pose (pushed back in from the inspector).
+- `inspect.ts`: eject inspector. The red key ejects the cartridge to the foreground (`ejecting` → `ejected`). The cartridge rotates 360° in camera space (drag with inertia, arrows) and zooms toward the pointer (wheel, pinch, + and −). Double-click/tap or 0 resets; INSERT DISC, Enter/Esc, Play or a track pick push it back in. It is fitted into the HUD's invisible `.p3d-stage` box.
+- `keys.ts`: raycast, keyboard (Space, ←, →, S, E = eject, R = repeat) and hidden real buttons. The red key is Eject; Repeat is the toggle under the tracklist.
+- `hud.ts` / `hud.css` / `hud-fx.ts`: HTML HUD with desktop, tablet (sheet) and phone (strip + sheet) layouts.
+  - `hud-fx.ts` holds ports of React Bits Pro blocks: glitch text, boot terminal, oscilloscope, sparkline, radial gauge.
+  - The originals are kept locally for reference in `src/vendor/reactbits/`: excluded from tsc and gitignored, because Pro source is licensed and this repo is public.
+- `player-app.ts`: composition root.
 
-### Netlify Functions (`netlify/functions/`)
+**Asset pipelines:**
+- **Deck:**
+  - Source: Canva design `DAHAUDNdp9k`, exported as transparent PNGs via the Canva MCP to `~/Downloads/CD PLYAER MYINDSOUND/transparent/`.
+  - Disc art source: `~/Downloads/CD PLYAER MYINDSOUND/lit-cover-clean.png`.
+  - Cartridge back face: Canva page 6, mirrored (`shell-back.webp`). The cartridge edge samples the shell texture just inside its outline. The red key face gets an eject glyph drawn in the build script.
+  - Build: `npm run textures` (`scripts/build-player-assets.py`) writes `public/assets/images/minidisc/*.webp` and `src/player3d/geometry.json`.
+- **City:**
+  - Source: `~/Downloads/Covers Albums.png` (the LIT street reference).
+  - Restyle: Nano Banana Pro, fed the reference padded to 16:9 and cropped back to 16:10 so every pixel stays aligned.
+  - Width: outpainted to 21:9 with the original centre composited back in.
+  - Depth map: generated by Gemini and blurred.
+  - Raw sources are kept in `~/Downloads/CD PLYAER MYINDSOUND/backdrops/`.
 
-- `create-checkout.ts` - Creates Stripe Checkout sessions with dynamic PWYW line items
-- `create-physical-checkout.ts` - Creates Stripe sessions for physical merchandise with shipping
-- `stripe-webhook.ts` - Handles `checkout.session.completed`: creates Clerk user, grants `user_access`, handles physical orders, syncs to Go High Level CRM
-- `get-stream-urls.ts` - Generates time-limited Supabase Storage signed URLs for audio tracks (2hr expiry). Verifies `user_access` before serving
-- `get-download-url.ts` - Download URL for verified purchases
-- `verify-session.ts` - Validates Stripe sessions for success page
-- `ghl-lead.ts` - Captures email leads to Go High Level
+### Data flow
 
-### Data Flow
+1. **Checkout:** the buyer enters an amount, email and consent. `payments.createDigitalSession` creates the Stripe Checkout session.
+2. **Webhook:** Stripe calls `https://<deployment>.convex.site/stripe/webhook`, which runs `payments.handleWebhook` → `fulfilment.record`:
+   - Clerk user found or created by email
+   - `users` and `entitlements` saved
+   - `orders` saved for physical items
+   - GHL sync scheduled
+3. **Return:** the buyer lands on `/?success=true` and the reveal animation hands off to the stream page. `success.html` can show downloads within 24 h.
+4. **Streaming:** the stream page signs in with Clerk, then calls `tracks.listForPlayer` and gets signed R2 URLs.
 
-1. User enters email and amount on main site
-2. `create-checkout` creates Stripe session
-3. After payment, `stripe-webhook` provisions access:
-   - Matches Stripe products to Supabase `products.stripe_product_id`
-   - Creates Clerk user if needed (with `skipPasswordRequirement`)
-   - Inserts into `user_access` (Clerk user_id + product_id)
-   - Upserts `profiles` record
-4. User returns to site → post-purchase animation → stream player
-5. `stream.ts` calls `get-stream-urls` with Clerk user ID to get signed audio URLs
+## Environment variables
 
-## Environment Variables
+- **Netlify (build):**
+  - `CONVEX_DEPLOY_KEY`: build command `npx convex deploy --cmd 'npm run build'`, which sets `VITE_CONVEX_URL`.
+  - `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`.
+  - `VITE_SHOPIFY_STOREFRONT_TOKEN`, `VITE_SHOPIFY_STORE_DOMAIN`.
+- **Convex dashboard** (never in the repo or chat):
+  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRODUCT_ID_LIT`, `STRIPE_PRODUCT_ID_SOURCE`
+  - `CLERK_SECRET_KEY`, `CLERK_JWT_ISSUER_DOMAIN`, `ADMIN_EMAILS`
+  - `GHL_API_KEY`, `GHL_LOCATION_ID`
+  - `SITE_URL`, `SOURCE_PRESALE_URL`
+  - `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_TOKEN`
+- **`.env.local`** (gitignored): `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`, `VITE_CLERK_PUBLISHABLE_KEY`, plus `R2_*` for `npm run upload:audio`.
 
-**Main site (root `.env`):**
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` - Stripe server-side
-- `VITE_STRIPE_PUBLISHABLE_KEY` - Stripe client-side
-- `VITE_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` - Supabase (service role for functions)
-- `VITE_SUPABASE_ANON_KEY` - Supabase client-side (used by `src/supabase.ts`)
-- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk frontend (used by `src/clerk.ts`)
-- `CLERK_SECRET_KEY` - Clerk backend API (functions)
-- `GHL_API_KEY`, `GHL_LOCATION_ID` - Go High Level CRM
-- `LIT_DOWNLOAD_URL` - Download URL for verified purchases
+## Key integration points
 
-**Stream app (`stream/.env`):**
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` - Supabase client
-- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk frontend
-
-## Database Schema (Supabase)
-
-- `products` - id, name, description, cover_url, audio_url, stripe_product_id
-- `user_access` - user_id (Clerk ID), product_id (FK to products), unique constraint on pair
-- `profiles` - id (Clerk ID), email, full_name, is_admin
-- `physical_orders` - id, user_id, stripe_payment_id, total_amount, shipping_address (jsonb), order_status
-- `order_items` - id, order_id (FK), product_id, product_name, variant, quantity, unit_price
-- `track_plays` - id, user_id, product_id, track_name, played_at
-
-Audio files are stored in Supabase Storage bucket `LIT`, served via signed URLs.
-
-## Key Integration Points
-
-- **Stripe product IDs** must match `products.stripe_product_id` in Supabase for webhook provisioning
-- **Clerk user IDs** are the primary identifier across all Supabase tables (not Supabase auth)
-- **LIT Product ID**: `f67a66b8-59a0-413f-b943-8fbb9cdee876` is hardcoded in `main.ts`, `stream.ts`, and `get-stream-urls.ts`
-- GSAP and Draggable are loaded via CDN in HTML files, accessed as window globals
-- Unicorn Studio handles the WebGL animated background (project ID `SrJiFKz8avO1GlImykxO`)
-- The CD player uses a 5-layer PNG stack (`/assets/images/CD Casset/layer1-5.png`) where layer-3 is the spinning disc
+- Products are referenced by **slug** (`lit`, `the-source`). Stripe product IDs live on `products.stripeProductIds`.
+- Clerk user IDs (`users.clerkId`) are the identity across Convex. The live site currently uses the Clerk **dev** instance `main-grouper-12`.
+- Paid audio is in R2 bucket `myind-audio` (`lit/stream/*`, `lit/originals/*`, `lit/download/*`). The bucket CORS allows `https://stream.myindsound.com` and localhost.
+- **Compliance rules:**
+  - Never print customer PII in the Claude session. Migrations and debugging use counts and IDs.
+  - Marketing consent is opt-in.
+  - Plays are pruned after 12 months.

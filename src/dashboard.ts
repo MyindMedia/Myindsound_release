@@ -4,8 +4,20 @@
  */
 
 import { getClerk, isSignedIn, getUserId, getUserName, getUserEmail, signOut, mountUserButton, isClerkConfigured } from './clerk';
-import { getUserPurchases, getUserOrders, isSupabaseConfigured, getSupabaseConfigError } from './supabase';
-import type { Product, PhysicalOrder } from './supabase';
+import { initAnalytics, identifyUser, track } from './analytics';
+import type { FunctionReturnType } from 'convex/server';
+import { api, connectConvexAuth, convexErrorMessage, getConvex, isConvexConfigured } from './convex';
+
+type OwnedProduct = FunctionReturnType<typeof api.products.owned>[number];
+type Order = FunctionReturnType<typeof api.orders.mine>[number];
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+
+const COVER_FOR: Record<string, string> = {
+  lit: '/assets/images/lit-poster.png',
+  'the-source': '/assets/images/thesource-poster.png',
+};
 
 class DashboardController {
   constructor() {
@@ -13,6 +25,7 @@ class DashboardController {
   }
 
   private async init() {
+    initAnalytics();
     try {
       // Check if services are configured
       if (!isClerkConfigured()) {
@@ -20,9 +33,8 @@ class DashboardController {
         return;
       }
 
-      if (!isSupabaseConfigured()) {
-        const error = getSupabaseConfigError();
-        this.showError(`Database not configured. ${error || 'Add VITE_SUPABASE_ANON_KEY to Netlify environment variables.'}`);
+      if (!isConvexConfigured()) {
+        this.showError('Database not configured. VITE_CONVEX_URL is missing from the build.');
         return;
       }
 
@@ -44,13 +56,22 @@ class DashboardController {
         return;
       }
 
+      // Identify user in PostHog
+      identifyUser(userId, { email: userEmail || undefined, name: userName || undefined });
+      track('dashboard_viewed');
+
       // Update UI with user info
       this.updateUserInfo(userName, userEmail, userId);
 
+      if (!(await connectConvexAuth())) {
+        this.showError('We could not connect your account. Refresh the page and try again.');
+        return;
+      }
+
       // Fetch and render data
       await Promise.all([
-        this.loadDownloads(userId),
-        this.loadOrders(userId),
+        this.loadDownloads(),
+        this.loadOrders(),
       ]);
 
       // Setup account actions
@@ -144,14 +165,14 @@ class DashboardController {
     }
   }
 
-  private async loadDownloads(userId: string) {
+  private async loadDownloads() {
     const container = document.getElementById('downloads-container');
     const empty = document.getElementById('downloads-empty');
 
     if (!container || !empty) return;
 
     try {
-      const products = await getUserPurchases(userId);
+      const products = await getConvex().query(api.products.owned, {});
 
       if (products.length === 0) {
         container.style.display = 'none';
@@ -167,12 +188,12 @@ class DashboardController {
       container.querySelectorAll('.download-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const btnEl = e.currentTarget as HTMLButtonElement;
-          const productId = btnEl.dataset.id;
+          const slug = btnEl.dataset.slug;
           const name = btnEl.dataset.name;
-          const userId = await getUserId();
 
-          if (productId && userId) {
-            await this.downloadFile(productId, userId, name || 'download');
+          if (slug) {
+            track('download_initiated', { product_id: slug, product_name: name });
+            await this.downloadFile(slug, name || 'download');
           }
         });
       });
@@ -183,25 +204,27 @@ class DashboardController {
     }
   }
 
-  private renderDownloadCard(product: Product): string {
-    const coverUrl = product.cover_url || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=400';
+  private renderDownloadCard(product: OwnedProduct): string {
+    const coverUrl = product.coverUrl || COVER_FOR[product.slug] || '/assets/images/lit-poster.png';
+    const name = escapeHtml(product.name);
+    const action = product.hasDownload
+      ? `<button class="download-btn" data-slug="${escapeHtml(product.slug)}" data-name="${name}">DOWNLOAD</button>`
+      : `<a class="download-btn" href="/stream.html">STREAM</a>`;
 
     return `
       <div class="download-card">
-        <img src="${coverUrl}" alt="${product.name}" loading="lazy" />
+        <img src="${escapeHtml(coverUrl)}" alt="${name}" loading="lazy" />
         <div class="download-card-info">
-          <h4 class="download-card-title">${product.name}</h4>
-          <p class="download-card-desc">${product.description || 'Digital Release'}</p>
-          <button class="download-btn" data-id="${product.id}" data-name="${product.name}">
-            DOWNLOAD
-          </button>
+          <h4 class="download-card-title">${name}</h4>
+          <p class="download-card-desc">Digital Release</p>
+          ${action}
         </div>
       </div>
     `;
   }
 
-  private async downloadFile(productId: string, userId: string, name: string) {
-    const btn = document.querySelector(`.download-btn[data-id="${productId}"]`) as HTMLButtonElement;
+  private async downloadFile(slug: string, name: string) {
+    const btn = document.querySelector(`.download-btn[data-slug="${slug}"]`) as HTMLButtonElement;
     const originalText = btn?.textContent;
 
     try {
@@ -210,25 +233,19 @@ class DashboardController {
         btn.disabled = true;
       }
 
-      const response = await fetch('/.netlify/functions/get-download-url', {
-        method: 'POST',
-        body: JSON.stringify({ productId, userId })
-      });
-
-      if (!response.ok) throw new Error('Failed to get download link');
-
-      const { downloadUrl } = await response.json();
+      const { url } = await getConvex().action(api.downloads.mine, { product: slug });
 
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = name;
       link.target = '_blank';
+      link.rel = 'noopener';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (error) {
       console.error('Download error:', error);
-      alert('Failed to prepare download. Please try again.');
+      alert(convexErrorMessage(error, 'Failed to prepare download. Please try again.'));
     } finally {
       if (btn) {
         btn.textContent = originalText || 'DOWNLOAD';
@@ -237,14 +254,14 @@ class DashboardController {
     }
   }
 
-  private async loadOrders(userId: string) {
+  private async loadOrders() {
     const container = document.getElementById('orders-container');
     const empty = document.getElementById('orders-empty');
 
     if (!container || !empty) return;
 
     try {
-      const orders = await getUserOrders(userId);
+      const orders = await getConvex().query(api.orders.mine, {});
 
       if (orders.length === 0) {
         container.style.display = 'none';
@@ -262,25 +279,23 @@ class DashboardController {
     }
   }
 
-  private renderOrderCard(order: PhysicalOrder): string {
-    const date = new Date(order.created_at).toLocaleDateString('en-US', {
+  private renderOrderCard(order: Order): string {
+    const date = new Date(order.createdAt).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
 
-    const itemCount = order.order_items?.length || 0;
-    const itemText = itemCount === 1 ? '1 item' : `${itemCount} items`;
-    const total = (order.total_amount / 100).toFixed(2);
+    const itemText = order.itemCount === 1 ? '1 item' : `${order.itemCount} items`;
+    const total = (order.totalCents / 100).toFixed(2);
 
     return `
       <div class="order-card">
         <div class="order-info">
-          <h4>Order #${order.id.slice(0, 8).toUpperCase()}</h4>
+          <h4>Order #${escapeHtml(order.id.slice(-8).toUpperCase())}</h4>
           <p>${date} · ${itemText} · $${total}</p>
-          ${order.tracking_number ? `<p>Tracking: ${order.tracking_number}</p>` : ''}
         </div>
-        <span class="order-status ${order.order_status}">${order.order_status}</span>
+        <span class="order-status ${escapeHtml(order.status)}">${escapeHtml(order.status)}</span>
       </div>
     `;
   }
@@ -301,6 +316,55 @@ class DashboardController {
         await signOut();
       });
     }
+
+    this.setupPrivacyActions(signOutBtn?.parentElement ?? null);
+  }
+
+  /** GDPR: export and delete personal data (Convex cascades the delete to Clerk and the CRM). */
+  private setupPrivacyActions(host: HTMLElement | null) {
+    if (!host || host.querySelector('#export-data-btn')) return;
+
+    const exportBtn = document.createElement('button');
+    exportBtn.id = 'export-data-btn';
+    exportBtn.className = 'text-btn';
+    exportBtn.textContent = 'DOWNLOAD MY DATA';
+    exportBtn.addEventListener('click', async () => {
+      try {
+        const data = await getConvex().query(api.privacy.exportMyData, {});
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'myind-sound-my-data.json';
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) {
+        alert(convexErrorMessage(error, 'Could not export your data. Please try again.'));
+      }
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.id = 'delete-account-btn';
+    deleteBtn.className = 'text-btn';
+    deleteBtn.style.color = '#ff6b6b';
+    deleteBtn.textContent = 'DELETE ACCOUNT';
+    deleteBtn.addEventListener('click', async () => {
+      const typed = window.prompt(
+        'This permanently deletes your account, purchases, play history and marketing record. Payment receipts stay with Stripe for tax records.\n\nType DELETE to confirm.',
+      );
+      if (typed !== 'DELETE') return;
+      try {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'DELETING...';
+        await getConvex().action(api.privacy.deleteMyData, { confirm: 'DELETE' });
+        await signOut();
+      } catch (error) {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'DELETE ACCOUNT';
+        alert(convexErrorMessage(error, 'Could not delete your account. Please contact info@myindsound.com.'));
+      }
+    });
+
+    host.append(exportBtn, deleteBtn);
   }
 
   private async setupNavAuth() {

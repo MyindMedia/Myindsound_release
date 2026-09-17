@@ -1,79 +1,73 @@
-import { supabase, getAdminStats } from './supabase';
+/**
+ * Admin dashboard: play and purchase stats from Convex. Access is enforced server-side
+ * (users.isAdmin or ADMIN_EMAILS); the page only reflects the answer.
+ */
+import { getClerk, isClerkConfigured } from './clerk';
+import { api, connectConvexAuth, convexErrorCode, getConvex } from './convex';
 
-class AdminDashboard {
-    constructor() {
-        this.init();
-    }
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
-    async init() {
-        // Wait for Clerk
-        const interval = setInterval(async () => {
-            if ((window as any).Clerk) {
-                clearInterval(interval);
-                await (window as any).Clerk.load();
-                this.checkAuth();
-            }
-        }, 100);
-
-        document.getElementById('refresh-stats')?.addEventListener('click', () => this.loadStats());
-    }
-
-    async checkAuth() {
-        const clerk = (window as any).Clerk;
-        const user = clerk.user;
-
-        if (!user) {
-            window.location.href = '/login?redirect=/admin';
-            return;
-        }
-
-        const email = user.primaryEmailAddress?.emailAddress;
-
-        // Super Admin Check (info@myindsound.com or is_admin flag)
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', user.id)
-            .single();
-
-        if (email === 'info@myindsound.com' || profile?.is_admin) {
-            document.getElementById('admin-content')!.style.display = 'block';
-            document.getElementById('unauthorized')!.style.display = 'none';
-            this.loadStats();
-        } else {
-            document.getElementById('admin-content')!.style.display = 'none';
-            document.getElementById('unauthorized')!.style.display = 'flex';
-        }
-    }
-
-    async loadStats() {
-        const stats = await getAdminStats();
-
-        // Update summary cards
-        document.getElementById('total-plays')!.textContent = stats.plays.length.toString();
-        document.getElementById('total-users')!.textContent = stats.users.length.toString();
-        document.getElementById('total-purchases')!.textContent = stats.purchases.length.toString();
-
-        // Populate Plays Table
-        const playsTbody = document.querySelector('#recent-plays-table tbody')!;
-        playsTbody.innerHTML = stats.plays.slice(0, 10).map((p: any) => `
-            <tr>
-                <td>${p.track_name}</td>
-                <td>${p.user_id || 'Anonymous'}</td>
-                <td>${new Date(p.played_at).toLocaleString()}</td>
-            </tr>
-        `).join('');
-
-        // Populate Purchases Table
-        const purchasesTbody = document.querySelector('#recent-purchases-table tbody')!;
-        purchasesTbody.innerHTML = stats.purchases.slice(0, 10).map((p: any) => `
-            <tr>
-                <td>${p.products?.name || 'Unknown'}</td>
-                <td>${p.user_id}</td>
-                <td>${new Date(p.created_at).toLocaleDateString()}</td>
-            </tr>
-        `).join('');
-    }
+function show(id: string, display: string) {
+  const element = document.getElementById(id);
+  if (element) element.style.display = display;
 }
 
-new AdminDashboard();
+async function loadStats() {
+  try {
+    const stats = await getConvex().query(api.admin.stats, {});
+    show('admin-content', 'block');
+    show('unauthorized', 'none');
+
+    document.getElementById('total-plays')!.textContent = String(stats.totals.plays);
+    document.getElementById('total-users')!.textContent = String(stats.totals.users);
+    document.getElementById('total-purchases')!.textContent = String(stats.totals.purchases);
+
+    document.querySelector('#recent-plays-table tbody')!.innerHTML = stats.recentPlays
+      .map(
+        (play) => `
+          <tr>
+            <td>${escapeHtml(play.track)}</td>
+            <td>${escapeHtml(play.listener)}</td>
+            <td>${new Date(play.playedAt).toLocaleString()}</td>
+          </tr>`,
+      )
+      .join('');
+
+    document.querySelector('#recent-purchases-table tbody')!.innerHTML = stats.recentPurchases
+      .map(
+        (purchase) => `
+          <tr>
+            <td>${escapeHtml(purchase.product)}</td>
+            <td>${escapeHtml(purchase.buyer)}</td>
+            <td>${new Date(purchase.grantedAt).toLocaleDateString()}</td>
+          </tr>`,
+      )
+      .join('');
+  } catch (error) {
+    if (convexErrorCode(error) === 'FORBIDDEN') {
+      show('admin-content', 'none');
+      show('unauthorized', 'flex');
+      return;
+    }
+    console.error('Admin stats failed:', error);
+  }
+}
+
+async function init() {
+  show('unauthorized', 'none');
+  document.getElementById('refresh-stats')?.addEventListener('click', () => void loadStats());
+  if (!isClerkConfigured()) return;
+  const clerk = await getClerk();
+  if (!clerk.user) {
+    window.location.href = '/login?redirect=/admin';
+    return;
+  }
+  if (!(await connectConvexAuth())) {
+    show('unauthorized', 'flex');
+    return;
+  }
+  await loadStats();
+}
+
+void init();

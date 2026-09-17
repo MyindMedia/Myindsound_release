@@ -3,230 +3,33 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#07070C" />
   <title>Stream | LIT - Myind Sound</title>
-  <link rel="stylesheet" href="/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
     rel="stylesheet" />
+  <link rel="preload" as="image" href="/assets/images/minidisc/body.webp" type="image/webp" />
   <style>
-    /* Intro Overlay for New Purchase */
-    #intro-overlay {
-      position: fixed;
-      inset: 0;
-      background: black;
-      z-index: 9999;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      perspective: 1000px;
-    }
-
-    #intro-overlay.active {
-      display: flex;
-    }
-
-    #intro-album-art {
-      width: 300px;
-      height: 300px;
-      position: relative;
-      transform-style: preserve-3d;
-    }
-
-    #intro-album-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 4px;
-      box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
-    }
-
-    #intro-peel-layer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: url('/assets/images/buypeeloverlay.png') no-repeat center center;
-      background-size: cover;
-      z-index: 2;
-    }
-
-    .pulsating-play {
-      animation: pulse-gold 2s infinite;
-    }
-
-    @keyframes pulse-gold {
-      0% {
-        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
-        transform: scale(1);
-      }
-
-      70% {
-        box-shadow: 0 0 0 20px rgba(255, 215, 0, 0);
-        transform: scale(1.1);
-      }
-
-      100% {
-        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
-        transform: scale(1);
-      }
-    }
+    html, body { margin: 0; height: 100%; background: #07070C; }
   </style>
 </head>
 
 <body class="stream-page">
-  <!-- Instant black cover for docking animation - JS removes it when ready -->
-  <script>
-    (function() {
-      var p = new URLSearchParams(window.location.search);
-      if (p.get('state') === 'animate_dock' || p.get('state') === 'reveal_ui') {
-        var d = document.createElement('div');
-        d.id = 'instant-black-cover';
-        d.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9998;';
-        document.body.appendChild(d);
-      }
-    })();
-  </script>
-  <!-- Unicorn Studio WebGL Background -->
-  <div data-us-project="SrJiFKz8avO1GlImykxO" id="unicorn-background"
-    style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; pointer-events: none;"></div>
-  <div id="background-overlay"></div>
-  <script src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.0.5/dist/unicornStudio.umd.js"></script>
-  <script>UnicornStudio.init();</script>
-  <!-- Intro Overlay -->
-  <div id="intro-overlay">
-    <div id="intro-album-art">
-      <img src="/assets/images/lit-poster.png" id="intro-album-img" alt="LIT Album" />
-      <div id="intro-peel-layer"></div>
-    </div>
-  </div>
-  <!-- Navigation -->
-  <nav class="main-nav">
+  <nav class="main-nav" aria-label="Site">
     <div class="nav-links">
       <a href="/">DIGITAL</a>
       <a href="/physical.html">PHYSICAL</a>
-      <a href="/stream.html" class="active">STREAM</a>
-      <a href="/dashboard.html">DASHBOARD</a>
+      <a href="/stream.html" class="active" aria-current="page">STREAM</a>
+      <a href="/dashboard.html" class="nav-link">DASHBOARD</a>
     </div>
   </nav>
 
-  <!-- Main Player Container -->
-  <main class="stream-container">
-    <!-- Left Side: Disc Player -->
-    <section class="player-section">
-      <!-- Animated Disk Player -->
-      <div class="animated-disk-player">
-        <div class="disk-layers">
-          <img src="/assets/images/CD Casset/layer5.png" alt="Disk Layer 5" class="disk-layer layer-5" />
-          <img src="/assets/images/CD Casset/layer4.png" alt="Disk Layer 4" class="disk-layer layer-4" />
-          <img src="/assets/images/CD Casset/layer3.png" alt="Disk Layer 3" class="disk-layer layer-3" />
-          <img src="/assets/images/CD Casset/layer2.png" alt="Disk Layer 2" class="disk-layer layer-2" />
-          <img src="/assets/images/CD Casset/layer1.png" alt="Disk Layer 1" class="disk-layer layer-1" />
-        </div>
-      </div>
-
-      <!-- Mobile Player Controls (Below Player) -->
-      <div class="mobile-player-controls">
-        <!-- Progress Bar -->
-        <div class="progress-container">
-          <span class="time-current" id="time-current">0:00</span>
-          <div class="progress-bar" id="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
-            <div class="progress-handle" id="progress-handle"></div>
-          </div>
-          <span class="time-total" id="time-total">0:00</span>
-        </div>
-
-        <!-- Playback Buttons -->
-        <div class="playback-buttons">
-          <button class="control-btn-small" id="cd-rewind-btn" title="Rewind 10 seconds">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="19 20 9 12 19 4 19 20"></polygon>
-              <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
-            </svg>
-          </button>
-          <button class="control-btn-large" id="cd-play-btn" title="Play">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-          </button>
-          <button class="control-btn-small" id="cd-forward-btn" title="Forward 10 seconds">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5 4 15 12 5 20 5 4"></polygon>
-              <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
-            </svg>
-          </button>
-          <button class="control-btn-small" id="cd-pause-btn" title="Pause">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="4" width="4" height="16"></rect>
-              <rect x="14" y="4" width="4" height="16"></rect>
-            </svg>
-          </button>
-          <button class="control-btn-small" id="cd-repeat-btn" title="Repeat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="17 1 21 5 17 9"></polyline>
-              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-              <polyline points="7 23 3 19 7 15"></polyline>
-              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Volume Slider -->
-        <div class="volume-control">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-          </svg>
-          <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="80" />
-        </div>
-      </div>
-
-      <!-- Now Playing Info -->
-      <div class="now-playing">
-        <span class="now-playing-label">NOW PLAYING</span>
-        <h2 class="now-playing-title" id="now-playing-title">L.I.T. (Living In Truth)</h2>
-        <p class="now-playing-artist" id="now-playing-artist">Myind Sound</p>
-      </div>
-
-      <!-- Upcoming Tracks Preview -->
-      <div class="upcoming-tracks" id="upcoming-tracks">
-        <div class="upcoming-scroll" id="upcoming-scroll">
-          <!-- Populated by JavaScript -->
-        </div>
-      </div>
-    </section>
-
-    <!-- Right Side: Track List (Collapsible on Mobile) -->
-    <section class="tracklist-section collapsed" id="tracklist-section">
-      <div class="tracklist-header" id="tracklist-header">
-        <h3>LIT - TRACKLIST</h3>
-        <span class="track-count" id="track-count">6 TRACKS</span>
-      </div>
-
-      <div class="tracklist" id="tracklist">
-        <!-- Tracks will be rendered by JavaScript -->
-      </div>
-
-      <!-- Album Info -->
-      <div class="album-info">
-        <div class="album-meta">
-          <span class="album-year">2026</span>
-          <span class="album-duration" id="album-duration">24:32</span>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Hidden Audio Element -->
-  <audio id="audio-player" preload="metadata"></audio>
+  <!-- 3D MiniDisc deck + HUD (built by src/player3d) -->
+  <main id="player-root" aria-label="LIT MiniDisc player"></main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Draggable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.0.5/dist/unicornStudio.umd.js"></script>
-  <script type="module" src="/src/disk-player.ts"></script>
   <script type="module" src="/src/stream.ts"></script>
 </body>
 

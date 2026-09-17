@@ -149,112 +149,11 @@
     <!-- GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
-    <!-- Clerk Script -->
-    <script async crossorigin="anonymous"
-        src="https://main-grouper-12.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-        type="module"></script>
-
     <!-- Success Animation Module -->
     <script type="module" src="/src/success-animation.ts"></script>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const sessionId = urlParams.get('session_id');
-
-            const loading = document.getElementById('loading-state');
-            const content = document.getElementById('success-content');
-            const error = document.getElementById('error-state');
-            const container = document.getElementById('download-links-container');
-            const nameSpan = document.getElementById('customer-name');
-
-            if (!sessionId) {
-                loading.style.display = 'none';
-                error.style.display = 'block';
-                return;
-            }
-
-            try {
-                const response = await fetch(`/.netlify/functions/verify-session?session_id=${sessionId}`);
-                if (!response.ok) throw new Error('Failed to verify session');
-
-                const data = await response.json();
-
-                if (data.downloads && data.downloads.length > 0) {
-                    nameSpan.textContent = data.customer ? data.customer.toUpperCase() : '';
-
-                    // Add Stream Button first
-                    const streamBtn = document.createElement('a');
-                    streamBtn.href = '#';
-                    streamBtn.className = 'primary-btn stream-btn';
-                    streamBtn.style.textDecoration = 'none';
-                    streamBtn.textContent = 'STREAM NOW';
-                    streamBtn.addEventListener('click', async (e) => {
-                        e.preventDefault();
-
-                        // Import and start animation
-                        try {
-                            const { SuccessAnimationController } = await import('/src/success-animation.ts');
-                            const animController = new SuccessAnimationController();
-                            animController.start('/assets/images/lit-poster.png');
-                        } catch (err) {
-                            // Fallback to old behavior if module fails
-                            console.error('Animation module failed:', err);
-                            const overlay = document.getElementById('reveal-overlay');
-                            overlay.classList.add('active');
-                            setTimeout(() => {
-                                window.location.href = '/stream.html?state=reveal_ui';
-                            }, 1500);
-                        }
-                    });
-                    container.appendChild(streamBtn);
-
-                    data.downloads.forEach(dl => {
-                        const btn = document.createElement('a');
-                        btn.href = dl.url;
-                        btn.target = '_blank';
-                        btn.className = 'primary-btn download-btn';
-                        btn.style.textDecoration = 'none';
-                        btn.textContent = `DOWNLOAD "${dl.name}"`;
-                        container.appendChild(btn);
-                    });
-
-                    loading.style.display = 'none';
-                    content.style.display = 'block';
-
-                    // Check if signed in, if not show sign-up
-                    try {
-                        // Wait for Clerk to load
-                        const interval = setInterval(async () => {
-                            if (window.Clerk) {
-                                clearInterval(interval);
-                                await window.Clerk.load();
-
-                                if (!window.Clerk.user) {
-                                    // Show sign-up prompt
-                                    document.getElementById('signup-prompt').style.display = 'block';
-                                    window.Clerk.mountSignUp(document.getElementById('clerk-signup-container'), {
-                                        initialValues: {
-                                            emailAddress: data.customer_email || ''
-                                        },
-                                        afterSignUpUrl: '/dashboard'
-                                    });
-                                }
-                            }
-                        }, 100);
-                    } catch (e) {
-                        console.error('Clerk load error:', e);
-                    }
-                } else {
-                    throw new Error('No downloads found for this session');
-                }
-            } catch (err) {
-                console.error(err);
-                loading.style.display = 'none';
-                error.style.display = 'block';
-            }
-        });
-    </script>
+    <!-- Session verification + downloads (Convex) -->
+    <script type="module" src="/src/success.ts"></script>
 </body>
 
 </html>

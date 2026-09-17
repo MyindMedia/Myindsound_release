@@ -1,13 +1,14 @@
 import './style.css';
+import { initAnalytics, identifyUser, track, applyFeatureFlagVariants } from './analytics';
 // import { UnicornSceneManager } from './unicorn-scene';
 import { CheckoutFlow } from './checkout';
 import { initNavAuth } from './nav-auth';
 import { initLitHover } from './lit-hover';
 import { getUserId, isClerkConfigured } from './clerk';
-import { hasProductAccess, isSupabaseConfigured } from './supabase';
+import { api, connectConvexAuth, getConvex, isConvexConfigured } from './convex';
 
-// LIT Album Product ID
-const LIT_PRODUCT_ID = 'f67a66b8-59a0-413f-b943-8fbb9cdee876';
+// LIT product slug in Convex
+const LIT_PRODUCT_ID = 'lit';
 
 // Ensure scroll is never locked on page load
 document.body.style.overflow = '';
@@ -78,8 +79,8 @@ function initPurchaseFlow() {
  * Check if user has already purchased and show Play Album button
  */
 async function checkUserPurchase() {
-  // Only check if both Clerk and Supabase are configured
-  if (!isClerkConfigured() || !isSupabaseConfigured()) {
+  // Only check if both Clerk and Convex are configured
+  if (!isClerkConfigured() || !isConvexConfigured()) {
     return;
   }
 
@@ -90,10 +91,16 @@ async function checkUserPurchase() {
       return;
     }
 
+    // Identify user in PostHog once we know their Clerk ID
+    identifyUser(userId);
+
     // Check if user has access to LIT album
-    const hasPurchased = await hasProductAccess(userId, LIT_PRODUCT_ID);
+    if (!(await connectConvexAuth())) return;
+    const owned = await getConvex().query(api.entitlements.mine, {});
+    const hasPurchased = owned.includes(LIT_PRODUCT_ID);
 
     if (hasPurchased) {
+      track('album_access_confirmed', { product_id: LIT_PRODUCT_ID });
       // User has purchased - show Play Album button instead
       showPlayAlbumUI();
       renderTracklist(true); // Show unlocked tracklist
@@ -134,10 +141,14 @@ function showPlayAlbumUI() {
 import { PurchaseAnimationController } from './purchase-animation';
 
 document.addEventListener('DOMContentLoaded', () => {
+  initAnalytics();
+  applyFeatureFlagVariants();
+
   const urlParams = new URLSearchParams(window.location.search);
   const success = urlParams.get('success');
 
   if (success === 'true') {
+    track('purchase_completed', { product_id: LIT_PRODUCT_ID });
     // Clean URL
     window.history.replaceState({}, '', window.location.pathname);
 

@@ -1,0 +1,15 @@
+{
+  "slug": "lit",
+  "defaultSourceDir": "~/Downloads/LIT  [Live In Truth]-2026-09-17",
+  "zipName": "ThaMyind - LIT EP.zip",
+  "zipKey": "lit/download/ThaMyind - LIT EP.zip",
+  "tracks": [
+    { "position": 1, "title": "L.I.T. (Living In Truth)", "file": "L.I.T. ( Living In Truth).mp3", "streamKey": "lit/stream/01-lit.mp3" },
+    { "position": 2, "title": "G. O. D.", "file": "G. O. D.mp3", "streamKey": "lit/stream/02-god.mp3" },
+    { "position": 3, "title": "Victory In the Valley", "file": "Victory In the Valley.wav", "streamKey": "lit/stream/03-victory-in-the-valley.mp3", "originalKey": "lit/originals/03-victory-in-the-valley.wav" },
+    { "position": 4, "title": "Tired", "file": "Tired.mp3", "streamKey": "lit/stream/04-tired.mp3" },
+    { "position": 5, "title": "Let Him Cook", "file": "Let Him Cook.mp3", "streamKey": "lit/stream/05-let-him-cook.mp3" },
+    { "position": 6, "title": "Faith", "file": "Faith.mp3", "streamKey": "lit/stream/06-faith.mp3" }
+  ],
+  "corsOrigins": ["https://stream.myindsound.com", "http://localhost:5173", "http://localhost:8888"]
+}

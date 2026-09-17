@@ -28,3 +28,9 @@ dist-ssr
 
 # Local Netlify folder
 .netlify
+
+# Build caches (audio encodes, texture intermediates)
+.cache
+
+# React Bits Pro originals: licensed source, kept locally for reference only (this repo is public)
+src/vendor/reactbits/

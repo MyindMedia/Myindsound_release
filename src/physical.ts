@@ -15,6 +15,7 @@ import {
   type ShopifyProduct
 } from './shopify';
 import { initNavAuth } from './nav-auth';
+import { initAnalytics, track } from './analytics';
 
 // Cart item type
 interface CartItem {
@@ -421,6 +422,7 @@ class PhysicalStore {
     this.updateCartCount();
 
     // Redirect to Shopify checkout
+    track('physical_checkout_started', { checkout_url: checkoutUrl });
     window.location.href = checkoutUrl;
   }
 }
@@ -428,8 +430,10 @@ class PhysicalStore {
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
+    initAnalytics();
     new PhysicalStore();
   });
 } else {
+  initAnalytics();
   new PhysicalStore();
 }

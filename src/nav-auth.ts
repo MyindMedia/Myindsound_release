@@ -4,7 +4,7 @@
  */
 
 import { isSignedIn, mountUserButton, onAuthChange } from './clerk';
-import { isAdmin } from './supabase';
+import { api, connectConvexAuth, getConvex, isConvexConfigured } from './convex';
 
 /**
  * Initialize navigation with auth state
@@ -43,12 +43,11 @@ async function updateNavigation(): Promise<void> {
       authLink.textContent = 'DASHBOARD';
     }
 
-    // Add ADMIN link if user is admin
-    const clerk = (window as any).Clerk;
-    if (clerk?.user) {
-      const isUserAdmin = await isAdmin(clerk.user.id);
+    // Add ADMIN link if Convex says this user is an admin (checked server-side)
+    if (isConvexConfigured() && (await connectConvexAuth())) {
+      const me = await getConvex().query(api.users.me, {});
       const hasAdminLink = navLinks.querySelector('.nav-link[href="/admin"]');
-      if ((isUserAdmin || clerk.user.primaryEmailAddress?.emailAddress === 'info@myindsound.com') && !hasAdminLink) {
+      if (me?.isAdmin && !hasAdminLink) {
         const adminLink = document.createElement('a');
         adminLink.href = '/admin';
         adminLink.className = 'nav-link';

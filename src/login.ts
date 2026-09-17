@@ -4,6 +4,7 @@
  */
 
 import { mountSignIn, mountSignUp, isSignedIn, mountUserButton, isClerkConfigured, getClerkError } from './clerk';
+import { initAnalytics } from './analytics';
 
 class LoginController {
   private currentTab: 'signin' | 'signup' = 'signin';
@@ -13,6 +14,7 @@ class LoginController {
   }
 
   private async init() {
+    initAnalytics();
     const loading = document.getElementById('auth-loading');
 
     // Check if Clerk is configured

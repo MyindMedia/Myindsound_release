@@ -26,3 +26,13 @@
   from = "/cancel"
   to = "/cancel.html"
   status = 200
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[redirects]]
+  from = "/stream"
+  to = "/stream.html"
+  status = 200

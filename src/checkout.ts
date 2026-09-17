@@ -1,7 +1,5 @@
-import { loadStripe } from '@stripe/stripe-js';
-
-// Use Vite environment variable for the publishable key
-const STRIPE_PUBLISHABLE_KEY = (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_key_here';
+import { track, trackFormSubmit, trackButtonClick } from './analytics';
+import { api, convexErrorMessage, getConvex } from './convex';
 
 interface CheckoutData {
   amount: number;
@@ -23,6 +21,7 @@ export class CheckoutFlow {
 
   public start(amount: number) {
     this.data.amount = amount;
+    track('checkout_started', { amount });
     this.showUpsell();
     this.show();
   }
@@ -55,11 +54,13 @@ export class CheckoutFlow {
 
     document.getElementById('upsell-yes')?.addEventListener('click', () => {
       this.data.withUpsell = true;
+      trackButtonClick('upsell-yes', { upsell_accepted: true, amount: this.data.amount });
       this.showIdentity();
     });
 
     document.getElementById('upsell-no')?.addEventListener('click', () => {
       this.data.withUpsell = false;
+      trackButtonClick('upsell-no', { upsell_accepted: false, amount: this.data.amount });
       this.showIdentity();
     });
   }
@@ -71,6 +72,10 @@ export class CheckoutFlow {
             <h2 class="modal-step-title">Where should we send your download?</h2>
             <div class="purchase-box" style="margin-top: 0;">
                 <input type="email" id="customer-email" placeholder="Email Address" class="primary-input" style="width: 100%; margin-bottom: 1rem; background: #111; border: 1px solid var(--border-color); color: white; padding: 1rem; border-radius: 4px;" />
+                <label class="consent-row" style="display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 1rem; font-size: 0.85rem; color: #bbb; text-align: left; cursor: pointer;">
+                    <input type="checkbox" id="marketing-consent" style="margin-top: 0.2rem; accent-color: #FDB913;" />
+                    <span>Send me new releases and drops from Myind Sound. Unsubscribe anytime.</span>
+                </label>
                 <button id="continue-checkout" class="primary-btn">CONTINUE TO PAYMENT</button>
             </div>
         `;
@@ -78,12 +83,17 @@ export class CheckoutFlow {
     document.getElementById('continue-checkout')?.addEventListener('click', async () => {
       const email = (document.getElementById('customer-email') as HTMLInputElement).value;
       if (email) {
-        // Trigger Lead Capture in GHL (Fire and forget, don't block checkout)
-        fetch('/.netlify/functions/ghl-lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        }).catch(err => console.error('GHL Lead Capture failed:', err));
+        trackFormSubmit('checkout_email', {
+          with_upsell: this.data.withUpsell,
+          amount: this.data.amount,
+        });
+        // Lead capture only runs with an explicit opt-in (fire and forget, never blocks checkout).
+        const marketingConsent = (document.getElementById('marketing-consent') as HTMLInputElement | null)?.checked ?? false;
+        if (marketingConsent) {
+          getConvex()
+            .action(api.leads.capture, { email, marketingConsent })
+            .catch((err) => console.error('Lead capture failed:', err));
+        }
 
         this.initiateStripe();
       } else {
@@ -93,63 +103,25 @@ export class CheckoutFlow {
   }
 
   private async initiateStripe() {
-    if (STRIPE_PUBLISHABLE_KEY === 'pk_test_your_key_here') {
-      console.warn("Stripe Publishable Key is using the placeholder. Please set VITE_STRIPE_PUBLISHABLE_KEY.");
-    }
-
-    const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
-    if (!stripe) {
-      alert('Failed to load Stripe. Please check your internet connection or browser settings.');
-      return;
-    }
-
     const email = (document.getElementById('customer-email') as HTMLInputElement).value;
-    // const total = this.data.amount + (this.data.withUpsell ? 9 : 0);
-
-
+    const marketingConsent = (document.getElementById('marketing-consent') as HTMLInputElement | null)?.checked ?? false;
 
     try {
-      const response = await fetch('/.netlify/functions/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: this.data.amount,
-          withUpsell: this.data.withUpsell,
-          email: email
-        }),
-      }).catch(err => {
-        console.error('Checkout error:', err);
-        throw new Error('Network error or endpoint not found. Ensure Netlify Functions are active.');
+      const { url } = await getConvex().action(api.payments.createDigitalSession, {
+        amountCents: Math.round(this.data.amount * 100),
+        withUpsell: this.data.withUpsell,
+        email,
+        marketingConsent,
       });
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('Non-JSON response from server:', text);
-        throw new Error('Server returned a non-JSON response. Please ensure Netlify Functions are running (use "netlify dev").');
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Server responded with ${response.status}`);
-      }
-
-      const session = await response.json();
-
-      if (session.error) {
-        throw new Error(session.error);
-      }
-
-      // Use direct redirect as redirectToCheckout is deprecated
-      if (session.url) {
-        window.location.href = session.url;
-      } else {
-        throw new Error('No checkout URL received from server');
-      }
-
-    } catch (error: any) {
+      track('checkout_redirected_to_stripe', {
+        amount: this.data.amount,
+        with_upsell: this.data.withUpsell,
+      });
+      window.location.href = url;
+      return;
+    } catch (error) {
       console.error('Checkout Error:', error);
-      alert(`Checkout Error: ${error.message || 'There was an error initiating checkout. Please try again.'}`);
+      alert(`Checkout Error: ${convexErrorMessage(error, 'There was an error starting checkout. Please try again.')}`);
     }
 
     this.hide();

@@ -5,19 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "convex codegen --typecheck=disable",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "textures": "python3 scripts/build-player-assets.py",
+    "upload:audio": "tsx scripts/upload-lit-audio.ts"
   },
   "devDependencies": {
-    "@stripe/stripe-js": "^8.7.0",
+    "@aws-sdk/client-s3": "^3.1134.0",
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/three": "^0.186.0",
+    "convex-test": "^0.0.58",
+    "tsx": "^4.23.13",
     "typescript": "~5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^5.0.1"
   },
   "dependencies": {
-    "@clerk/backend": "^2.29.6",
     "@clerk/clerk-js": "^5.122.0",
-    "@netlify/functions": "^5.1.2",
-    "@supabase/supabase-js": "^2.93.3",
-    "stripe": "^20.3.0"
+    "@convex-dev/r2": "^0.10.2",
+    "convex": "^1.46.0",
+    "posthog-js": "^1.363.5",
+    "stripe": "^20.3.0",
+    "three": "^0.186.0"
   }
 }

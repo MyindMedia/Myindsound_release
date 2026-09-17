@@ -12,6 +12,7 @@ export default defineConfig({
         stream: resolve(__dirname, 'stream.html'),
         success: resolve(__dirname, 'success.html'),
         cancel: resolve(__dirname, 'cancel.html'),
+        admin: resolve(__dirname, 'admin.html'),
       },
     },
   },
