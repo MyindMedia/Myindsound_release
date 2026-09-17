@@ -9,6 +9,8 @@ export interface HudHandlers {
   onRepeat(): void;
   onVolume(value: number): void;
   onRetry(): void;
+  /** GET LIT: opens the pay-what-you-want checkout on the page. */
+  onGetLit(): void;
 }
 
 export interface HudFrame {
@@ -67,6 +69,8 @@ export class Hud {
   private inspectHint: HTMLElement;
   private repeatButton: HTMLButtonElement;
   private accessNote: HTMLElement;
+  private openHint: HTMLButtonElement;
+  private hudLayer: HTMLElement;
   private listMeta: HTMLElement;
   private sheetSuffix = '';
   private lastRepeat: boolean | null = null;
@@ -179,6 +183,7 @@ export class Hud {
     this.spectrumCtx = this.spectrumCanvas.getContext('2d');
 
     hud.append(strip, tracklist, this.frame, readoutsPanel, spectrumWrap, this.sheetToggle);
+    this.hudLayer = hud;
 
     // Anchored overlays. The status is announced to screen readers only: on screen it's on the deck's LCD
     // (and in the phone strip).
@@ -187,6 +192,10 @@ export class Hud {
     this.statusEl.append(this.statusText);
     this.statusEl.setAttribute('role', 'status');
     this.statusEl.setAttribute('aria-live', 'polite');
+
+    this.openHint = el('button', 'p3d-open-hint p3d-mono', 'DOUBLE-CLICK TO UNWRAP');
+    this.openHint.type = 'button';
+    this.openHint.hidden = true;
 
     this.insertButton = el('button', 'p3d-insert p3d-mono', 'INSERT DISC');
     this.insertButton.type = 'button';
@@ -233,6 +242,7 @@ export class Hud {
       this.canvas,
       hud,
       this.stage,
+      this.openHint,
       this.statusEl,
       this.inspectHint,
       this.insertButton,
@@ -269,25 +279,64 @@ export class Hud {
   }
 
   /** Full album for owners; for everyone else, a previews note with sign-in and purchase links. */
+  /** Opening scene: nothing but the wrapped cartridge, with the button under it. */
+  setIntro(on: boolean, coarsePointer = false): void {
+    this.root.classList.toggle('p3d--intro', on);
+    document.body.classList.toggle('p3d-sealed', on);
+    this.openHint.hidden = !on;
+    this.openHint.textContent = coarsePointer
+      ? 'DRAG TO TURN · DOUBLE-TAP TO UNWRAP'
+      : 'DRAG TO TURN · DOUBLE-CLICK TO UNWRAP';
+    // Everything behind the black is out of the tab order and out of the accessibility tree.
+    for (const node of [this.hudLayer, this.insertButton, this.inspectHint]) node.inert = on;
+  }
+
+  /** The hint is also the button, for anyone not double-clicking a 3D object. */
+  onOpen(handler: () => void): void {
+    this.openHint.addEventListener('click', handler);
+  }
+
+  /** The button goes as soon as the unwrapping starts. */
+  hideOpenHint(): void {
+    this.openHint.hidden = true;
+  }
+
+  /** The list header, the sheet label and the note under the tracklist follow what the listener gets. */
   setAccess(access: StreamAccess): void {
     const preview = access.mode === 'preview';
     this.listMeta.textContent = preview ? '30s PREVIEWS' : 'FULL ALBUM';
     this.sheetSuffix = preview ? ' · PREVIEWS' : '';
-    this.accessNote.hidden = !preview;
-    if (!preview) return;
-    const message = {
-      'signed-out': 'Playing 30-second previews. Own LIT? Sign in for the full songs.',
-      'not-owner': "Playing 30-second previews. This account doesn't own LIT yet.",
-      unavailable: "Full songs can't load right now, so previews are playing. Try again soon.",
-    }[access.reason];
     const actions = el('div', 'p3d-access__actions');
-    const link = (label: string, href: string, primary = false) => {
-      const anchor = el('a', `p3d-access__link p3d-mono${primary ? ' p3d-access__link--primary' : ''}`, label);
+    const link = (label: string, href: string) => {
+      const anchor = el('a', 'p3d-access__link p3d-mono', label);
       anchor.href = href;
       return anchor;
     };
-    if (access.reason === 'signed-out') actions.append(link('SIGN IN', `/login.html?redirect=${encodeURIComponent('/stream')}`));
-    if (access.reason !== 'unavailable') actions.append(link('GET LIT', '/', true));
+    const signIn = () => link('SIGN IN', `/login.html?redirect=${encodeURIComponent('/')}`);
+
+    // Unlocked by a checkout session rather than an account: it runs out, so offer to make it permanent.
+    if (!preview) {
+      this.accessNote.hidden = access.via !== 'purchase';
+      if (access.via !== 'purchase') return;
+      actions.append(signIn());
+      const message = 'Thank you. The full album is unlocked here for 24 hours. Sign in to keep it on any device.';
+      this.accessNote.replaceChildren(el('p', 'p3d-access__text', message), actions);
+      return;
+    }
+
+    this.accessNote.hidden = false;
+    const message = {
+      'signed-out': 'Playing 30-second previews. Pay what you want to hear the full album.',
+      'not-owner': "Playing 30-second previews. This account doesn't own LIT yet.",
+      unavailable: "Full songs can't load right now, so previews are playing. Try again soon.",
+    }[access.reason];
+    if (access.reason === 'signed-out') actions.append(signIn());
+    if (access.reason !== 'unavailable') {
+      const getLit = el('button', 'p3d-access__link p3d-access__link--primary p3d-mono', 'GET LIT');
+      getLit.type = 'button';
+      getLit.addEventListener('click', () => this.handlers.onGetLit());
+      actions.append(getLit);
+    }
     this.accessNote.replaceChildren(el('p', 'p3d-access__text', message), actions);
   }
 

@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { action, internalMutation, internalQuery, type QueryCtx } from './_generated/server';
+import { action, internalMutation, internalQuery, type ActionCtx, type QueryCtx } from './_generated/server';
 import { fail } from './lib/errors';
 import { fileUrl, LINK_REFRESH_MS } from './lib/storage';
 
@@ -127,6 +127,25 @@ export const listBySlug = internalQuery({
   },
 });
 
+/**
+ * The tracklist with storage links to the full songs. The caller must have checked the purchase first
+ * (`listForPlayer` here, or the paid checkout session in `payments.streamForCheckoutSession`).
+ */
+export async function playerTracks(ctx: ActionCtx, slug: string): Promise<{ tracks: PlayerTrack[]; expiresAt: number }> {
+  const rows = await ctx.runQuery(internal.tracks.listBySlug, { slug });
+  const tracks = await Promise.all(
+    rows.map(async (row) => ({
+      id: row._id,
+      position: row.position,
+      title: row.title,
+      durationSeconds: row.durationSeconds,
+      format: row.format,
+      streamUrl: await fileUrl(ctx, row.streamFile),
+    })),
+  );
+  return { tracks, expiresAt: Date.now() + LINK_REFRESH_MS };
+}
+
 export const listForPlayer = action({
   args: { product: v.string() },
   handler: async (ctx, { product }): Promise<{ tracks: PlayerTrack[]; expiresAt: number }> => {
@@ -134,18 +153,6 @@ export const listForPlayer = action({
     if (!identity) fail('UNAUTHENTICATED', 'Sign in to listen.');
     const access = await ctx.runQuery(internal.entitlements.check, { clerkId: identity.subject, slug: product });
     if (!access) fail('NOT_ENTITLED', 'No license found for this release.');
-
-    const rows = await ctx.runQuery(internal.tracks.listBySlug, { slug: product });
-    const tracks = await Promise.all(
-      rows.map(async (row) => ({
-        id: row._id,
-        position: row.position,
-        title: row.title,
-        durationSeconds: row.durationSeconds,
-        format: row.format,
-        streamUrl: await fileUrl(ctx, row.streamFile),
-      })),
-    );
-    return { tracks, expiresAt: Date.now() + LINK_REFRESH_MS };
+    return playerTracks(ctx, product);
   },
 });

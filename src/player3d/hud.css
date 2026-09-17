@@ -36,11 +36,16 @@
   width: 100%;
   height: 100%;
   display: block;
-  touch-action: none;
+  /* Vertical swipes scroll the page; the cartridge is turned with a horizontal drag. */
+  touch-action: pan-y;
 }
 
-/* Site nav over the scene */
+/* Site nav over the scene. The site stylesheet gives it a solid bar; over the player it's just the pill. */
 .stream-page .main-nav {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -54,6 +59,7 @@
 
 .stream-page .main-nav .nav-links {
   display: flex;
+  flex: none;
   gap: 4px;
   pointer-events: auto;
   background: rgba(7, 7, 12, 0.6);
@@ -61,7 +67,7 @@
   padding: 4px;
 }
 
-.stream-page .main-nav a {
+.stream-page .main-nav .nav-links a {
   font: 600 12px/1 'JetBrains Mono', ui-monospace, monospace;
   letter-spacing: 0.14em;
   color: rgba(245, 241, 230, 0.72);
@@ -72,13 +78,18 @@
   align-items: center;
 }
 
-.stream-page .main-nav a:hover,
-.stream-page .main-nav a.active {
+.stream-page .main-nav .nav-links a:hover,
+.stream-page .main-nav .nav-links a.active {
   color: #07070c;
   background: #fdb913;
 }
 
-.stream-page .main-nav a:focus-visible {
+/* The site's underline on the active link would sit under the pill. */
+.stream-page .main-nav .nav-links a.active::after {
+  content: none;
+}
+
+.stream-page .main-nav .nav-links a:focus-visible {
   outline: 2px solid #fdb913;
   outline-offset: 2px;
 }
@@ -1010,6 +1021,127 @@
   .p3d-glitch::before,
   .p3d-glitch::after,
   .p3d-terminal__caret {
+    animation: none;
+  }
+}
+
+/* ── Home page: the player fills the first screen, the rest scrolls under it ── */
+
+/* style.css locks the page (flex body, overflow hidden) for the old single-screen layout. */
+html:has(body.home-page) {
+  overflow: auto;
+}
+
+body.home-page {
+  display: block;
+  overflow: auto;
+  min-height: 0;
+  background: var(--ink, #07070c);
+}
+
+.p3d--inline {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100svh;
+}
+
+.home-below {
+  position: relative;
+  z-index: 1;
+  /* The coming-soon cards' peel flaps hang a card's height above them; keep them out of the player's screen. */
+  overflow: hidden;
+  background: var(--ink, #07070c);
+  padding: 72px 0 96px;
+}
+
+.home-cta {
+  text-align: center;
+  padding: 64px 16px 8px;
+}
+
+.home-cta h2 {
+  margin: 0 0 10px;
+  font-size: clamp(22px, 3vw, 32px);
+  letter-spacing: 0.08em;
+}
+
+.home-cta p {
+  margin: 0 0 22px;
+  color: rgba(245, 241, 230, 0.66);
+}
+
+/* ── Opening scene: the wrapped cartridge alone on black ───────────── */
+
+/* Nothing but the package on black: the nav comes up with the rest of the site afterwards. */
+body:has(.p3d--intro) .main-nav {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stream-page .main-nav {
+  transition: opacity 2.6s ease 0.6s;
+}
+
+/* And the page can't be scrolled away from it while it's still wrapped (html is the scroller here). */
+html:has(body.p3d-sealed),
+body.p3d-sealed {
+  overflow: hidden !important;
+}
+.p3d--intro .p3d-hud,
+.p3d--intro .p3d-insert,
+.p3d--intro .p3d-inspect-hint {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The site comes up slowly behind the bare disc, but goes dark instantly when the page opens sealed. */
+.p3d-hud,
+.p3d-insert,
+.p3d-inspect-hint {
+  transition: opacity 2.6s ease 0.6s;
+}
+
+.p3d--intro .p3d-hud,
+.p3d--intro .p3d-insert,
+.p3d--intro .p3d-inspect-hint,
+body:has(.p3d--intro) .main-nav {
+  transition: none;
+}
+
+.p3d-open-hint {
+  position: absolute;
+  left: 50%;
+  /* Where INSERT DISC will be, so nothing jumps when the packaging comes off. */
+  bottom: 64px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--gold);
+  background: rgba(7, 7, 12, 0.7);
+  border: 1px solid var(--line);
+  z-index: 30;
+  cursor: pointer;
+  animation: p3d-open-pulse 2.6s ease-in-out infinite;
+}
+
+.p3d-open-hint:hover,
+.p3d-open-hint:focus-visible {
+  color: var(--ink);
+  background: var(--gold);
+}
+
+@keyframes p3d-open-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p3d-open-hint {
     animation: none;
   }
 }

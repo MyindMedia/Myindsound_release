@@ -210,7 +210,7 @@ class DashboardController {
     const name = escapeHtml(product.name);
     const action = product.hasDownload
       ? `<button class="download-btn" data-slug="${escapeHtml(product.slug)}" data-name="${name}">DOWNLOAD</button>`
-      : `<a class="download-btn" href="/stream.html">STREAM</a>`;
+      : `<a class="download-btn" href="/">STREAM</a>`;
 
     return `
       <div class="download-card">

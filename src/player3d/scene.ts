@@ -135,6 +135,11 @@ export class PlayerScene {
     }
   }
 
+  /** Bloom strength; the opening scene turns it down so the wrapped package doesn't blow out. */
+  setBloomStrength(value: number): void {
+    this.bloom.strength = value;
+  }
+
   /** CRT pass strength, 0..1 (scanlines and fringe). */
   setCrtIntensity(value: number): void {
     this.crt.uniforms.uIntensity.value = value;
@@ -250,7 +255,8 @@ export class PlayerScene {
     this.tiltVelocity.y += (stiffness * (target.y - this.tilt.y) - damping * this.tiltVelocity.y) * step;
     this.tilt.x += this.tiltVelocity.x * step;
     this.tilt.y += this.tiltVelocity.y * step;
-    this.deckRoot.rotation.set(REST_PITCH + this.tilt.y * MAX_PITCH, this.tilt.x * MAX_YAW, 0);
+    // Leans towards the pointer: the near edge is the one the cursor is on.
+    this.deckRoot.rotation.set(REST_PITCH - this.tilt.y * MAX_PITCH, -this.tilt.x * MAX_YAW, 0);
   }
 
   start(): void {

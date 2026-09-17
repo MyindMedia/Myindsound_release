@@ -12,6 +12,7 @@
     "textures": "python3 scripts/build-player-assets.py",
     "upload:audio": "tsx scripts/upload-lit-audio.ts",
     "previews": "python3 scripts/build-lit-previews.py",
+    "wrap-sounds": "python3 scripts/build-wrap-sounds.py",
     "disc-sounds": "python3 scripts/build-disc-sounds.py"
   },
   "devDependencies": {

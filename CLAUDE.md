@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Myind Sound Releases is a music release platform with pay-what-you-want (PWYW) digital sales and physical merchandise.
 - **Site:** a multi-page vanilla TypeScript site on Netlify (stream.myindsound.com, Netlify site `myindreleases`, builds branch `master`).
 - **Backend:** Convex, with the paid audio in Convex file storage (dev `decisive-iguana-954`, production `loyal-tortoise-999`).
-- **Stream page:** a Three.js MiniDisc deck.
+- **Home page:** opens on the MiniDisc in its packaging (a printed sleeve inside shrink film), alone on black. Unwrap it and the disc slides out; the Three.js deck, tracklist and city then fade in. `/stream` redirects here.
 - **Legacy:** a separate React app under `stream/`, still on Supabase and not the primary player.
 
 Read `Grilled.md` first: it records goals, decisions, constraints and open questions. Specs and the plan are in `docs/superpowers/`.
@@ -26,7 +26,7 @@ npm run textures     # Rebuild player textures + geometry from the Canva export
 npm run upload:audio -- --dry-run   # Plan the audio upload to Convex storage; add --prod for production
 ```
 
-The 3D player runs without auth or backend at `http://localhost:5173/stream.html?mock=1` (dev only).
+The player runs without auth or backend at `http://localhost:5173/?mock=1` (dev only).
 
 ## Architecture
 
@@ -34,7 +34,7 @@ The 3D player runs without auth or backend at `http://localhost:5173/stream.html
 
 Not an SPA. The entry points are listed in `vite.config.ts`:
 
-`index.html`, `login.html`, `dashboard.html`, `physical.html`, `stream.html`, `success.html`, `cancel.html`, `admin.html`
+`index.html`, `login.html`, `dashboard.html`, `physical.html`, `success.html`, `cancel.html`, `admin.html`
 
 Each page loads its own module(s). Clean URLs come from redirects in `netlify.toml`.
 
@@ -44,10 +44,11 @@ Auth is Clerk, via the JWT template `convex` (`auth.config.ts`, issuer from `CLE
 
 - `schema.ts`: tables `products`, `tracks`, `users`, `entitlements`, `orders`, `orderItems`, `plays`, `stripeEvents`.
 - `lib/auth.ts`: `getViewer`, `requireViewer`, `ensureViewer`, `requireAdmin`. Admin means `users.isAdmin` or a verified email in `ADMIN_EMAILS`.
-- `tracks.ts`: `listForPlayer` action. Checks the purchase, then returns the tracklist with Convex storage links to the full songs. Also the upload flow (`generateUploadUrl`, `fileHashes`, `attachTrackFile`, `attachDownload`) used by `npm run upload:audio`.
+- `tracks.ts`: `listForPlayer` action (and `playerTracks`, the shared tracklist-with-links helper). Checks the purchase, then returns the tracklist with Convex storage links to the full songs. Also the upload flow (`generateUploadUrl`, `fileHashes`, `attachTrackFile`, `attachDownload`) used by `npm run upload:audio`.
 - `payments.ts`: Stripe (fetch client, default runtime).
   - `createDigitalSession`
   - `downloadsForCheckoutSession`: 24 h window after payment.
+  - `streamForCheckoutSession`: the full songs in the same 24 h window, from the paid session, without an account.
   - `handleWebhook`
   - `rebuildFromStripe`: internal. Prints counts only.
 - `fulfilment.ts`: the single, idempotent path that grants entitlements and creates orders.
@@ -62,13 +63,13 @@ Auth is Clerk, via the JWT template `convex` (`auth.config.ts`, issuer from `CLE
 
 - `convex.ts`: `ConvexClient` singleton, `connectConvexAuth()` (Clerk token → Convex), error helpers.
 - `clerk.ts`: Clerk singleton and helpers (`getClerk`, `requireAuth`, `mountSignIn`, …).
-- `main.ts` / `checkout.ts`: home page and PWYW checkout modal (upsell → email + marketing-consent checkbox → Stripe redirect via Convex).
+- `home.ts`: the home page. Mounts the player in its wrapping, picks the track source, and opens the checkout from GET LIT. Coming back from Stripe it remembers the checkout session (`purchase-session.ts`), so the buyer hears the full album for 24 hours without signing in.
+- `checkout.ts`: the PWYW modal (amount → upsell → email + marketing-consent checkbox → Stripe redirect via Convex).
 - `success.ts`: success page downloads (Convex) and sign-in prompt.
 - `dashboard.ts`: purchases, downloads, orders, export/delete my data.
 - `admin.ts`: stats from `api.admin.stats`, with access enforced server-side.
 - `nav-auth.ts`: nav auth state; ADMIN link from `api.users.me`.
-- `stream.ts`: mounts the 3D player (`src/player3d`).
-- `purchase-animation.ts`, `disk-player.ts`, `sticker-peel.ts`: home page post-purchase reveal, which hands off to `stream.html?state=animate_dock`.
+- `sticker-peel.ts`: React Bits sticker port, used by the coming-soon cards.
 - `physical.ts` / `cart.ts` / `shopify.ts`: physical store (Shopify Storefront).
 - `analytics.ts`: PostHog.
 
@@ -78,7 +79,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 
 - `state.ts`: pure deck state machine and key latches (unit-tested). Selecting a track while running enters `seeking` (laser calibration of at least 2 s) before `playing`. Play after a pause or stop enters `resuming`: the disc spins back up and `ready` starts the music at full speed.
 - `audio-engine.ts`: one `<audio>` element through Web Audio when CORS allows; otherwise direct playback with a simulated spectrum. `unlock()` must run inside the user gesture. Also exposes `waveform()`.
-- `disc-sounds.ts`: drive mechanics from a real recording (`npm run disc-sounds` → `public/assets/audio/disc/`, `disc-sounds.json`): spin-up (the disc starts turning `SPIN_LEAD_SECONDS` before its motor is heard), seamless spinning loop, spin-down, and unload (the load sound played before the eject, with `unclampAt`/`releaseAt` markers the eject timeline follows). The deck's `playRpmCurve` follows the same curves so sound and motion line up.
+- `disc-sounds.ts`: drive mechanics from a real recording (`npm run disc-sounds   # and npm run wrap-sounds for the unwrap` → `public/assets/audio/disc/`, `disc-sounds.json`): spin-up (the disc starts turning `SPIN_LEAD_SECONDS` before its motor is heard), seamless spinning loop, spin-down, and unload (the load sound played before the eject, with `unclampAt`/`releaseAt` markers the eject timeline follows). The deck's `playRpmCurve` follows the same curves so sound and motion line up.
 - `track-source.ts`: `ConvexTrackSource` (full songs from Convex storage, purchase-checked). `lit-stream-source.ts`: `LitStreamSource`, what the public page uses: buyers get the full songs, everyone else (or anyone when the service fails) gets the previews, and the HUD shows a SIGN IN / GET LIT note. `preview-track-source.ts`: `PreviewTrackSource`, 30-second LIT previews for the public demo (`npm run previews` cuts them from the local LIT files into `public/assets/audio/lit-previews/` and writes `lit-previews.json`).
 - `scene.ts`: renderer, framing to the HUD's `.p3d-frame`, tilt spring, bloom + CRT pass, visibility pause.
 - `deck.ts`: extruded body/cartridge/keys from `geometry.json` + WebP textures. The disc face is the LIT cover; the cartridge label is "Do Not Duplicate".
@@ -86,8 +87,9 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 - `lcd-text.ts` / `lcd.ts`: the calculator-style status display in the cover's lower-left corner (a recess cut through the body). 11 amber 14-segment characters behind glass, with play / pause / stop / repeat flags above. Shows LOADING, READING, CALIBRATING, SPIN UP, EJECTING, NO DISC, or PLAY/PAUSE/STOP with the track number; ◀ ▶ and repeat flash their button (NEXT 03, REPEAT ON) for 0.9 s. `lcd-text.ts` (content and font) is unit-tested; `lcd.ts` redraws its canvas only on change.
 - `spindle.ts`: the deck's spindle motor under the seated hub. It rises through the cartridge's back opening once seated, turns with the disc, and drops clear before eject (`Deck.setSpindleEngaged`, called from the insert and eject timelines).
 - `backdrop.ts` / `backdrop-shaders.ts`: comic-book 90s-anime city (`city-comic.webp`, 21:9), depth-map parallax (`city-depth.webp`), pulsing neon and beam shimmer (`city-mask.webp`), flying craft, embers, rain.
+- `wrap.ts` / `wrap-math.ts` / `wrap-sound.ts`: the packaging the page opens on. A printed card sleeve wrapped round the cartridge in 3D (extruded board walls, closed foot, open mouth with the cartridge standing a little proud of it, the cover full bleed on the front and the print carried over the spine and foot) inside clear shrink film on every face (one layer each, front-side only, so the far side never shows through the near one), all in 3D and parented to the cartridge. A double-click (double-tap, Enter, or the UNWRAP button) runs the unwrap in two beats over about 5.4 s: the plastic curls slowly off (a fold travelling across the face in the vertex shader; the rolled part is dragged off the package and towards the viewer, drawn over everything so it never clips against the sleeve) and is carried out of shot, then the sleeve slides down off the screen, leaving the disc facing the viewer. Nothing fades out on screen: the packaging leaves the frame. The film is one layer, from Lawrence's own shrink-wrap sheet (`wrap-film.webp` + `wrap-film-normal.webp`, built from `~/Downloads/Untitled Design (1).png`), and the sleeve cover is the clean LIT art (`lit-sleeve.webp`, from `~/Downloads/¡ (1).png`). The back of the packaging is weathered (faded print, stains, creases, scuffs, cloudy film) so it reads as a relic. The sound is Lawrence's own: a plastic wrap peel and a hand pulling card (`npm run wrap-sounds` → `public/assets/audio/wrap/`, `wrap-sounds.json`), played once each: the peel slowed to the length of its phase, the hand as the sleeve comes off (`wrap-math.ts`, unit-tested). The page opens sealed from the first paint: black, no nav, no HUD, no scrolling, nothing but the package and its instruction until the unwrap has finished. The package is framed in the same box as the floating disc (`.p3d-stage`), so nothing moves when the packaging comes off. The package squares up to the camera before it starts, however the visitor has turned it. Until then the inspector is in its intro pose: the package centred on black, deck, city and HUD hidden, which fade in slowly (about 3 s) as the black goes. The sealed package turns: drag, arrows, pinch and wheel work on it, so the cover, the printed back (tracklist, imprint, barcode) and the spine can all be seen before it's opened.
 - `insert-sequence.ts`: GSAP timelines for the page-open float-in, insert (from wherever the cartridge floats) and eject (spin-down, unload, spindle drop, pop). GSAP comes from the CDN, `window.gsap`.
-- `inspect.ts`: eject inspector. The page always opens ejected: once tracks load, the cartridge floats in front of the empty deck (`runFloatInSequence`). The red key ejects the cartridge to the foreground (`ejecting` → `ejected`). The cartridge rotates 360° in camera space (drag with inertia, arrows) and zooms toward the pointer (wheel, pinch, + and −). Double-click/tap or 0 resets; INSERT DISC, Enter/Esc, Play or a track pick push it back in. It is fitted into the HUD's invisible `.p3d-stage` box.
+- `inspect.ts`: eject inspector. Untouched, the cartridge sways around square-on rather than turning right round, so its printed face stays toward the viewer; dragging still turns it through 360°. The page always opens ejected: once tracks load, the cartridge floats in front of the empty deck (`runFloatInSequence`). The red key ejects the cartridge to the foreground (`ejecting` → `ejected`). The cartridge rotates 360° in camera space (drag with inertia, arrows) and zooms toward the pointer (wheel, pinch, + and −). Double-click/tap or 0 resets; INSERT DISC, Enter/Esc, Play or a track pick push it back in. It is fitted into the HUD's invisible `.p3d-stage` box.
 - `keys.ts`: raycast, keyboard (Space, ←, →, S, E = eject, R = repeat) and hidden real buttons. The red key is Eject; Repeat is the toggle under the tracklist.
 - `hud.ts` / `hud.css` / `hud-fx.ts`: HTML HUD with desktop, tablet (sheet) and phone (strip + sheet) layouts. The deck status is on the deck's own LCD and in the phone strip; the HUD keeps a screen-reader-only live region.
   - `hud-fx.ts` holds ports of React Bits Pro blocks: glitch text, boot terminal, oscilloscope, sparkline, radial gauge.
@@ -115,8 +117,8 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
    - `users` and `entitlements` saved
    - `orders` saved for physical items
    - GHL sync scheduled
-3. **Return:** the buyer lands on `/?success=true` and the reveal animation hands off to the stream page. `success.html` can show downloads within 24 h.
-4. **Streaming:** the stream page is open to everyone. For a signed-in visitor it calls `tracks.listForPlayer`; buyers get the full songs from Convex storage, and everyone else hears the 30-second previews.
+3. **Return:** the buyer lands on `/?success=true&session_id=…`. `home.ts` takes the session out of the URL (before analytics sees it), remembers it for 24 h, and the packaging opens itself. `success.html` can show downloads in the same window.
+4. **Streaming:** the home page is open to everyone. A signed-in buyer gets the full songs through `tracks.listForPlayer`; someone who has just paid gets them through `payments.streamForCheckoutSession` (their paid Stripe session, 24 hours, no sign-in); everyone else hears the 30-second previews.
 
 ## Environment variables
 

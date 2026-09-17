@@ -1,13 +1,13 @@
 /**
  * Success Page Animation Controller
- * Handles the post-purchase animation sequence from success.html to stream.html
+ * Handles the post-purchase animation sequence from success.html to the home page player
  *
  * Flow:
  * 1. Album art lifts to center, screen fades to black
  * 2. Peel animation reveals cdinsert.png (disc image) - NO spinning
  * 3. "Tap to Play" overlay
  * 4. On tap: dock animation starts, sound plays 1 second after click
- * 5. Navigate to stream.html seamlessly (disc appears to dock into player)
+ * 5. Navigate to the home page seamlessly (disc appears to dock into player)
  */
 
 import { initAnalytics, track } from './analytics';
@@ -359,7 +359,7 @@ export class SuccessAnimationController {
       duration: 0.3
     });
 
-    // Audio plays on stream.html reveal, not here
+    // Audio plays on the home page reveal, not here
 
     // Dock animation - disc slides down into player (NO spinning)
     const tl = gsap.timeline();
@@ -399,7 +399,7 @@ export class SuccessAnimationController {
     if (glitchStyles) glitchStyles.remove();
 
     // Navigate with state flag for seamless UI reveal
-    window.location.href = '/stream.html?state=reveal_ui';
+    window.location.href = '/';
   }
 
   /**

@@ -4,7 +4,7 @@ import { DISC_SOUNDS, SPIN_LEAD_SECONDS } from './disc-sounds';
 import type { CartridgeInspector } from './inspect';
 import type { PlayerScene } from './scene';
 
-// GSAP is loaded from the CDN on stream.html (window.gsap).
+// GSAP is loaded from the CDN on the page (window.gsap).
 type Tween = Record<string, unknown>;
 interface Timeline {
   set(target: object, vars: Tween, position?: number): Timeline;
@@ -98,16 +98,22 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
 
 /**
  * Page open: the cartridge drifts in from the lower right and settles into the inspector, floating
- * in front of the empty deck (about 1.6 s, after the boot overlay starts fading).
+ * in front of the empty deck (about 1.6 s, after the boot overlay starts fading). `instant` puts it
+ * straight there, for when it's hidden behind the poster wrapper anyway.
  */
-export function runFloatInSequence(deck: Deck, scene: PlayerScene, inspector: CartridgeInspector): { cancel(): void } {
+export function runFloatInSequence(
+  deck: Deck,
+  scene: PlayerScene,
+  inspector: CartridgeInspector,
+  instant = false,
+): { cancel(): void } {
   const gsap = getGsap();
   const cart = deck.cartridge;
   cart.visible = true;
   inspector.takeCartridge();
   inspector.setPresent(true);
 
-  if (scene.reducedMotion || !gsap) {
+  if (instant || scene.reducedMotion || !gsap) {
     cart.position.set(0, 0, 0);
     cart.rotation.set(0, 0, 0);
     return { cancel() {} };

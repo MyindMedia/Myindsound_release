@@ -27,6 +27,7 @@ export class KeyController {
   private raycaster = new Raycaster();
   private pointer = new Vector2();
   private inspecting = false;
+  private enabled = true;
   private readonly deck: Deck | null;
   private readonly scene: PlayerScene | null;
   private readonly onCommand: (command: KeyCommand) => void;
@@ -99,6 +100,7 @@ export class KeyController {
     };
     const command = map[event.key];
     // While the cartridge is out, arrows belong to the inspector; only play/insert and repeat remain.
+    if (!this.enabled) return;
     if (!command || (this.inspecting && command !== 'toggle' && command !== 'repeat')) return;
     event.preventDefault();
     if (command === 'toggle' || command === 'repeat') this.onCommand(command);
@@ -114,6 +116,11 @@ export class KeyController {
   /** While the cartridge is in the eject inspector, canvas drags and arrow keys go to the inspector. */
   setInspecting(inspecting: boolean): void {
     this.inspecting = inspecting;
+  }
+
+  /** Off during the opening scene: nothing should reach a deck that isn't on screen yet. */
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
   }
 
   press(id: KeyId): void {

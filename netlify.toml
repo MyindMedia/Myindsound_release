@@ -34,5 +34,10 @@
 
 [[redirects]]
   from = "/stream"
-  to = "/stream.html"
-  status = 200
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/stream.html"
+  to = "/"
+  status = 301

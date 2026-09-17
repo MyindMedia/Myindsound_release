@@ -36,7 +36,7 @@ export const BODY_DEPTH = 0.16;
 export const CART_DEPTH = 0.048;
 export const CART_SEATED_Z = -BODY_DEPTH / 2;
 /** The disc's top face (the art) and thickness, inside the shell. */
-const DISC_TOP_Z = -0.003;
+const DISC_TOP_Z = 0.011;
 const DISC_THICKNESS = 0.008;
 /** The separate hub plate: from just under the disc to just proud of its art. */
 const HUB_BASE_Z = DISC_TOP_Z - DISC_THICKNESS - 0.001;

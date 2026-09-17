@@ -18,7 +18,9 @@ const INERTIA_DAMPING = 4;
 /** Caps a fast fling (rad/s), so one flick is a few turns, not dozens. */
 const MAX_SPIN = 9;
 const KEY_IMPULSE = 2.4;
-const IDLE_TURN = 0.35;
+/** Untouched, the cartridge sways around square-on rather than turning right round, so it faces the viewer. */
+const IDLE_SWAY_YAW = 0.26;
+const IDLE_SWAY_PITCH = 0.1;
 // Blended in linear light, so 0.8 reads as roughly half brightness on screen.
 const DIM_OPACITY = 0.8;
 const TAP_MS = 260;
@@ -26,7 +28,8 @@ const DOUBLE_TAP_MS = 320;
 
 const AXIS_X = new Vector3(1, 0, 0);
 const AXIS_Y = new Vector3(0, 1, 0);
-const IDENTITY = new Quaternion();
+/** Home: square to the camera, printed face forward (the cartridge's front is its +z). */
+const HOME = new Quaternion();
 
 interface PointerTrack {
   x: number;
@@ -52,6 +55,11 @@ export class CartridgeInspector {
   private readonly keyLight = new DirectionalLight('#fff6e8', 0);
   private holding = false;
   private interactive = false;
+  /** Opening scene: the package centred on black, swaying gently, not yet grabbable. */
+  private intro = false;
+  private sway = false;
+  private blackout = 0;
+  private blackoutTarget = 0;
   private touched = false;
   private resetting = false;
   private presence = 0;
@@ -114,15 +122,48 @@ export class CartridgeInspector {
     this.velocity.set(0, 0);
     this.resetting = false;
     this.measure();
-    this.pivot.quaternion.identity();
+    this.pivot.quaternion.copy(HOME);
     this.placePivot();
     this.pivot.attach(this.deck.cartridge);
+  }
+
+  /**
+   * The opening scene: the wrapped cartridge alone on black, centred and turning. Switching it off fades the
+   * black away, which is what brings the deck, the city and the HUD in.
+   */
+  setIntro(on: boolean): void {
+    this.intro = on;
+    this.sway = on;
+    // Wrapped, it still turns: drag, arrows and the wheel work on the sealed package, but Enter and a
+    // double-tap belong to the unwrap, not to the deck.
+    if (on) {
+      this.interactive = true;
+      this.touched = false;
+      this.canvas.style.cursor = 'grab';
+    }
+    this.blackoutTarget = on ? 1 : 0;
+    if (on) this.blackout = 1;
+    this.measure();
+    this.applyPresence(this.presence);
   }
 
   /** Dims the deck and city behind the cartridge and softens the CRT pass. */
   setPresent(present: boolean): void {
     this.presenceTarget = present ? 1 : 0;
     if (this.reducedMotion) this.applyPresence(this.presenceTarget);
+  }
+
+  /** Turns the cartridge square to the camera and leaves it there (as the sleeve comes off). */
+  settleFront(): void {
+    this.sway = false;
+    // Square-on and staying there: the idle sway doesn't pick it up again.
+    this.touched = true;
+    // And back to the default framing, however far it has been zoomed or panned.
+    this.zoomTarget = 1;
+    this.zoomRay.copy(this.restRay);
+    this.pan.set(0, 0);
+    if (this.reducedMotion) this.pivot.quaternion.copy(HOME);
+    else this.resetting = true;
   }
 
   /** 0 with the cartridge in the deck, 1 while it floats in the inspector. */
@@ -153,31 +194,43 @@ export class CartridgeInspector {
   reset(): void {
     this.touched = true;
     this.resetting = !this.reducedMotion;
-    if (this.reducedMotion) this.pivot.quaternion.identity();
+    if (this.reducedMotion) this.pivot.quaternion.copy(HOME);
     this.velocity.set(0, 0);
     this.zoomTarget = 1;
     this.zoomRay.copy(this.restRay);
   }
 
   update(dt: number, elapsed: number): void {
+    if (this.blackout !== this.blackoutTarget) {
+      // Slow: the site comes up gently behind the bare disc rather than snapping in.
+      const next = this.blackout + (this.blackoutTarget - this.blackout) * (1 - Math.exp(-dt * 0.6));
+      this.blackout = Math.abs(next - this.blackoutTarget) < 0.004 ? this.blackoutTarget : next;
+      this.applyPresence(this.presence);
+    }
     if (this.presence !== this.presenceTarget) {
       const next = this.presence + (this.presenceTarget - this.presence) * (1 - Math.exp(-dt * 5));
       this.applyPresence(Math.abs(next - this.presenceTarget) < 0.01 ? this.presenceTarget : next);
     }
     if (!this.holding) return;
 
-    // Rotation: drag inertia, the idle showcase turn, or easing back to the front after a reset.
-    if (this.resetting) {
-      this.pivot.quaternion.slerp(IDENTITY, 1 - Math.exp(-dt * 6));
-      if (this.pivot.quaternion.angleTo(IDENTITY) < 0.002) {
-        this.pivot.quaternion.identity();
+    // Rotation: the untouched sway, drag inertia, or easing back to square-on after a reset.
+    // It sways on its own until someone turns it.
+    const swaying = (this.sway || this.interactive) && !this.touched && !this.reducedMotion;
+    if (swaying && !this.resetting) {
+      // Never a full turn on its own: wrapped or bare, the cartridge faces the viewer until it's dragged.
+      this.pivot.quaternion
+        .copy(HOME)
+        .multiply(this.spin.setFromAxisAngle(AXIS_Y, Math.sin(elapsed * 0.45) * IDLE_SWAY_YAW))
+        .multiply(this.spin.setFromAxisAngle(AXIS_X, Math.sin(elapsed * 0.33 + 1.1) * IDLE_SWAY_PITCH));
+    } else if (this.resetting) {
+      this.pivot.quaternion.slerp(HOME, 1 - Math.exp(-dt * 6));
+      if (this.pivot.quaternion.angleTo(HOME) < 0.002) {
+        this.pivot.quaternion.copy(HOME);
         this.resetting = false;
       }
     } else if (this.pointers.size === 0 && this.velocity.lengthSq() > 1e-6) {
       this.rotateBy(this.velocity.x * dt, this.velocity.y * dt);
       this.velocity.multiplyScalar(Math.exp(-dt * INERTIA_DAMPING));
-    } else if (this.interactive && !this.touched && !this.reducedMotion) {
-      this.rotateBy(IDLE_TURN * dt, 0);
     }
 
     // Zoom toward the point under the pointer: moving along its ray keeps that point where it is.
@@ -218,9 +271,10 @@ export class CartridgeInspector {
 
   private applyPresence(value: number): void {
     this.presence = value;
-    this.dimMaterial.opacity = DIM_OPACITY * value;
-    this.keyLight.intensity = 0.9 * value;
-    this.dim.visible = value > 0.001;
+    this.dimMaterial.opacity = Math.max(DIM_OPACITY * value, this.blackout);
+    // Softer while the package is wrapped: the film and the sleeve art blow out under the full key.
+    this.keyLight.intensity = (this.intro ? 0.5 : 0.9) * value;
+    this.dim.visible = value > 0.001 || this.blackout > 0.001;
     this.scene.setCrtIntensity(1 - 0.65 * value);
     if (this.dim.visible) this.placeDim();
   }
@@ -236,6 +290,7 @@ export class CartridgeInspector {
   /** Fits the cartridge into the HUD's inspect stage and aims at the stage centre. */
   private measure(): void {
     const viewportHeight = Math.max(1, window.innerHeight);
+    // The same box, wrapped or bare: the package sits exactly where the disc ends up.
     const stage = this.stageElement.getBoundingClientRect();
     const frame = this.scene.getFrameRect();
     const tanHalf = Math.tan((this.scene.camera.fov * Math.PI) / 360);
@@ -335,7 +390,8 @@ export class CartridgeInspector {
       const near = Math.hypot(event.clientX - this.lastTap.x, event.clientY - this.lastTap.y) < 40;
       if (near && now - this.lastTap.at < DOUBLE_TAP_MS) {
         this.lastTap.at = 0;
-        this.reset();
+        // While it's wrapped, a double-tap unwraps it (player-app listens); it never resets the view.
+        if (!this.intro) this.reset();
       } else {
         this.lastTap = { at: now, x: event.clientX, y: event.clientY };
       }
@@ -346,7 +402,8 @@ export class CartridgeInspector {
     canvas.addEventListener(
       'wheel',
       (event) => {
-        if (!this.interactive) return;
+        // Only zoom over the cartridge itself: everywhere else the wheel scrolls the page.
+        if (!this.interactive || !(event.ctrlKey || this.overStage(event.clientX, event.clientY))) return;
         event.preventDefault();
         const pixels = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
         // Trackpad pinch arrives as a ctrl+wheel with small deltas.
@@ -355,6 +412,12 @@ export class CartridgeInspector {
       },
       { passive: false },
     );
+  }
+
+  /** Is the pointer over the box the cartridge floats in? */
+  private overStage(clientX: number, clientY: number): boolean {
+    const stage = this.stageElement.getBoundingClientRect();
+    return clientX >= stage.left && clientX <= stage.right && clientY >= stage.top && clientY <= stage.bottom;
   }
 
   private currentPinchDistance(): number {
@@ -387,6 +450,7 @@ export class CartridgeInspector {
       } else if (event.key === '0') {
         this.reset();
       } else if (event.key === 'Escape' || event.key === 'Enter') {
+        if (this.intro) return;
         this.onInsert();
       } else {
         return;

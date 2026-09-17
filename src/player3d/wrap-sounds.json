@@ -1,0 +1,10 @@
+{
+ "peel": {
+  "url": "/assets/audio/wrap/peel.mp3",
+  "duration": 0.689
+ },
+ "sleeve": {
+  "url": "/assets/audio/wrap/sleeve.mp3",
+  "duration": 0.164
+ }
+}

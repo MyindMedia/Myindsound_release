@@ -1,14 +1,16 @@
-import { DirectionalLight, HemisphereLight, PointLight } from 'three';
+import { DirectionalLight, HemisphereLight, PointLight, SRGBColorSpace, TextureLoader, type Texture } from 'three';
 import { convexErrorCode } from '../convex';
 import { refreshDelayMs, timeToReach } from './audio-math';
 import { AudioEngine } from './audio-engine';
 import { createStudioEnvironment } from './cartridge-detail';
 import { ComicCity } from './backdrop';
-import { Deck } from './deck';
+import { CART_DEPTH, Deck } from './deck';
 import { DISC_SOUNDS, DiscMechanics, SPIN_LEAD_SECONDS, SPIN_UP_MOTOR_AT } from './disc-sounds';
 import { Hud } from './hud';
 import { PLAY_RPM, runEjectSequence, runFloatInSequence, runInsertSequence } from './insert-sequence';
 import { CartridgeInspector } from './inspect';
+import { DiscWrap } from './wrap';
+import { loadUnwrapSounds, playUnwrap, prefetchUnwrapSounds } from './wrap-sound';
 import { KeyController, type KeyCommand } from './keys';
 import { buttonFlash, lcdContent } from './lcd-text';
 import { PlayerScene } from './scene';
@@ -20,8 +22,18 @@ const PLAY_LOG_AFTER_SEC = 30;
 const CALIBRATION_MS = 2000;
 const SEEK_RPM_FRACTION = 0.35;
 const IDLE_THROTTLE_MS = 10_000;
+/** The package squares up to the camera before the unwrap starts. */
+const RECENTRE_MS = 520;
 /** How long the LCD shows a pressed button (NEXT 03, REPEAT ON) before the deck status again. */
 const LCD_FLASH_MS = 900;
+/** The sleeve art, small enough to be the first thing on screen (the print-size poster is 30 MB). */
+const WRAP_POSTER = '/assets/images/lit-sleeve.webp';
+/** The shrink film, from the supplied sheet: crinkle in the alpha, relief in the normal map. */
+const WRAP_FILM = '/assets/images/minidisc/wrap-film.webp';
+const WRAP_FILM_NORMAL = '/assets/images/minidisc/wrap-film-normal.webp';
+/** Bloom: the default, and what the opening scene drops to so the wrapped package keeps its detail. */
+const BLOOM_STRENGTH = 0.5;
+const INTRO_BLOOM = 0.18;
 const VOLUME_KEY = 'myind:player-volume';
 
 function hasWebGL(): boolean {
@@ -42,10 +54,18 @@ function storedVolume(): number {
   }
 }
 
+export interface PlayerOptions {
+  /** GET LIT in the HUD: opens the pay-what-you-want checkout. */
+  onGetLit?(): void;
+  /** Hold the cartridge inside its wrapper until `reveal()` (the poster peels first). */
+  wrapped?: boolean;
+}
+
 /** Composition root: state machine → audio, 3D deck, keys and HUD. */
 export class PlayerApp {
   private readonly root: HTMLElement;
   private readonly source: TrackSource;
+  private readonly options: PlayerOptions;
   private state: DeckState = initialState();
   private hud!: Hud;
   private engine!: AudioEngine;
@@ -55,6 +75,9 @@ export class PlayerApp {
   private scene: PlayerScene | null = null;
   private deck: Deck | null = null;
   private inspector: CartridgeInspector | null = null;
+  private wrap: DiscWrap | null = null;
+  private readonly introInput = new AbortController();
+  private environment: Texture | null = null;
   private city: ComicCity | null = null;
   private accentLights: { light: PointLight; intensity: number }[] = [];
   private tracks: PlayerTrack[] = [];
@@ -70,9 +93,32 @@ export class PlayerApp {
   private started = false;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  constructor(root: HTMLElement, source: TrackSource) {
+  constructor(root: HTMLElement, source: TrackSource, options: PlayerOptions = {}) {
     this.root = root;
     this.source = source;
+    this.options = options;
+  }
+
+  /** The wrapping is off: bring the deck, the city and the HUD up behind the disc. */
+  private reveal(): void {
+    this.introInput.abort();
+    this.keys?.setEnabled(true);
+    this.scene?.setBloomStrength(BLOOM_STRENGTH);
+    window.setTimeout(() => {
+      this.wrap?.dispose();
+      this.wrap = null;
+    }, 1200);
+    this.city?.setVisible(true);
+    if (this.deck) this.deck.group.visible = true;
+    this.inspector?.setIntro(false);
+    this.inspector?.activate();
+    this.hud.setIntro(false);
+    this.keys?.setInspecting(true);
+  }
+
+  /** Takes the wrapping off without waiting for a double-click (used straight after a purchase). */
+  openPackage(): void {
+    this.unwrap();
   }
 
   async mount(): Promise<void> {
@@ -82,6 +128,7 @@ export class PlayerApp {
       onRepeat: () => this.command('repeat'),
       onVolume: (value) => this.setVolume(value),
       onRetry: () => void this.loadTracks(),
+      onGetLit: () => this.options.onGetLit?.(),
     });
     this.engine = new AudioEngine({
       onTime: (seconds) => this.dispatch({ type: 'tick', positionSec: seconds }),
@@ -91,6 +138,8 @@ export class PlayerApp {
       },
       onError: () => void this.recoverFromMediaError(),
     });
+    // Wrapped: the page opens black, with nothing on it but the package once it's ready.
+    if (this.options.wrapped) this.hud.hideBoot();
     const volume = storedVolume();
     this.engine.setVolume(volume);
     this.mechanics.setVolume(volume);
@@ -115,15 +164,20 @@ export class PlayerApp {
       window.addEventListener(type, () => (this.lastInput = performance.now()), { passive: true });
     }
     this.started = true;
-    if (this.state.status === 'ejected') this.presentFloating();
+    // Dev only: a handle on the scene graph for debugging from the console.
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__p3d = { app: this, scene: this.scene, deck: this.deck };
+    }
+    if (this.state.status === 'ejected') this.presentFloating(this.options.wrapped);
+    if (this.options.wrapped) await this.startWrapped();
   }
 
   /** Page open (or a retry that loads the tracks): the cartridge floats in front of the empty deck. */
-  private presentFloating(): void {
+  private presentFloating(instant = false): void {
     this.keys?.setInspecting(true);
     this.scene?.setTiltEnabled(false);
     if (!this.deck || !this.scene || !this.inspector) return;
-    runFloatInSequence(this.deck, this.scene, this.inspector);
+    runFloatInSequence(this.deck, this.scene, this.inspector, instant);
     this.inspector.activate();
   }
 
@@ -132,9 +186,10 @@ export class PlayerApp {
     const textures = await loadDeckTextures(scene.renderer.capabilities.getMaxAnisotropy(), (ratio) =>
       this.hud.setBootProgress(ratio * 0.9),
     );
+    this.environment = createStudioEnvironment(scene.renderer);
     const deck = new Deck(textures, {
       reducedMotion: this.reducedMotion,
-      environment: createStudioEnvironment(scene.renderer),
+      environment: this.environment,
       quality: scene.coarsePointer ? 'low' : 'high',
     });
     deck.setCartridgeVisible(false);
@@ -174,6 +229,107 @@ export class PlayerApp {
     scene.onFrame((dt, elapsed) => this.onFrame(dt, elapsed));
   }
 
+  /**
+   * The opening scene: the cartridge shrink-wrapped with the LIT poster on it, alone on black. A double-click
+   * (or double-tap) unwraps it, and the page comes up behind the bare disc.
+   */
+  private async startWrapped(): Promise<void> {
+    // No WebGL: there's no package to unwrap, so the page opens as itself.
+    if (!this.deck || !this.scene || !this.inspector) {
+      this.hud.setIntro(false);
+      return;
+    }
+    // Black the page out first: nothing of the site, and no bare cartridge, while the sleeve art loads.
+    this.city?.setVisible(false);
+    this.deck.group.visible = false;
+    this.deck.setCartridgeVisible(false);
+    this.inspector.setIntro(true);
+    this.hud.setIntro(true, this.scene.coarsePointer);
+    this.keys?.setEnabled(false);
+    this.scene.setBloomStrength(INTRO_BLOOM);
+
+    const loader = new TextureLoader();
+    const [poster, film, filmNormal] = await Promise.all([
+      loader.loadAsync(WRAP_POSTER).catch(() => null),
+      loader.loadAsync(WRAP_FILM).catch(() => null),
+      loader.loadAsync(WRAP_FILM_NORMAL).catch(() => null),
+    ]);
+    if (!poster || !film || !filmNormal) {
+      this.deck.setCartridgeVisible(true);
+      this.reveal();
+      return;
+    }
+    const anisotropy = this.scene.renderer.capabilities.getMaxAnisotropy();
+    poster.colorSpace = SRGBColorSpace;
+    for (const texture of [poster, film, filmNormal]) texture.anisotropy = anisotropy;
+    film.colorSpace = SRGBColorSpace;
+    this.wrap = new DiscWrap({
+      cartridge: this.deck.cartridge,
+      width: this.deck.cartridgeWidth,
+      height: this.deck.cartridgeHeight,
+      depth: CART_DEPTH,
+      poster,
+      film,
+      filmNormal,
+      environment: this.environment,
+      onSleeveStart: () => this.inspector?.settleFront(),
+      onReveal: () => this.reveal(),
+    });
+    // Only now, wrapped, does the cartridge come back on screen.
+    this.deck.setCartridgeVisible(true);
+    prefetchUnwrapSounds();
+
+    if (this.reducedMotion) {
+      this.wrap.finish();
+      return;
+    }
+    // One gesture starts it, and the handlers go with it.
+    const canvas = this.hud.canvas;
+    const signal = this.introInput.signal;
+    let lastTap = 0;
+    const unwrap = () => this.unwrap();
+    canvas.addEventListener('dblclick', unwrap, { signal });
+    canvas.addEventListener(
+      'pointerup',
+      (event) => {
+        if (event.pointerType === 'mouse') return;
+        const now = performance.now();
+        if (now - lastTap < 400) unwrap();
+        lastTap = now;
+      },
+      { signal },
+    );
+    window.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        unwrap();
+      },
+      { signal },
+    );
+    this.hud.onOpen(unwrap);
+  }
+
+  /** Takes the wrapping off: the sound rides on the same gesture, which is what unlocks audio. */
+  private unwrap(): void {
+    if (!this.wrap || this.wrap.unwrapping) return;
+    this.introInput.abort();
+    this.hud.hideOpenHint();
+    this.engine.unlock();
+    this.mechanics.attach(this.engine.context);
+    const context = this.engine.context;
+    // However the visitor has turned it, it squares up to the camera first, then the unwrap runs.
+    this.inspector?.settleFront();
+    window.setTimeout(() => {
+      this.wrap?.start();
+      // Without a gesture behind it the context stays suspended, and the sound would replay later.
+      if (context && context.state === 'running') {
+        void loadUnwrapSounds(context).then(() => playUnwrap(context, this.engine.getVolume()));
+      }
+    }, RECENTRE_MS);
+  }
+
   private initFallback(err?: unknown): void {
     if (err) console.error('3D deck unavailable, using the static deck:', err);
     this.scene?.stop();
@@ -207,6 +363,7 @@ export class PlayerApp {
     this.city?.setAudio({ bass: this.engine.bass(), level: this.engine.level() });
     this.city?.update(dt, elapsed);
     this.keys?.update();
+    this.wrap?.update(dt);
     deck.update(dt);
     if (this.lcdFlash && performance.now() > this.lcdFlash.until) this.lcdFlash = null;
     deck.setLcd(lcdContent(this.state, this.lcdFlash?.text ?? null));
@@ -259,7 +416,7 @@ export class PlayerApp {
       this.tracks = list.tracks;
       this.expiresAt = list.expiresAt;
       this.hud.setTracks(list.tracks);
-      this.hud.setAccess(this.source.access ?? { mode: 'full' });
+      this.hud.setAccess(this.source.access ?? { mode: 'full', via: 'account' });
       this.hud.clearError();
       await this.engine.probe(list.tracks[0].streamUrl);
       this.engine.load(list.tracks[this.state.trackIndex]?.streamUrl ?? list.tracks[0].streamUrl);
@@ -268,7 +425,7 @@ export class PlayerApp {
     } catch (err) {
       const code = convexErrorCode(err);
       if (code === 'UNAUTHENTICATED') {
-        window.location.href = `/login.html?redirect=${encodeURIComponent('/stream.html')}`;
+        window.location.href = `/login.html?redirect=${encodeURIComponent('/')}`;
         return;
       }
       if (code === 'NOT_ENTITLED') this.hud.showError('NO LICENSE FOUND FOR LIT', { label: 'GET LIT', href: '/' });

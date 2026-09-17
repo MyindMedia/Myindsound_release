@@ -32,7 +32,7 @@ async function startStreamReveal() {
   } catch (err) {
     console.error('Animation module failed:', err);
     document.getElementById('reveal-overlay')?.classList.add('active');
-    setTimeout(() => (window.location.href = '/stream.html?state=reveal_ui'), 1500);
+    setTimeout(() => (window.location.href = '/'), 1500);
   }
 }
 
@@ -45,7 +45,7 @@ async function offerSignIn() {
     if (!container) return;
     show('signup-prompt');
     // The checkout already created the account, so buyers sign in with their checkout email.
-    clerk.mountSignIn(container as HTMLDivElement, { afterSignInUrl: '/stream.html', signUpUrl: '/login.html#sign-up' });
+    clerk.mountSignIn(container as HTMLDivElement, { afterSignInUrl: '/', signUpUrl: '/login.html#sign-up' });
   } catch (err) {
     console.error('Clerk load error:', err);
   }

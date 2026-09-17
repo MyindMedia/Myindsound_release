@@ -19,6 +19,39 @@ export class CheckoutFlow {
     document.getElementById('close-modal')?.addEventListener('click', () => this.hide());
   }
 
+  /** GET LIT: the pay-what-you-want amount, then the upsell and the email. */
+  public startPayWhatYouWant(initial = 5) {
+    if (!this.modalBody) return;
+    this.data.amount = initial;
+    track('checkout_opened', { amount: initial });
+    this.show();
+    this.modalBody.innerHTML = `
+            <h2 class="modal-step-title">Pay what you want</h2>
+            <p class="modal-step-note">The whole album, yours. Minimum $1.00.</p>
+            <div class="purchase-box" style="margin-top: 0;">
+                <div class="price-input-wrapper">
+                    <span class="currency">$</span>
+                    <input type="number" id="pwyw-amount" value="${initial.toFixed(2)}" min="1.00" step="1.00" />
+                </div>
+                <button id="pwyw-continue" class="primary-btn">CONTINUE</button>
+            </div>
+        `;
+    const input = document.getElementById('pwyw-amount') as HTMLInputElement | null;
+    const go = () => {
+      const amount = Number.parseFloat(input?.value ?? '');
+      if (!Number.isFinite(amount) || amount < 1) {
+        input?.focus();
+        return;
+      }
+      this.start(amount);
+    };
+    document.getElementById('pwyw-continue')?.addEventListener('click', go);
+    input?.addEventListener('keydown', (event) => {
+      if ((event as KeyboardEvent).key === 'Enter') go();
+    });
+    input?.focus();
+  }
+
   public start(amount: number) {
     this.data.amount = amount;
     track('checkout_started', { amount });

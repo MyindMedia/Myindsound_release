@@ -150,3 +150,8 @@ a[href*="unicorn.studio"],
   position: absolute;
   z-index: -9999;
 }
+.modal-step-note {
+  margin: -0.5rem 0 1.25rem;
+  color: #bbb;
+  font-size: 0.9rem;
+}

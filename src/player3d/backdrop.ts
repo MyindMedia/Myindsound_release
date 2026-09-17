@@ -173,6 +173,12 @@ export class ComicCity {
     this.group.add(rain);
   }
 
+  /** The whole backdrop, including the sky plane that rides on the camera (hidden for the opening scene). */
+  setVisible(visible: boolean): void {
+    this.group.visible = visible;
+    if (this.plane) this.plane.visible = visible;
+  }
+
   setAudio(drive: { bass: number; level: number }): void {
     this.bass += (drive.bass - this.bass) * 0.25;
   }

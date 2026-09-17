@@ -6,6 +6,7 @@ import { isCheckoutSessionId, withinDownloadWindow } from './downloadLogic';
 import { findOrCreateClerkUser } from './lib/clerkApi';
 import { fail } from './lib/errors';
 import { fileUrl } from './lib/storage';
+import { playerTracks, type PlayerTrack } from './tracks';
 import {
   buildDigitalLineItems,
   FULFIL_EVENT_TYPES,
@@ -170,6 +171,31 @@ export const downloadsForCheckoutSession = action({
     }
     const firstName = session.customer_details?.name?.trim().split(/\s+/)[0] ?? null;
     return { firstName, downloads };
+  },
+});
+
+/**
+ * Full songs straight after paying, without signing in: same 24-hour window as the downloads, checked against
+ * the paid Stripe session. Signing in is what makes it permanent.
+ */
+export const streamForCheckoutSession = action({
+  args: { sessionId: v.string(), product: v.string() },
+  handler: async (ctx, { sessionId, product }): Promise<{ tracks: PlayerTrack[]; expiresAt: number }> => {
+    if (!isCheckoutSessionId(sessionId)) fail('INVALID_INPUT', 'That checkout link is not valid.');
+    const stripe = stripeClient();
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!isPaidSession(session)) fail('SESSION_NOT_PAID', 'This checkout has not been paid.');
+    if (!withinDownloadWindow(session.created, Date.now())) {
+      fail('DOWNLOAD_WINDOW_CLOSED', 'This link has expired. Sign in to keep listening.');
+    }
+
+    const lineItems = await listLineItems(stripe, session.id);
+    const stripeProductIds = lineItems.map(lineItemProductId).filter((id): id is string => Boolean(id));
+    const products = await ctx.runQuery(internal.fulfilment.productsByStripeIds, { stripeProductIds });
+    if (!products.some((candidate) => candidate.slug === product)) {
+      fail('NOT_ENTITLED', 'That checkout did not include this release.');
+    }
+    return playerTracks(ctx, product);
   },
 });
 
