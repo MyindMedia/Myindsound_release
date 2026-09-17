@@ -3,6 +3,7 @@
  * (valid for 24 hours after payment), then offers sign-in for streaming.
  */
 import { api, convexErrorMessage, getConvex } from './convex';
+import { saveFromUrl } from './download';
 import { getClerk, isClerkConfigured } from './clerk';
 
 function show(id: string, display = 'block') {
@@ -75,8 +76,16 @@ async function init() {
 
     for (const download of data.downloads) {
       const button = linkButton(`DOWNLOAD "${download.name}"`, 'download-btn', download.url);
-      button.target = '_blank';
-      button.rel = 'noopener';
+      if (download.type === 'standard') {
+        // Storage links carry no filename; save it as a proper zip.
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void saveFromUrl(download.url, `${download.name}.zip`);
+        });
+      } else {
+        button.target = '_blank';
+        button.rel = 'noopener';
+      }
       container?.appendChild(button);
     }
 

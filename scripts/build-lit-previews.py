@@ -46,7 +46,7 @@ def main():
         full = duration(src)
         start = float(track.get("previewStart", round(full * 0.25, 1)))
         start = max(0.0, min(start, full - LENGTH))
-        name = Path(track["streamKey"]).name
+        name = f'{track["name"]}.mp3'
         out = OUT_DIR / name
         subprocess.run(
             [

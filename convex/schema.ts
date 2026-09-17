@@ -18,7 +18,8 @@ export default defineSchema({
     kind: v.union(v.literal('digital'), v.literal('physical')),
     stripeProductIds: v.array(v.string()),
     coverUrl: v.optional(v.string()),
-    downloadKey: v.optional(v.string()),
+    /** Album download (zip) in Convex file storage. */
+    downloadFile: v.optional(v.id('_storage')),
     active: v.boolean(),
   }).index('by_slug', ['slug']),
 
@@ -28,8 +29,9 @@ export default defineSchema({
     title: v.string(),
     durationSeconds: v.number(),
     format: v.literal('mp3'),
-    streamKey: v.string(),
-    originalKey: v.string(),
+    /** The full song in Convex file storage (MP3), and the lossless original when it differs. */
+    streamFile: v.optional(v.id('_storage')),
+    originalFile: v.optional(v.id('_storage')),
   }).index('by_product_position', ['productId', 'position']),
 
   users: defineTable({

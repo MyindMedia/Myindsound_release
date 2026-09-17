@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Myind Sound Releases is a music release platform with pay-what-you-want (PWYW) digital sales and physical merchandise.
 - **Site:** a multi-page vanilla TypeScript site on Netlify (stream.myindsound.com, Netlify site `myindreleases`, builds branch `master`).
-- **Backend:** Convex, with paid audio in Cloudflare R2.
+- **Backend:** Convex, with the paid audio in Convex file storage (dev `decisive-iguana-954`, production `loyal-tortoise-999`).
 - **Stream page:** a Three.js MiniDisc deck.
 - **Legacy:** a separate React app under `stream/`, still on Supabase and not the primary player.
 
@@ -23,7 +23,7 @@ npx convex dev       # Push Convex functions to the dev deployment on save
 npm run build        # prebuild (convex codegen) + tsc + vite build
 npm test             # vitest: convex/ (edge-runtime, convex-test) + src/ (node)
 npm run textures     # Rebuild player textures + geometry from the Canva export
-npm run upload:audio -- --dry-run   # Plan the R2 upload; --seed-only seeds Convex tracks without R2
+npm run upload:audio -- --dry-run   # Plan the audio upload to Convex storage; add --prod for production
 ```
 
 The 3D player runs without auth or backend at `http://localhost:5173/stream.html?mock=1` (dev only).
@@ -44,7 +44,7 @@ Auth is Clerk, via the JWT template `convex` (`auth.config.ts`, issuer from `CLE
 
 - `schema.ts`: tables `products`, `tracks`, `users`, `entitlements`, `orders`, `orderItems`, `plays`, `stripeEvents`.
 - `lib/auth.ts`: `getViewer`, `requireViewer`, `ensureViewer`, `requireAdmin`. Admin means `users.isAdmin` or a verified email in `ADMIN_EMAILS`.
-- `tracks.ts`: `listForPlayer` action. Checks entitlement, then returns the tracklist with R2 links signed for 2 hours.
+- `tracks.ts`: `listForPlayer` action. Checks the purchase, then returns the tracklist with Convex storage links to the full songs. Also the upload flow (`generateUploadUrl`, `fileHashes`, `attachTrackFile`, `attachDownload`) used by `npm run upload:audio`.
 - `payments.ts`: Stripe (fetch client, default runtime).
   - `createDigitalSession`
   - `downloadsForCheckoutSession`: 24 h window after payment.
@@ -56,7 +56,7 @@ Auth is Clerk, via the JWT template `convex` (`auth.config.ts`, issuer from `CLE
 - `downloads.ts`, `orders.ts`, `products.ts`, `admin.ts`, `users.ts`: dashboard, admin and nav queries.
 - `privacy.ts`: `exportMyData` and `deleteMyData` (cascades to Clerk and GHL; orders are anonymised, amounts kept).
 - `plays.ts` + `crons.ts`: play logging, deleted after 12 months.
-- `lib/r2.ts`: `@convex-dev/r2` signing (`convex.config.ts` registers the component).
+- `lib/storage.ts`: `fileUrl()` for storage links (songs and the album zip), returned only after a purchase check.
 
 ### Main site source (`src/`)
 
@@ -80,7 +80,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 - `audio-engine.ts`: one `<audio>` element through Web Audio when CORS allows; otherwise direct playback with a simulated spectrum. `unlock()` must run inside the user gesture. Also exposes `waveform()` and `playCalibration()`.
 - `disc-sounds.ts`: drive mechanics from a real recording (`npm run disc-sounds` → `public/assets/audio/disc/`, `disc-sounds.json`): spin-up, seamless spinning loop, spin-down. The deck's `playRpmCurve` follows the same curves so sound and motion line up.
 - `calibration-sound.ts`: synthesised laser calibration sound (servo, seek clicks, focus chirps), about 2.2 s.
-- `track-source.ts`: `ConvexTrackSource` (paid, signed R2 links). `preview-track-source.ts`: `PreviewTrackSource`, 30-second LIT previews for the public demo (`npm run previews` cuts them from the local LIT files into `public/assets/audio/lit-previews/` and writes `lit-previews.json`).
+- `track-source.ts`: `ConvexTrackSource` (full songs from Convex storage, purchase-checked). `lit-stream-source.ts`: `LitStreamSource`, what the public page uses: buyers get the full songs, everyone else (or anyone when the service fails) gets the previews, and the HUD shows a SIGN IN / GET LIT note. `preview-track-source.ts`: `PreviewTrackSource`, 30-second LIT previews for the public demo (`npm run previews` cuts them from the local LIT files into `public/assets/audio/lit-previews/` and writes `lit-previews.json`).
 - `scene.ts`: renderer, framing to the HUD's `.p3d-frame`, tilt spring, bloom + CRT pass, visibility pause.
 - `deck.ts`: extruded body/cartridge/keys from `geometry.json` + WebP textures. The disc face is the LIT cover; the cartridge label is "Do Not Duplicate".
 - `cartridge-detail.ts`: realism layer over the Canva art. Lathe-turned steel Phillips screws (occlusion-mapped recess) in counterbored wells cut into the shell, a disc with real thickness and a separate machined hub in its centre opening, a steel hub ring on the back, an additive clearcoat pass with normals baked from the artwork, iridescent disc sheen, paper-grain label, and a studio environment map tinted with the city's neon. Coarse pointers get standard materials instead of clearcoat/iridescence.
@@ -117,7 +117,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
    - `orders` saved for physical items
    - GHL sync scheduled
 3. **Return:** the buyer lands on `/?success=true` and the reveal animation hands off to the stream page. `success.html` can show downloads within 24 h.
-4. **Streaming:** the stream page signs in with Clerk, then calls `tracks.listForPlayer` and gets signed R2 URLs.
+4. **Streaming:** the stream page is open to everyone. For a signed-in visitor it calls `tracks.listForPlayer`; buyers get the full songs from Convex storage, and everyone else hears the 30-second previews.
 
 ## Environment variables
 
@@ -130,14 +130,13 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
   - `CLERK_SECRET_KEY`, `CLERK_JWT_ISSUER_DOMAIN`, `ADMIN_EMAILS`
   - `GHL_API_KEY`, `GHL_LOCATION_ID`
   - `SITE_URL`, `SOURCE_PRESALE_URL`
-  - `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_TOKEN`
-- **`.env.local`** (gitignored): `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`, `VITE_CLERK_PUBLISHABLE_KEY`, plus `R2_*` for `npm run upload:audio`.
+- **`.env.local`** (gitignored): `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`, `VITE_CLERK_PUBLISHABLE_KEY`. The audio upload uses your Convex CLI login, no keys.
 
 ## Key integration points
 
 - Products are referenced by **slug** (`lit`, `the-source`). Stripe product IDs live on `products.stripeProductIds`.
 - Clerk user IDs (`users.clerkId`) are the identity across Convex. The live site currently uses the Clerk **dev** instance `main-grouper-12`.
-- Paid audio is in R2 bucket `myind-audio` (`lit/stream/*`, `lit/originals/*`, `lit/download/*`). The bucket CORS allows `https://stream.myindsound.com` and localhost.
+- Paid audio is in Convex file storage: each track's `streamFile` (MP3) and `originalFile` (the WAV for track 3), plus the product's `downloadFile` (album zip). Storage links allow this site's origin and byte ranges. They don't expire, so only purchase-checked functions return them.
 - **Compliance rules:**
   - Never print customer PII in the Claude session. Migrations and debugging use counts and IDs.
   - Marketing consent is opt-in.

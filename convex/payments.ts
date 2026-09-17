@@ -5,7 +5,7 @@ import { action, internalAction, type ActionCtx } from './_generated/server';
 import { isCheckoutSessionId, withinDownloadWindow } from './downloadLogic';
 import { findOrCreateClerkUser } from './lib/clerkApi';
 import { fail } from './lib/errors';
-import { DOWNLOAD_URL_TTL_SECONDS, signGetUrl } from './lib/r2';
+import { fileUrl } from './lib/storage';
 import {
   buildDigitalLineItems,
   FULFIL_EVENT_TYPES,
@@ -158,10 +158,10 @@ export const downloadsForCheckoutSession = action({
 
     const downloads: { name: string; url: string; type: 'standard' | 'upsell' }[] = [];
     for (const product of products) {
-      if (product.downloadKey) {
+      if (product.downloadFile) {
         downloads.push({
           name: `${product.name} (Digital EP)`,
-          url: await signGetUrl(product.downloadKey, DOWNLOAD_URL_TTL_SECONDS),
+          url: await fileUrl(ctx, product.downloadFile),
           type: 'standard',
         });
       } else if (product.slug === 'the-source' && process.env.SOURCE_PRESALE_URL) {

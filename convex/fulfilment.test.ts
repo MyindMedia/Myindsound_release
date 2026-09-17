@@ -9,7 +9,6 @@ async function seedProducts(t: ReturnType<typeof newTest>) {
       name: 'LIT',
       kind: 'digital',
       stripeProductIds: ['prod_lit'],
-      downloadKey: 'lit/download/x.zip',
       active: true,
     });
     await ctx.db.insert('products', {

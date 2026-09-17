@@ -7,7 +7,7 @@ export const list = query({
     const rows = await ctx.db.query('products').collect();
     return rows
       .filter((row) => row.active)
-      .map((row) => ({ slug: row.slug, name: row.name, kind: row.kind, hasDownload: Boolean(row.downloadKey) }));
+      .map((row) => ({ slug: row.slug, name: row.name, kind: row.kind, hasDownload: Boolean(row.downloadFile) }));
   },
 });
 
@@ -29,7 +29,7 @@ export const owned = query({
           slug: product.slug,
           name: product.name,
           coverUrl: product.coverUrl ?? null,
-          hasDownload: Boolean(product.downloadKey),
+          hasDownload: Boolean(product.downloadFile),
           grantedAt: entitlement.grantedAt,
         });
       }

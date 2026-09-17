@@ -1,14 +1,11 @@
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import r2Test from '@convex-dev/r2/test';
 import schema from './schema';
 
 export const modules = import.meta.glob('./**/!(*.*.*)*.*s');
 
 export function newTest() {
-  const t = convexTest(schema, modules);
-  r2Test.register(t);
-  return t;
+  return convexTest(schema, modules);
 }
 
 export const OWNER = { subject: 'user_owner', email: 'owner@example.test', name: 'Owner Test' };
@@ -17,14 +14,17 @@ export const STRANGER = { subject: 'user_stranger', email: 'stranger@example.tes
 type T = ReturnType<typeof newTest>;
 
 // Seeds products, 6 LIT tracks, both users, and a LIT entitlement for OWNER.
-export async function seedLitWithOwner(t: T) {
+export async function seedLitWithOwner(t: T, options: { uploaded?: boolean } = {}) {
+  const uploaded = options.uploaded ?? true;
   return await t.run(async (ctx) => {
+    const file = async (label: string) =>
+      uploaded ? await ctx.storage.store(new Blob([label], { type: 'audio/mpeg' })) : undefined;
     const litId = await ctx.db.insert('products', {
       slug: 'lit',
       name: 'LIT',
       kind: 'digital',
       stripeProductIds: ['prod_lit'],
-      downloadKey: 'lit/download/ThaMyind - LIT EP.zip',
+      downloadFile: await file('zip'),
       active: true,
     });
     const trackIds = [];
@@ -36,8 +36,7 @@ export async function seedLitWithOwner(t: T) {
           title: `Track ${position}`,
           durationSeconds: 120 + position,
           format: 'mp3',
-          streamKey: `lit/stream/0${position}.mp3`,
-          originalKey: `lit/stream/0${position}.mp3`,
+          streamFile: await file(`track ${position}`),
         }),
       );
     }

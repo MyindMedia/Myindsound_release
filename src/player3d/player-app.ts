@@ -260,6 +260,7 @@ export class PlayerApp {
       this.tracks = list.tracks;
       this.expiresAt = list.expiresAt;
       this.hud.setTracks(list.tracks);
+      this.hud.setAccess(this.source.access ?? { mode: 'full' });
       this.hud.clearError();
       await this.engine.probe(list.tracks[0].streamUrl);
       this.engine.load(list.tracks[this.state.trackIndex]?.streamUrl ?? list.tracks[0].streamUrl);

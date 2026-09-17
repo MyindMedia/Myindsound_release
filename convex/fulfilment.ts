@@ -65,7 +65,7 @@ export const productsByStripeIds = internalQuery({
         name: product.name,
         kind: product.kind,
         stripeProductIds: product.stripeProductIds,
-        downloadKey: product.downloadKey ?? null,
+        downloadFile: product.downloadFile ?? null,
       }));
   },
 });

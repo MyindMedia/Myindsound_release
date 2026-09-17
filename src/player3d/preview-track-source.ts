@@ -1,5 +1,5 @@
 import previews from './lit-previews.json';
-import type { TrackList, TrackSource } from './track-source';
+import type { StreamAccess, TrackList, TrackSource } from './track-source';
 
 /**
  * Public demo (`?mock=1` in dev, or a VITE_PLAYER_DEMO build): a 30-second preview of each LIT track, cut by
@@ -7,6 +7,7 @@ import type { TrackList, TrackSource } from './track-source';
  */
 export class PreviewTrackSource implements TrackSource {
   readonly label = 'preview';
+  readonly access: StreamAccess = { mode: 'preview', reason: 'signed-out' };
 
   async list(): Promise<TrackList> {
     return {

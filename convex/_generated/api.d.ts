@@ -22,7 +22,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_clerkApi from "../lib/clerkApi.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_ghlApi from "../lib/ghlApi.js";
-import type * as lib_r2 from "../lib/r2.js";
+import type * as lib_storage from "../lib/storage.js";
 import type * as orders from "../orders.js";
 import type * as payments from "../payments.js";
 import type * as plays from "../plays.js";
@@ -54,7 +54,7 @@ declare const fullApi: ApiFromModules<{
   "lib/clerkApi": typeof lib_clerkApi;
   "lib/errors": typeof lib_errors;
   "lib/ghlApi": typeof lib_ghlApi;
-  "lib/r2": typeof lib_r2;
+  "lib/storage": typeof lib_storage;
   orders: typeof orders;
   payments: typeof payments;
   plays: typeof plays;
@@ -92,6 +92,4 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {
-  r2: import("@convex-dev/r2/_generated/component.js").ComponentApi<"r2">;
-};
+export declare const components: {};

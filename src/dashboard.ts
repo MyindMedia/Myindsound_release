@@ -4,6 +4,7 @@
  */
 
 import { getClerk, isSignedIn, getUserId, getUserName, getUserEmail, signOut, mountUserButton, isClerkConfigured } from './clerk';
+import { saveFromUrl } from './download';
 import { initAnalytics, identifyUser, track } from './analytics';
 import type { FunctionReturnType } from 'convex/server';
 import { api, connectConvexAuth, convexErrorMessage, getConvex, isConvexConfigured } from './convex';
@@ -234,15 +235,8 @@ class DashboardController {
       }
 
       const { url } = await getConvex().action(api.downloads.mine, { product: slug });
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = name;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (btn) btn.textContent = 'DOWNLOADING...';
+      await saveFromUrl(url, `${name}.zip`);
     } catch (error) {
       console.error('Download error:', error);
       alert(convexErrorMessage(error, 'Failed to prepare download. Please try again.'));

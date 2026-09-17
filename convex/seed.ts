@@ -1,7 +1,5 @@
 import { internalMutation } from './_generated/server';
 
-export const LIT_DOWNLOAD_KEY = 'lit/download/ThaMyind - LIT EP.zip';
-
 export const products = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -11,7 +9,6 @@ export const products = internalMutation({
         name: 'LIT',
         kind: 'digital' as const,
         stripeProductIds: [process.env.STRIPE_PRODUCT_ID_LIT ?? 'prod_TsqOvYycMrdhnl'],
-        downloadKey: LIT_DOWNLOAD_KEY,
         active: true,
       },
       {
@@ -29,6 +26,7 @@ export const products = internalMutation({
         .withIndex('by_slug', (q) => q.eq('slug', row.slug))
         .unique();
       if (existing) {
+        // Keeps any uploaded download file (attached separately by the upload script).
         await ctx.db.patch(existing._id, row);
       } else {
         await ctx.db.insert('products', row);

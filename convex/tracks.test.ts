@@ -1,11 +1,7 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { api, internal } from './_generated/api';
 import { newTest, OWNER, seedLitWithOwner, STRANGER } from './test.setup';
 
-vi.mock('./lib/r2', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./lib/r2')>();
-  return { ...actual, signGetUrl: vi.fn(async (key: string, ttl: number) => `https://r2.test/${key}?ttl=${ttl}`) };
-});
 
 describe('entitlements.mine', () => {
   test('owner sees lit, stranger and signed-out see nothing', async () => {
@@ -18,14 +14,24 @@ describe('entitlements.mine', () => {
 });
 
 describe('tracks.listForPlayer', () => {
-  test('owner gets 6 ordered tracks with 2-hour signed URLs', async () => {
+  test('owner gets 6 ordered tracks with their own file links from Convex storage', async () => {
     const t = newTest();
     await seedLitWithOwner(t);
     const before = Date.now();
     const result = await t.withIdentity(OWNER).action(api.tracks.listForPlayer, { product: 'lit' });
     expect(result.tracks.map((track) => track.position)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(result.tracks[0].streamUrl).toBe('https://r2.test/lit/stream/01.mp3?ttl=7200');
-    expect(result.expiresAt).toBeGreaterThanOrEqual(before + 7200 * 1000);
+    const urls = result.tracks.map((track) => track.streamUrl);
+    expect(urls.every((url) => typeof url === 'string' && url.length > 0)).toBe(true);
+    expect(new Set(urls).size).toBe(6);
+    expect(result.expiresAt).toBeGreaterThanOrEqual(before + 6 * 60 * 60 * 1000);
+  });
+
+  test('before the songs are uploaded, owners get a not-configured error (the page falls back to previews)', async () => {
+    const t = newTest();
+    await seedLitWithOwner(t, { uploaded: false });
+    await expect(t.withIdentity(OWNER).action(api.tracks.listForPlayer, { product: 'lit' })).rejects.toThrow(
+      /NOT_CONFIGURED|not been uploaded/,
+    );
   });
 
   test('stranger is refused', async () => {
@@ -47,11 +53,37 @@ describe('tracks.listForPlayer', () => {
     await seedLitWithOwner(t);
     await t.mutation(internal.tracks.seed, {
       slug: 'lit',
-      tracks: [{ position: 1, title: 'Renamed', durationSeconds: 191.84, streamKey: 'a', originalKey: 'a' }],
+      tracks: [{ position: 1, title: 'Renamed', durationSeconds: 191.84 }],
     });
     const rows = await t.query(internal.tracks.listBySlug, { slug: 'lit' });
     expect(rows).toHaveLength(6);
     expect(rows[0].title).toBe('Renamed');
+  });
+});
+
+describe('upload flow', () => {
+  test('attaching a new file replaces the old one and deletes it from storage', async () => {
+    const t = newTest();
+    const { trackIds } = await seedLitWithOwner(t);
+    const oldFile = (await t.run((ctx) => ctx.db.get(trackIds[0])))!.streamFile!;
+    const newFile = await t.run((ctx) => ctx.storage.store(new Blob(['new master'], { type: 'audio/mpeg' })));
+    const result = await t.mutation(internal.tracks.attachTrackFile, { slug: 'lit', position: 1, kind: 'stream', file: newFile });
+    expect(result.replaced).toBe(true);
+    expect((await t.run((ctx) => ctx.db.get(trackIds[0])))!.streamFile).toBe(newFile);
+    expect(await t.run((ctx) => ctx.storage.getUrl(oldFile))).toBeNull();
+    const hashes = await t.query(internal.tracks.fileHashes, { slug: 'lit' });
+    expect(hashes.tracks[0].stream).toEqual(expect.any(String));
+    expect(hashes.download).toEqual(expect.any(String));
+  });
+});
+
+describe('downloads.mine', () => {
+  test('owner gets the album download link, stranger is refused', async () => {
+    const t = newTest();
+    await seedLitWithOwner(t);
+    const { url } = await t.withIdentity(OWNER).action(api.downloads.mine, { product: 'lit' });
+    expect(url.length).toBeGreaterThan(0);
+    await expect(t.withIdentity(STRANGER).action(api.downloads.mine, { product: 'lit' })).rejects.toThrow(/NOT_ENTITLED|No license/);
   });
 });
 

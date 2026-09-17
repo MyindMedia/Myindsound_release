@@ -1,7 +1,7 @@
 import { formatTime } from './audio-math';
 import { BootTerminal, drawWaveform, glitchText, RadialGauge, Sparkline } from './hud-fx';
 import type { DeckState, DeckStatus } from './state';
-import type { PlayerTrack } from './track-source';
+import type { PlayerTrack, StreamAccess } from './track-source';
 
 export interface HudHandlers {
   onSelect(index: number): void;
@@ -65,6 +65,9 @@ export class Hud {
   private insertButton: HTMLButtonElement;
   private inspectHint: HTMLElement;
   private repeatButton: HTMLButtonElement;
+  private accessNote: HTMLElement;
+  private listMeta: HTMLElement;
+  private sheetSuffix = '';
   private lastRepeat: boolean | null = null;
   private boot: HTMLElement;
   private bootBar: HTMLElement;
@@ -117,13 +120,16 @@ export class Hud {
     const tracklist = el('section', 'p3d-panel p3d-tracklist');
     tracklist.setAttribute('aria-label', 'Tracklist');
     const header = el('header', 'p3d-panel__header');
-    header.append(el('span', 'p3d-panel__title', 'LIT · TRACKLIST'), el('span', 'p3d-panel__meta p3d-mono', 'SIDE A'));
+    this.listMeta = el('span', 'p3d-panel__meta p3d-mono', 'SIDE A');
+    header.append(el('span', 'p3d-panel__title', 'LIT · TRACKLIST'), this.listMeta);
     this.list = el('ol', 'p3d-tracks');
     this.repeatButton = el('button', 'p3d-repeat p3d-mono');
     this.repeatButton.type = 'button';
     this.repeatButton.setAttribute('aria-pressed', 'false');
     this.repeatButton.addEventListener('click', () => handlers.onRepeat());
-    tracklist.append(header, this.list, this.repeatButton);
+    this.accessNote = el('div', 'p3d-access');
+    this.accessNote.hidden = true;
+    tracklist.append(header, this.list, this.repeatButton, this.accessNote);
 
     this.sheetToggle = el('button', 'p3d-sheet-toggle p3d-mono');
     this.sheetToggle.type = 'button';
@@ -261,6 +267,29 @@ export class Hud {
     this.lastIndex = -1;
   }
 
+  /** Full album for owners; for everyone else, a previews note with sign-in and purchase links. */
+  setAccess(access: StreamAccess): void {
+    const preview = access.mode === 'preview';
+    this.listMeta.textContent = preview ? '30s PREVIEWS' : 'FULL ALBUM';
+    this.sheetSuffix = preview ? ' · PREVIEWS' : '';
+    this.accessNote.hidden = !preview;
+    if (!preview) return;
+    const message = {
+      'signed-out': 'Playing 30-second previews. Own LIT? Sign in for the full songs.',
+      'not-owner': "Playing 30-second previews. This account doesn't own LIT yet.",
+      unavailable: "Full songs can't load right now, so previews are playing. Try again soon.",
+    }[access.reason];
+    const actions = el('div', 'p3d-access__actions');
+    const link = (label: string, href: string, primary = false) => {
+      const anchor = el('a', `p3d-access__link p3d-mono${primary ? ' p3d-access__link--primary' : ''}`, label);
+      anchor.href = href;
+      return anchor;
+    };
+    if (access.reason === 'signed-out') actions.append(link('SIGN IN', `/login.html?redirect=${encodeURIComponent('/stream')}`));
+    if (access.reason !== 'unavailable') actions.append(link('GET LIT', '/', true));
+    this.accessNote.replaceChildren(el('p', 'p3d-access__text', message), actions);
+  }
+
   setVolume(value: number): void {
     this.volumeInput.value = String(Math.round(value * 100));
   }
@@ -373,7 +402,7 @@ export class Hud {
     this.stripTime.textContent = track ? formatTime(state.positionSec) : '0:00';
     this.stripTrack.textContent = `TRK ${trackLabel}`;
     this.stripRpm.textContent = `${rpmLabel} RPM`;
-    this.sheetLabel.textContent = `TRACKLIST ${trackLabel}`;
+    this.sheetLabel.textContent = `TRACKLIST ${trackLabel}${this.sheetSuffix}`;
 
 
     this.drawSpectrum(frame.spectrum, frame.waveform);

@@ -799,6 +799,51 @@
   visibility: hidden;
 }
 
+/* Previews note: shown to anyone not hearing the full album. */
+.p3d-access {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-dim);
+  background: rgba(253, 185, 19, 0.05);
+}
+
+.p3d-access__text {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.p3d-access__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.p3d-access__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-decoration: none;
+  border: 1px solid var(--line);
+}
+
+.p3d-access__link--primary {
+  color: var(--ink);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.p3d-access__link:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* Repeat moved off the red key (now Eject) into the tracklist. */
 .p3d-repeat {
   display: flex;

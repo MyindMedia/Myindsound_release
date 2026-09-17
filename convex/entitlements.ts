@@ -43,6 +43,6 @@ export const check = internalQuery({
       .unique();
     if (!user || !product) return null;
     if (!(await hasEntitlement(ctx, user._id, product._id))) return null;
-    return { userId: user._id, productId: product._id, downloadKey: product.downloadKey ?? null };
+    return { userId: user._id, productId: product._id, downloadFile: product.downloadFile ?? null };
   },
 });
