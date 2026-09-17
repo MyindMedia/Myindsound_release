@@ -1,8 +1,11 @@
 import {
   AdditiveBlending,
+  BackSide,
   BoxGeometry,
   CanvasTexture,
+  CircleGeometry,
   Color,
+  CylinderGeometry,
   Group,
   LatheGeometry,
   Mesh,
@@ -18,6 +21,7 @@ import {
   Vector3,
   type BufferGeometry,
   type Material,
+  type Object3D,
   type MeshStandardMaterialParameters,
   type ShaderMaterial,
   type Texture,
@@ -29,7 +33,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
  * Realism layer for the MiniDisc cartridge, on top of the Canva artwork:
  * - real Phillips screws (lathe heads, brushed steel, recessed cross) seated in counterbored wells: the shell
  *   is cut open at each screw and a plastic well (wall + floor) sinks below the surface,
- * - steel hub rings (the disc's clamp plate, and the hub on the back),
+ * - a disc with real thickness (top face, outer edge, inner wall, silver data side) and a separate machined
+ *   metal hub sitting in its centre opening (plate, steel ring, spindle hole, dimples) that spins with it,
+ * - a steel hub ring and chrome cap on the back,
  * - clear-plastic gloss: an additive clearcoat pass over the shell, with normals from the artwork,
  * - a rainbow sheen on the disc that shows at an angle,
  * - paper grain for the label.
@@ -147,6 +153,24 @@ function screwMaps(): { map: CanvasTexture; aoMap: CanvasTexture; normalMap: Can
   return { map, aoMap, normalMap: heightToNormal(height, 6) };
 }
 
+/** Concentric machining rings for the hub plate, as a normal map. */
+function machinedNormal(): CanvasTexture {
+  const size = 256;
+  const [height, ctx] = canvas(size);
+  const image = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const r = Math.hypot(x - size / 2, y - size / 2);
+      const value = 128 + Math.sin(r * 1.9) * 40 + (Math.random() - 0.5) * 20;
+      const i = (y * size + x) * 4;
+      image.data[i] = image.data[i + 1] = image.data[i + 2] = value;
+      image.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  return heightToNormal(height, 0.8);
+}
+
 /** Fine paper fibre for the label, tiling. */
 export function paperGrainNormal(): CanvasTexture {
   const size = 256;
@@ -262,14 +286,22 @@ export interface CartridgeDetailInput {
   rect: Rect;
   screws: { front: number[][]; back: number[][]; radius: number };
   backHub: { u: number; v: number; outer: number; inner: number; cap: number };
-  disc: { x: number; y: number; z: number; radius: number; hubRing: number[] };
+  /** Disc centre, top face z (the art plane), thickness and radius; hub sizes are fractions of the radius. */
+  disc: {
+    x: number;
+    y: number;
+    topZ: number;
+    thickness: number;
+    radius: number;
+    hub: { hole: number; plate: number; ring: number[]; spindle: number };
+  };
   normals: { front: Texture; back: Texture };
   environment: Texture | null;
   quality: DetailQuality;
 }
 
-/** Builds the realism layer into the cartridge. */
-export function addCartridgeDetail(input: CartridgeDetailInput): void {
+/** Builds the realism layer into the cartridge. Returns the parts that spin with the disc. */
+export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Object3D[] } {
   const { rect, environment: envMap, quality } = input;
   const width = rect.x1 - rect.x0;
   const height = rect.y1 - rect.y0;
@@ -325,11 +357,71 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
   cap.position.set(hx, hy, input.backZ);
   input.cartridge.add(backRing, cap);
 
-  // Disc clamp ring and rainbow sheen behind the clear window (both round, so they needn't spin).
+  // Disc body: the art is the top face (deck.ts); here its outer edge, inner wall and silver data side.
   const disc = input.disc;
-  const [ringInner, ringOuter] = disc.hubRing.map((fraction) => fraction * disc.radius);
-  const clamp = new Mesh(ring(ringInner, ringOuter, 0.0024, 1), steel({ color: '#8f959d', roughness: 0.48, envMapIntensity: 0.25 }));
-  clamp.position.set(disc.x, disc.y, disc.z + 0.0002);
+  const R = disc.radius;
+  const bottomZ = disc.topZ - disc.thickness;
+  const holeR = disc.hub.hole * R;
+  const edgeMaterial = new MeshStandardMaterial({ color: '#8d95a3', metalness: 0.55, roughness: 0.28, envMap, envMapIntensity: 0.45 });
+  const tube = (radius: number, openInward: boolean) => {
+    const geometry = new CylinderGeometry(radius, radius, disc.thickness, 96, 1, true);
+    geometry.rotateX(Math.PI / 2);
+    const mesh = new Mesh(geometry, openInward ? edgeMaterial.clone() : edgeMaterial);
+    if (openInward) (mesh.material as MeshStandardMaterial).side = BackSide; // the wall faces into the hole
+    mesh.position.set(disc.x, disc.y, disc.topZ - disc.thickness / 2);
+    return mesh;
+  };
+  const dataSide: Material =
+    quality === 'high'
+      ? new MeshPhysicalMaterial({
+          color: '#c3c8d1',
+          metalness: 1,
+          roughness: 0.22,
+          iridescence: 0.8,
+          iridescenceIOR: 1.6,
+          envMap,
+          envMapIntensity: 0.5,
+        })
+      : steel({ color: '#c3c8d1', roughness: 0.25, envMapIntensity: 0.45 });
+  const underside = new Mesh(new RingGeometry(holeR, R, 96), dataSide);
+  underside.rotation.x = Math.PI; // faces -z
+  underside.position.set(disc.x, disc.y, bottomZ);
+  input.cartridge.add(tube(R, false), tube(holeR, true), underside);
+
+  // Metal hub: a separate machined part sitting in the disc's opening, standing proud of the art.
+  const discHub = new Group();
+  discHub.position.set(disc.x, disc.y, bottomZ - 0.001);
+  const plateR = disc.hub.plate * R;
+  const plateHeight = disc.thickness + 0.001 + 0.003;
+  const bevel = 0.0014;
+  const plate = new Mesh(
+    lathe(
+      [
+        [plateR, 0],
+        [plateR, plateHeight - bevel],
+        [plateR - bevel, plateHeight],
+        [0, plateHeight],
+      ],
+      plateR,
+      1,
+    ),
+    steel({ color: '#6f747d', roughness: 0.42, normalMap: machinedNormal(), normalScale: new Vector2(0.35, 0.35) }),
+  );
+  const [ringInner, ringOuter] = disc.hub.ring.map((fraction) => fraction * R);
+  const clamp = new Mesh(ring(ringInner, ringOuter, 0.0016, 1), steel({ color: '#d2d5da', roughness: 0.26, envMapIntensity: 0.4 }));
+  clamp.position.z = plateHeight;
+  const hole = new MeshBasicMaterial({ color: '#050507' });
+  const spindleR = disc.hub.spindle * R;
+  const spindle = new Mesh(new CircleGeometry(spindleR, 40), hole);
+  spindle.position.z = plateHeight + 0.0001;
+  const lip = new Mesh(ring(spindleR, spindleR * 1.35, 0.0007, 1), steel({ roughness: 0.3 }));
+  lip.position.z = plateHeight;
+  discHub.add(plate, clamp, spindle, lip);
+  for (const side of [-1, 1]) {
+    const dimple = new Mesh(new CircleGeometry(0.02 * R, 20), hole);
+    dimple.position.set(side * 0.2 * R, 0, plateHeight + 0.0001);
+    discHub.add(dimple);
+  }
 
   const additive = { transparent: true, blending: AdditiveBlending, depthWrite: false } as const;
   const sheenMaterial: Material =
@@ -345,10 +437,10 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
           ...additive,
         })
       : new MeshStandardMaterial({ color: 0x000000, roughness: 0.3, envMap, envMapIntensity: 0.35, ...additive });
-  const sheen = new Mesh(new RingGeometry(ringOuter, disc.radius * 0.985, 96), sheenMaterial);
-  sheen.position.set(disc.x, disc.y, disc.z + 0.0004);
+  const sheen = new Mesh(new RingGeometry(plateR, R * 0.985, 96), sheenMaterial);
+  sheen.position.set(disc.x, disc.y, disc.topZ + 0.0004);
   sheen.renderOrder = 1;
-  input.cartridge.add(clamp, sheen);
+  input.cartridge.add(discHub, sheen);
 
   // Clear-plastic gloss over the whole shell: reflections and highlights only, the artwork untouched.
   const gloss = (normals: Texture | null, openings: Texture | null) => {
@@ -375,4 +467,6 @@ export function addCartridgeDetail(input: CartridgeDetailInput): void {
   coat.position.z = input.slabZ;
   coat.renderOrder = 6;
   input.cartridge.add(coat);
+
+  return { spinning: [discHub] };
 }

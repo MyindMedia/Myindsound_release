@@ -511,10 +511,15 @@
    0.12052
   ],
   "radius": 0.36945,
-  "hubRing": [
-   0.105,
-   0.145
-  ]
+  "hub": {
+   "hole": 0.25,
+   "plate": 0.265,
+   "ring": [
+    0.105,
+    0.145
+   ],
+   "spindle": 0.045
+  }
  },
  "clearDisc": {
   "radiusRatio": 0.9858

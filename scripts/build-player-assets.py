@@ -275,9 +275,10 @@ def draw_eject_glyph(key):
     return key
 
 
-def build_disc_face(cover, canva_disc, size=1536, cover_scale=0.84, hub_ratio=0.26, art_offset_y=0.06):
+def build_disc_face(cover, size=1536, cover_scale=0.84, hub_hole=0.25, art_offset_y=0.06):
     """Album cover printed on a MiniDisc: blurred bleed, cover inset so the title survives the round edge,
-    the real hub from the Canva disc on top, faint grooves and a dark rim."""
+    faint grooves and a dark rim. The centre is left open (hub_hole, as a fraction of the disc radius) for
+    the separate 3D metal hub in cartridge-detail.ts, with a soft contact shadow where the hub sits."""
     from PIL import ImageDraw, ImageFilter
 
     face = Image.new("RGBA", (size, size), (6, 6, 12, 255))
@@ -303,20 +304,20 @@ def build_disc_face(cover, canva_disc, size=1536, cover_scale=0.84, hub_ratio=0.
         draw.ellipse((centre - radius, centre - radius, centre + radius, centre + radius), outline=(shade, shade, shade, 9))
     face.alpha_composite(grooves)
 
-    # Real hub from the Canva disc.
-    hub = canva_disc.resize((size, size), Image.LANCZOS)
-    hub_mask = Image.new("L", (size, size), 0)
-    r = size * hub_ratio / 2
-    ImageDraw.Draw(hub_mask).ellipse((centre - r, centre - r, centre + r, centre + r), fill=255)
-    hub.putalpha(hub_mask.filter(ImageFilter.GaussianBlur(size * 0.006)))
-    face.alpha_composite(hub)
+    # Contact shadow around the hub opening.
+    hole = size / 2 * hub_hole
+    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse((centre - hole * 1.18, centre - hole * 1.18, centre + hole * 1.18, centre + hole * 1.18), fill=(0, 0, 0, 170))
+    face.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(size * 0.012)))
 
-    # Dark rim and circular alpha.
+    # Dark rim, circular alpha, and the hub opening.
     rim = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     ImageDraw.Draw(rim).ellipse((6, 6, size - 6, size - 6), outline=(10, 10, 16, 235), width=round(size * 0.012))
     face.alpha_composite(rim)
     mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(mask).ellipse((2, 2, size - 2, size - 2), fill=255)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((2, 2, size - 2, size - 2), fill=255)
+    draw.ellipse((centre - hole, centre - hole, centre + hole, centre + hole), fill=0)
     face.putalpha(mask.filter(ImageFilter.GaussianBlur(1.2)))
     return face
 
@@ -379,8 +380,13 @@ def main():
             "ry": round(disc_r / (sy1 - sy0), 5),
         },
     }
-    # hubRing: the clamp plate's metal ring on the disc face, as fractions of the disc radius.
-    geometry["disc"] = {"center": to_world(disc_cx, disc_cy), "radius": round(disc_r / body_w, 5), "hubRing": [0.105, 0.145]}
+    # hub: the separate 3D metal hub (cartridge-detail.ts), as fractions of the disc radius. The disc face
+    # has an opening of `hole`; the hub plate (`plate`) overlaps its edge.
+    geometry["disc"] = {
+        "center": to_world(disc_cx, disc_cy),
+        "radius": round(disc_r / body_w, 5),
+        "hub": {"hole": 0.25, "plate": 0.265, "ring": [0.105, 0.145], "spindle": 0.045},
+    }
     # 2048 px (source is about 2340 px) so the eject inspector can zoom in.
     shell_crop = shell.crop((sx0, sy0, sx1, sy1))
     sizes["shell.webp"] = save_webp(shell_crop, "shell.webp", 2048)
@@ -402,7 +408,7 @@ def main():
     half = round(disc_r)
     canva_disc = disc.crop((round(disc_cx) - half, round(disc_cy) - half, round(disc_cx) + half, round(disc_cy) + half))
     art_path = Path(args.disc_art).expanduser()
-    disc_face = build_disc_face(Image.open(art_path).convert("RGBA"), canva_disc) if art_path.exists() else canva_disc
+    disc_face = build_disc_face(Image.open(art_path).convert("RGBA")) if art_path.exists() else canva_disc
     sizes["disc.webp"] = save_webp(disc_face, "disc.webp", 1536)
     clear = page(3)
     cx0, cy0, cx1, cy1 = alpha_bbox(clear)

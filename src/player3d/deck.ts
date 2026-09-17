@@ -31,6 +31,9 @@ export const BODY_DEPTH = 0.16;
 /** Cartridge thickness (about 5.7% of its width; a real MiniDisc is about 7%). */
 export const CART_DEPTH = 0.048;
 export const CART_SEATED_Z = -BODY_DEPTH / 2;
+/** The disc's top face (the art) and thickness, inside the shell. */
+const DISC_TOP_Z = -0.003;
+const DISC_THICKNESS = 0.008;
 /** Rounded shell edges that catch highlights. */
 const CART_BEVEL = 0.004;
 const KEY_DEPTH = 0.09;
@@ -125,7 +128,7 @@ export class Deck {
   readonly cartridgeWidth: number;
   readonly cartridgeHeight: number;
   readonly glare: MeshBasicMaterial;
-  private discs: Mesh[] = [];
+  private discs: Object3D[] = [];
   private rpm = 0;
   private rpmTarget = 0;
   private readonly spinScale: number;
@@ -266,14 +269,14 @@ export class Deck {
       new PlaneGeometry(radius * 2, radius * 2),
       new MeshBasicMaterial({ map: textures.disc, transparent: true, alphaTest: 0.05 }),
     );
-    litDisc.position.set(discCentre.x, discCentre.y, -0.008);
+    litDisc.position.set(discCentre.x, discCentre.y, DISC_TOP_Z);
     litDisc.renderOrder = 1;
     const clearRadius = radius * geometry.clearDisc.radiusRatio;
     const clearDisc = new Mesh(
       new PlaneGeometry(clearRadius * 2, clearRadius * 2),
       new MeshBasicMaterial({ map: textures.discClear, transparent: true, opacity: 0.22, depthWrite: false }),
     );
-    clearDisc.position.set(discCentre.x, discCentre.y, -0.003);
+    clearDisc.position.set(discCentre.x, discCentre.y, DISC_TOP_Z + 0.0008);
     clearDisc.renderOrder = 2;
     this.discs.push(litDisc, clearDisc);
 
@@ -318,7 +321,7 @@ export class Deck {
     stock.position.z = CART_DEPTH / 2 + 0.0001;
 
     this.cartridge.add(litDisc, clearDisc, slab, stock, label);
-    addCartridgeDetail({
+    const detail = addCartridgeDetail({
       cartridge: this.cartridge,
       slabGeometry,
       shellMaterial,
@@ -329,11 +332,12 @@ export class Deck {
       rect: local,
       screws: geometry.cartridge.screws,
       backHub: geometry.cartridge.backHub,
-      disc: { x: discCentre.x, y: discCentre.y, z: litDisc.position.z, radius, hubRing: geometry.disc.hubRing },
+      disc: { x: discCentre.x, y: discCentre.y, topZ: DISC_TOP_Z, thickness: DISC_THICKNESS, radius, hub: geometry.disc.hub },
       normals: { front: textures.shellNormal, back: textures.shellBackNormal },
       environment: this.environment,
       quality: this.quality,
     });
+    this.discs.push(...detail.spinning);
     this.cartridge.position.set(c.x, c.y, CART_SEATED_Z);
     this.cartridge.userData.seated = new Vector3(c.x, c.y, CART_SEATED_Z);
     this.group.add(this.cartridge);
