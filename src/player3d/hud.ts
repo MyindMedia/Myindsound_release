@@ -29,6 +29,7 @@ const STATUS_TEXT: Record<DeckStatus, string> = {
   playing: 'PLAY',
   paused: 'PAUSE',
   stopped: 'STOP',
+  resuming: 'SPIN UP',
   seeking: 'CALIBRATING',
   ejecting: 'EJECTING',
   ejected: 'EJECTED',
@@ -51,7 +52,7 @@ function readout(label: string): { row: HTMLElement; value: HTMLElement } {
   return { row, value };
 }
 
-/** HTML HUD: tracklist, readouts, spectrum and the status line anchored above the deck. */
+/** HTML HUD: tracklist, readouts, spectrum and the phone strip. The deck's own LCD carries the status. */
 export class Hud {
   readonly root: HTMLElement;
   readonly canvas: HTMLCanvasElement;
@@ -94,7 +95,6 @@ export class Hud {
   private lastStatus: DeckStatus | null = null;
   private lastIndex = -1;
   private errorActive = false;
-  private navClearance = 0;
 
   constructor(root: HTMLElement, handlers: HudHandlers) {
     this.root = root;
@@ -180,10 +180,11 @@ export class Hud {
 
     hud.append(strip, tracklist, this.frame, readoutsPanel, spectrumWrap, this.sheetToggle);
 
-    // Anchored overlays.
-    this.statusEl = el('div', 'p3d-status p3d-mono');
-    this.statusText = el('span', 'p3d-status__text', 'BOOTING');
-    this.statusEl.append(el('span', 'p3d-status__tick'), this.statusText);
+    // Anchored overlays. The status is announced to screen readers only: on screen it's on the deck's LCD
+    // (and in the phone strip).
+    this.statusEl = el('div', 'p3d-status');
+    this.statusText = el('span', '', 'BOOTING');
+    this.statusEl.append(this.statusText);
     this.statusEl.setAttribute('role', 'status');
     this.statusEl.setAttribute('aria-live', 'polite');
 
@@ -322,38 +323,20 @@ export class Hud {
       }
     }
     this.statusText.textContent = message;
-    this.statusEl.classList.add('p3d-status--alert');
   }
 
   clearError(): void {
     this.errorActive = false;
     this.errorBox.hidden = true;
-    this.statusEl.classList.remove('p3d-status--alert');
     this.lastStatus = null;
   }
 
-  flashStatus(message: string): void {
-    glitchText(this.statusText, message, this.reducedMotion);
-    this.statusEl.classList.add('p3d-status--alert', 'p3d-status--flicker');
-    window.setTimeout(() => {
-      this.statusEl.classList.remove('p3d-status--alert', 'p3d-status--flicker');
-      this.lastStatus = null;
-    }, 1400);
-  }
-
-  /** Screen positions (CSS px): status floats above the slot, insert button and errors sit on the disc. */
-  anchor(slot: { x: number; y: number }, disc: { x: number; y: number; r: number }): void {
+  /** Screen positions (CSS px): the insert button and errors sit on the disc. */
+  anchor(disc: { x: number; y: number; r: number }): void {
     const style = this.root.style;
-    style.setProperty('--p3d-status-x', `${slot.x}px`);
-    style.setProperty('--p3d-status-y', `${Math.max(slot.y, this.navClearance)}px`);
     style.setProperty('--p3d-disc-x', `${disc.x}px`);
     style.setProperty('--p3d-disc-y', `${disc.y}px`);
     style.setProperty('--p3d-disc-r', `${disc.r}px`);
-  }
-
-  setTilt(yaw: number, pitch: number): void {
-    this.root.style.setProperty('--p3d-yaw', `${(yaw * 180) / Math.PI}deg`);
-    this.root.style.setProperty('--p3d-pitch', `${(-pitch * 180) / Math.PI}deg`);
   }
 
   render(frame: HudFrame): void {
@@ -363,8 +346,8 @@ export class Hud {
     if (state.status !== this.lastStatus) {
       this.lastStatus = state.status;
       this.root.dataset.status = state.status;
-      if (!this.errorActive) glitchText(this.statusText, STATUS_TEXT[state.status], this.reducedMotion);
-      this.stripStatus.textContent = STATUS_TEXT[state.status];
+      if (!this.errorActive) this.statusText.textContent = STATUS_TEXT[state.status];
+      glitchText(this.stripStatus, STATUS_TEXT[state.status], this.reducedMotion);
       this.insertButton.hidden = state.status !== 'ejected';
       this.inspectHint.hidden = state.status !== 'ejected';
     }
@@ -410,10 +393,6 @@ export class Hud {
 
   private measure(): void {
     this.resizeSpectrum();
-    const navBottom = document.querySelector('.main-nav .nav-links')?.getBoundingClientRect().bottom ?? 0;
-    const strip = this.root.querySelector('.p3d-strip') as HTMLElement | null;
-    const stripBottom = strip && strip.offsetParent ? strip.getBoundingClientRect().bottom : 0;
-    this.navClearance = Math.max(navBottom, stripBottom) + this.statusEl.offsetHeight + 16;
   }
 
   private resizeSpectrum(): void {

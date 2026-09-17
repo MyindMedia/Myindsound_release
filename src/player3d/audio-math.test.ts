@@ -64,3 +64,19 @@ describe('curveAt', () => {
     expect(curveAt(keys, 9)).toBe(1);
   });
 });
+
+describe('timeToReach', () => {
+  const keys = [
+    [0, 0],
+    [1, 0],
+    [2, 1],
+  ];
+  test('first time a rising curve reaches a value (so a spin-up can resume from a disc that is still turning)', async () => {
+    const { curveAt, timeToReach } = await import('./audio-math');
+    expect(timeToReach(keys, 0)).toBe(0);
+    expect(timeToReach(keys, 0.5)).toBeCloseTo(1.5);
+    expect(curveAt(keys, timeToReach(keys, 0.25))).toBeCloseTo(0.25);
+    expect(timeToReach(keys, 1)).toBe(2);
+    expect(timeToReach(keys, 3)).toBe(2);
+  });
+});

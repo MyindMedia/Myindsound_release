@@ -1,5 +1,4 @@
 import { bandLevel, logBins, rmsLevel } from './audio-math';
-import { CALIBRATION_SECONDS, playLaserCalibration } from './calibration-sound';
 
 type EngineEvents = {
   onTime?: (seconds: number) => void;
@@ -181,13 +180,6 @@ export class AudioEngine {
       if (t < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
-  }
-
-  /** Laser calibration sound for track selection. Returns its length in seconds. */
-  playCalibration(): number {
-    if (!this.ctx) return CALIBRATION_SECONDS;
-    void this.ctx.resume();
-    return playLaserCalibration(this.ctx, this.volume);
   }
 
   /** Time-domain samples in -1..1 for the oscilloscope. Simulated when not routed. */

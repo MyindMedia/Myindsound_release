@@ -9,6 +9,7 @@ export type DeckStatus =
   | 'playing'
   | 'paused'
   | 'stopped'
+  | 'resuming'
   | 'seeking'
   | 'ejecting'
   | 'ejected';
@@ -48,6 +49,8 @@ export function initialState(): DeckState {
 }
 
 const LOADED: ReadonlySet<DeckStatus> = new Set(['playing', 'paused', 'stopped']);
+/** A seated disc the transport keys work on: loaded, recalibrating, or spinning back up after a pause or stop. */
+const TRANSPORT: ReadonlySet<DeckStatus> = new Set([...LOADED, 'seeking', 'resuming']);
 /** Selecting a track while the deck is running recalibrates the laser before playback (≥ 2 s). */
 const RUNNING: ReadonlySet<DeckStatus> = new Set(['playing', 'seeking']);
 
@@ -56,7 +59,7 @@ function atTrack(state: DeckState, trackIndex: number): DeckState {
 }
 
 export function reduce(state: DeckState, event: DeckEvent): DeckState {
-  const transport = LOADED.has(state.status) || state.status === 'seeking';
+  const transport = TRANSPORT.has(state.status);
   const last = Math.max(0, state.trackCount - 1);
 
   switch (event.type) {
@@ -72,8 +75,9 @@ export function reduce(state: DeckState, event: DeckEvent): DeckState {
     case 'inserted':
       return state.status === 'inserting' ? { ...state, status: 'reading' } : state;
 
+    // The disc is up to speed: after the insert, or after a pause or stop.
     case 'ready':
-      return state.status === 'reading' ? { ...state, status: 'playing' } : state;
+      return state.status === 'reading' || state.status === 'resuming' ? { ...state, status: 'playing' } : state;
 
     case 'seeked':
       return state.status === 'seeking' ? { ...state, status: 'playing' } : state;
@@ -85,19 +89,20 @@ export function reduce(state: DeckState, event: DeckEvent): DeckState {
     case 'ejected':
       return state.status === 'ejecting' ? { ...state, status: 'ejected' } : state;
 
+    // A still disc spins back up before the music starts (`ready`).
     case 'play':
       if (state.status === 'ejected') return { ...state, status: 'inserting' };
-      return state.status === 'paused' || state.status === 'stopped' ? { ...state, status: 'playing' } : state;
+      return state.status === 'paused' || state.status === 'stopped' ? { ...state, status: 'resuming' } : state;
 
     case 'pause':
-      if (state.status === 'playing' || state.status === 'seeking') return { ...state, status: 'paused' };
-      if (state.status === 'paused') return { ...state, status: 'playing' };
+      if (state.status === 'playing' || state.status === 'seeking' || state.status === 'resuming') {
+        return { ...state, status: 'paused' };
+      }
+      if (state.status === 'paused') return { ...state, status: 'resuming' };
       return state;
 
     case 'stop':
-      return state.status === 'playing' || state.status === 'paused' || state.status === 'seeking'
-        ? { ...state, status: 'stopped', positionSec: 0 }
-        : state;
+      return transport && state.status !== 'stopped' ? { ...state, status: 'stopped', positionSec: 0 } : state;
 
     case 'next': {
       if (!transport) return state;
@@ -143,7 +148,7 @@ export function keyLatches(state: DeckState): Record<KeyId, boolean> {
     stop: false,
     prev: false,
     next: false,
-    play: state.status === 'playing' || state.status === 'seeking',
+    play: state.status === 'playing' || state.status === 'seeking' || state.status === 'resuming',
     red: false,
   };
 }

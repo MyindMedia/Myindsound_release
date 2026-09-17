@@ -1,6 +1,6 @@
 import type { Vector3 } from 'three';
 import type { Deck } from './deck';
-import { DISC_SOUNDS } from './disc-sounds';
+import { DISC_SOUNDS, SPIN_LEAD_SECONDS } from './disc-sounds';
 import type { CartridgeInspector } from './inspect';
 import type { PlayerScene } from './scene';
 
@@ -34,8 +34,8 @@ const SEAT_AT = 1.8;
 
 /**
  * Cartridge flies from wherever it floats in the inspector → slot → seat (1.8 s) → spin-up, timed to the drive
- * recording (`disc-sounds.json`): the spindle clamps on the loading clunk, the disc follows the motor whine, and
- * playback starts as the spin-up sound hands over to the spinning loop (about 5.6 s in all).
+ * recording (`disc-sounds.json`): the spindle clamps on the loading clunk, then the disc starts turning a beat
+ * before its motor is heard and follows the whine up, and playback starts as it reaches full speed (5.4 s).
  * Reduced motion (or no GSAP) seats the cartridge immediately.
  */
 export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertHooks): { cancel(): void } {
@@ -83,14 +83,15 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
     .call(() => hooks.onInserted(), null, SEAT_AT)
     .call(
       () => {
-        deck.playRpmCurve(spinUp.rpm, PLAY_RPM);
+        // The curve runs SPIN_LEAD_SECONDS ahead of the sound.
+        deck.playRpmCurve(spinUp.rpm, PLAY_RPM, SPIN_LEAD_SECONDS);
         hooks.onSpinUp();
       },
       null,
       SEAT_AT,
     )
     .call(() => deck.setSpindleEngaged(true), null, SEAT_AT + spinUp.clampAt - 0.2)
-    .call(() => hooks.onReady(), null, SEAT_AT + spinUp.duration);
+    .call(() => hooks.onReady(), null, SEAT_AT + spinUp.duration - SPIN_LEAD_SECONDS);
 
   return { cancel: () => tl.kill() };
 }
@@ -125,16 +126,19 @@ export function runFloatInSequence(deck: Deck, scene: PlayerScene, inspector: Ca
 }
 
 export interface EjectHooks {
+  /** The disc has stopped: start the unload sound. */
+  onUnload(): void;
   onEjected(): void;
 }
 
-/** How long the disc takes to wind down after the red key (the spin-down sound), before the cartridge is released. */
+/** How long the disc takes to wind down after the red key (the spin-down sound), before the unload starts. */
 export const EJECT_SPIN_DOWN_SECONDS = DISC_SOUNDS.spinDown.duration;
 
 /**
- * Spin-down (about 3 s) → door opens → spring pops the cartridge up out of the slot → it flies forward
- * into the inspector with one full turn (about 4.7 s in all). Reduced motion (or no GSAP) presents it
- * immediately.
+ * Spin-down (about 3 s) → unload sound (the drive's load sound): the spindle drops on its first clunk, the
+ * door opens, and the spring pops the cartridge out of the slot on the big clunk → it flies forward into the
+ * inspector with one full turn (about 5.2 s in all; 2.4 s less from a still disc).
+ * Reduced motion (or no GSAP) presents it immediately, without the unload.
  */
 export function runEjectSequence(
   deck: Deck,
@@ -159,15 +163,19 @@ export function runEjectSequence(
   }
 
   const hoverY = deck.bodyTop + deck.cartridgeHeight / 2 + 0.03;
-  // The disc winds down with the spin-down sound, then the mechanism releases it. A disc that has already
-  // stopped (paused) is released straight away.
+  // The disc winds down with the spin-down sound, then the unload plays. A disc that has already stopped
+  // (paused) goes straight to the unload.
   const spinning = deck.getDiscRpm() > 5;
   if (spinning) deck.playRpmCurve(DISC_SOUNDS.spinDown.rpm, deck.getDiscRpm());
   else deck.forceDiscRpm(0);
-  const release = spinning ? EJECT_SPIN_DOWN_SECONDS - 0.2 : 0.4;
+  const unload = DISC_SOUNDS.unload;
+  const unloadAt = spinning ? EJECT_SPIN_DOWN_SECONDS - 0.2 : 0.15;
+  // The cartridge springs up (0.25 s after the door starts) on the catch releasing.
+  const release = unloadAt + unload.releaseAt - 0.25;
   const tl = gsap.timeline();
-  // Once stopped, the spindle drops clear of the hub, then the door opens.
-  tl.call(() => deck.setSpindleEngaged(false), null, release - 0.25)
+  // The spindle drops clear of the hub on the unclamp clunk, then the door opens.
+  tl.call(() => hooks.onUnload(), null, unloadAt)
+    .call(() => deck.setSpindleEngaged(false), null, unloadAt + unload.unclampAt - 0.1)
     .to(deck.doorPivot.rotation, { x: -1.35, duration: 0.22, ease: 'power2.out' }, release)
     // Push-to-release catch, then the spring throws it clear of the slot.
     .to(cart.position, { y: seated.y - 0.012, duration: 0.1, ease: 'power2.in' }, release + 0.15)

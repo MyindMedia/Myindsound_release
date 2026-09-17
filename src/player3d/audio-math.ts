@@ -63,3 +63,16 @@ export function curveAt(keys: number[][], t: number): number {
   }
   return keys[keys.length - 1][1];
 }
+
+/** First time a rising [time, value] curve reaches `value` (its end if it never does). Inverse of `curveAt`. */
+export function timeToReach(keys: number[][], value: number): number {
+  if (value <= keys[0][1]) return keys[0][0];
+  for (let i = 1; i < keys.length; i++) {
+    const [t1, v1] = keys[i];
+    if (v1 >= value) {
+      const [t0, v0] = keys[i - 1];
+      return t0 + ((t1 - t0) * (value - v0)) / Math.max(1e-9, v1 - v0);
+    }
+  }
+  return keys[keys.length - 1][0];
+}

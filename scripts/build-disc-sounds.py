@@ -10,6 +10,9 @@ spectral envelope (Lawrence's guide: 0-3 s load and spin up, 4-10 s spinning, 11
   spin-up   0.00-3.80  loading clunks to 1.7 s (loudest at 0.9 s: the clamp), motor whine from 2.55 s, full at 3.8 s
   loop      3.80-9.80  steady spin with drive clicks; crossfaded so the seam is silent
   spin-down 10.60-13.39 steady until the brake click at 11.6 s, then the decay to silence
+  unload    0.00-1.45  the load sound again, played forward before the eject: the first clunks (0.08/0.16 s) are
+                       the hub unclamping, the sled travels, and the big clunk at 0.96 s pops the cartridge; it
+                       ends in the silence before 1.5 s
 
 Writes public/assets/audio/disc/*.mp3 and src/player3d/disc-sounds.json. The loop file carries guard bands
 (the loop's own continuation) around the loop points, so decoder padding never lands on a seam.
@@ -31,13 +34,16 @@ LOOP = (3.8, 9.8)
 LOOP_CROSSFADE = 0.25
 LOOP_GUARD = 0.3
 SPIN_DOWN = (10.6, 13.3936)
+LOAD = (0.0, 1.45)
+# Hits in the load that the eject follows: the spindle drops on the first clunk, the cartridge pops on the loudest.
+UNLOAD_UNCLAMP = 0.16
+UNLOAD_RELEASE = 0.96
 
 # Disc speed (fraction of play speed) against time into each sound, read off the envelopes.
 SPIN_UP_RPM = [[0, 0], [2.55, 0], [2.8, 0.3], [3.1, 0.55], [3.4, 0.78], [3.7, 0.95], [3.8, 1]]
 SPIN_DOWN_RPM = [[0, 1], [1.0, 1], [1.2, 0.9], [1.4, 0.66], [1.6, 0.42], [1.8, 0.29], [2.0, 0.2], [2.4, 0.1], [2.79, 0]]
-# When the spindle should meet the hub (the clamp clunk), and where a resume skips the loading clunks.
+# When the spindle should meet the hub (the clamp clunk).
 CLAMP_AT = 0.85
-RESUME_FROM = 1.7
 
 
 def read(source: Path) -> np.ndarray:
@@ -91,11 +97,13 @@ def main():
     guard = int(LOOP_GUARD * SR)
     looped = np.concatenate([loop[-guard:], loop, loop[:guard]])
     spin_down = fade(cut(SPIN_DOWN), 0.0, 0.08)
+    unload = fade(cut(LOAD), 0.005, 0.01)
 
     sizes = {
         "disc-spin-up.mp3": encode(spin_up, "disc-spin-up.mp3"),
         "disc-spin-loop.mp3": encode(looped, "disc-spin-loop.mp3"),
         "disc-spin-down.mp3": encode(spin_down, "disc-spin-down.mp3"),
+        "disc-unload.mp3": encode(unload, "disc-unload.mp3"),
     }
     manifest = {
         "source": Path(args.source).name,
@@ -103,7 +111,6 @@ def main():
             "url": "/assets/audio/disc/disc-spin-up.mp3",
             "duration": round(len(spin_up) / SR, 3),
             "clampAt": CLAMP_AT,
-            "resumeFrom": RESUME_FROM,
             "rpm": SPIN_UP_RPM,
         },
         "loop": {
@@ -116,11 +123,17 @@ def main():
             "duration": round(len(spin_down) / SR, 3),
             "rpm": SPIN_DOWN_RPM,
         },
+        "unload": {
+            "url": "/assets/audio/disc/disc-unload.mp3",
+            "duration": round(len(unload) / SR, 3),
+            "unclampAt": UNLOAD_UNCLAMP,
+            "releaseAt": UNLOAD_RELEASE,
+        },
     }
     JSON_OUT.write_text(json.dumps(manifest, indent=1) + "\n")
     for name, size in sizes.items():
         print(f"  {name:22s} {size / 1024:5.0f} KB")
-    print(f"  spin-up {manifest['spinUp']['duration']} s, loop {manifest['loop']['length']} s, spin-down {manifest['spinDown']['duration']} s")
+    print(f"  spin-up {manifest['spinUp']['duration']} s, loop {manifest['loop']['length']} s, spin-down {manifest['spinDown']['duration']} s, unload {manifest['unload']['duration']} s")
 
 
 if __name__ == "__main__":

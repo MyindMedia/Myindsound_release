@@ -23,6 +23,8 @@ import { addCartridgeDetail, paperGrainNormal, type DetailQuality } from './cart
 import geometry from './geometry.json';
 import { Spindle } from './spindle';
 import type { Bounds } from './scene';
+import { DeckLcd } from './lcd';
+import type { LcdContent } from './lcd-text';
 import { SHELL } from './shaders';
 import type { KeyId } from './state';
 import type { DeckTextures } from './textures';
@@ -45,6 +47,12 @@ const KEY_DEPTH = 0.09;
 const KEY_TRAVEL = 0.05;
 const KEY_FRONT_Z = -0.006;
 const RPM_RESPONSE = 3;
+/**
+ * The status display, in the cover's lower-left corner: same margins from the edge and the keys as the Myind
+ * Sound badge on the right. Cut through the body as a recess; the screen sits inside it.
+ */
+const LCD_RECT: Rect = { x0: -0.462, y0: -0.495, x1: -0.086, y1: -0.379 };
+const LCD_DEPTH = 0.008;
 
 const width = (r: Rect) => r.x1 - r.x0;
 const height = (r: Rect) => r.y1 - r.y0;
@@ -135,6 +143,7 @@ export class Deck {
   readonly glare: MeshBasicMaterial;
   private discs: Object3D[] = [];
   private readonly spindle: Spindle;
+  private readonly lcd: DeckLcd;
   private rpm = 0;
   private rpmTarget = 0;
   /** A timed speed curve (from the disc mechanics sound) that overrides the eased target while it runs. */
@@ -157,6 +166,7 @@ export class Deck {
     // Body: extruded outline with the window cut through, art on the front cap.
     const outline = new Shape(geometry.body.outline.map(([x, y]) => new Vector2(x, y)));
     outline.holes.push(new Path(geometry.body.hole.map(([x, y]) => new Vector2(x, y))));
+    outline.holes.push(new Path(roundedRect(LCD_RECT, 0.012).getPoints(6)));
     const bodyGeometry = new ExtrudeGeometry(outline, {
       depth: BODY_DEPTH,
       bevelEnabled: false,
@@ -234,6 +244,9 @@ export class Deck {
       environment: this.environment,
     });
     this.group.add(this.spindle.group);
+
+    this.lcd = new DeckLcd(LCD_RECT, { z: -LCD_DEPTH, environment: this.environment });
+    this.group.add(this.lcd.group);
 
     const lowestKey = Math.min(...geometry.keys.map((key) => key.rect.y0));
     this.bounds = { minX: bodyRect.x0, maxX: bodyRect.x1, minY: lowestKey, maxY: this.bodyTop + 0.04 };
@@ -445,6 +458,11 @@ export class Deck {
     this.spindle.setEngaged(engaged, immediate);
   }
 
+  /** What the status display shows; redrawn only when it changes. */
+  setLcd(content: LcdContent): void {
+    this.lcd.set(content);
+  }
+
   setKeyTarget(id: KeyId, depth: number): void {
     const key = this.keys.get(id);
     if (key) key.target = depth;
@@ -494,7 +512,4 @@ export class Deck {
     return { centre: new Vector3(x, y, 0), edge: new Vector3(x + geometry.disc.radius, y, 0) };
   }
 
-  slotAnchor(): Vector3 {
-    return new Vector3(0, this.bodyTop, 0);
-  }
 }

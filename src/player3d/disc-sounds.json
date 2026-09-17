@@ -4,7 +4,6 @@
   "url": "/assets/audio/disc/disc-spin-up.mp3",
   "duration": 3.8,
   "clampAt": 0.85,
-  "resumeFrom": 1.7,
   "rpm": [
    [
     0,
@@ -82,5 +81,11 @@
     0
    ]
   ]
+ },
+ "unload": {
+  "url": "/assets/audio/disc/disc-unload.mp3",
+  "duration": 1.45,
+  "unclampAt": 0.16,
+  "releaseAt": 0.96
  }
 }

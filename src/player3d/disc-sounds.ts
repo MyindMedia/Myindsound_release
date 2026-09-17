@@ -2,20 +2,27 @@ import sounds from './disc-sounds.json';
 
 /**
  * Disc mechanics, cut from a real drive recording by `npm run disc-sounds`: spin-up (loading clunks, clamp,
- * motor whine), a seamless spinning loop, and spin-down (brake click and decay). The deck follows the same
- * RPM curves (`disc-sounds.json`), so what you hear and what you see line up.
+ * motor whine), a seamless spinning loop, spin-down (brake click and decay), and unload (the load sound,
+ * played before the eject). The deck follows the same RPM curves and markers (`disc-sounds.json`), so
+ * what you hear and what you see line up.
  * Plays on the engine's AudioContext, beside the music (not through the spectrum analyser).
  */
 
 export const DISC_SOUNDS = sounds;
 
-type Part = 'spinUp' | 'loop' | 'spinDown';
+/** Where the motor takes hold in the spin-up sound: before this it's only the loading mechanism. */
+export const SPIN_UP_MOTOR_AT = [...sounds.spinUp.rpm].reverse().find(([, speed]) => speed === 0)![0];
+/** The disc starts turning this long before its motor is heard, so the picture leads the sound. */
+export const SPIN_LEAD_SECONDS = 0.2;
+
+type Part = 'spinUp' | 'loop' | 'spinDown' | 'unload';
 
 /** Mechanics level against the music volume; the loop sits under the music. */
 const MIX = 0.6;
-const LEVEL: Record<Part, number> = { spinUp: 1, loop: 0.5, spinDown: 1 };
+const LEVEL: Record<Part, number> = { spinUp: 1, loop: 0.5, spinDown: 1, unload: 1 };
 
 interface Voice {
+  part: Part;
   source: AudioBufferSourceNode;
   gain: GainNode;
 }
@@ -31,7 +38,7 @@ export class DiscMechanics {
 
   constructor() {
     // Fetched up front so the sounds are ready by the time the disc seats.
-    const parts: Part[] = ['spinUp', 'loop', 'spinDown'];
+    const parts: Part[] = ['spinUp', 'loop', 'spinDown', 'unload'];
     this.files = Promise.all(
       parts.map((part) =>
         fetch(sounds[part].url)
@@ -81,6 +88,18 @@ export class DiscMechanics {
     if (this.buffers.spinDown) this.play('spinDown', ctx.currentTime, 0);
   }
 
+  /** Stopped before the disc moved (paused or ejected early in a spin-up): drop the pending spin-up and loop. */
+  cancelSpinUp(): void {
+    this.silence(0.05, ['spinUp', 'loop']);
+  }
+
+  /** Before the eject: the hub unclamps and the catch releases (`unload.unclampAt`, `unload.releaseAt`). */
+  unload(): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.buffers.unload) return;
+    this.play('unload', ctx.currentTime, 0);
+  }
+
   /** The loop follows the disc speed (e.g. the dip while the laser recalibrates). */
   setSpeed(fraction: number): void {
     if (!this.ctx || !this.loop) return;
@@ -106,7 +125,7 @@ export class DiscMechanics {
     gain.gain.value = LEVEL[part];
     source.connect(gain).connect(this.output!);
     source.start(at, offset);
-    const voice = { source, gain };
+    const voice = { part, source, gain };
     this.voices.push(voice);
     source.onended = () => {
       this.voices = this.voices.filter((v) => v !== voice);
@@ -115,11 +134,12 @@ export class DiscMechanics {
     return voice;
   }
 
-  private silence(seconds: number): void {
+  private silence(seconds: number, parts?: Part[]): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const now = ctx.currentTime;
-    for (const voice of this.voices) {
+    const stopping = this.voices.filter((voice) => !parts || parts.includes(voice.part));
+    for (const voice of stopping) {
       voice.gain.gain.cancelScheduledValues(now);
       voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
       voice.gain.gain.linearRampToValueAtTime(0, now + seconds);
@@ -129,7 +149,7 @@ export class DiscMechanics {
         /* already stopped */
       }
     }
-    this.voices = [];
-    this.loop = null;
+    this.voices = this.voices.filter((voice) => !stopping.includes(voice));
+    if (this.loop && stopping.includes(this.loop)) this.loop = null;
   }
 }

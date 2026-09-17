@@ -34,13 +34,14 @@ describe('deck state', () => {
     expect(run([{ type: 'insert' }]).status).toBe('booting');
   });
 
-  test('pause toggles, stop rewinds, play resumes', () => {
+  test('pause toggles, stop rewinds, play resumes once the disc is back up to speed', () => {
     const paused = reduce(playing(), { type: 'pause' });
     expect(paused.status).toBe('paused');
-    expect(reduce(paused, { type: 'pause' }).status).toBe('playing');
+    expect(reduce(paused, { type: 'pause' }).status).toBe('resuming');
     const stopped = run([{ type: 'tick', positionSec: 42 }, { type: 'stop' }], playing());
     expect(stopped).toMatchObject({ status: 'stopped', positionSec: 0 });
-    expect(reduce(stopped, { type: 'play' }).status).toBe('playing');
+    expect(reduce(stopped, { type: 'play' }).status).toBe('resuming');
+    expect(run([{ type: 'play' }, { type: 'ready' }], stopped).status).toBe('playing');
     expect(reduce(stopped, { type: 'pause' }).status).toBe('stopped');
   });
 
@@ -102,6 +103,33 @@ describe('calibration (seeking)', () => {
   test('seeked only applies while seeking', () => {
     expect(reduce(playing(), { type: 'seeked' }).status).toBe('playing');
     expect(keyLatches(seeking())).toMatchObject({ play: true, pause: false });
+  });
+});
+
+describe('resume (spin-up before playback)', () => {
+  const resuming = () => run([{ type: 'tick', positionSec: 30 }, { type: 'pause' }, { type: 'play' }], playing());
+
+  test('play from paused spins the disc up first, keeping the position; ready starts playback', () => {
+    expect(resuming()).toMatchObject({ status: 'resuming', positionSec: 30 });
+    expect(reduce(resuming(), { type: 'ready' }).status).toBe('playing');
+  });
+
+  test('pause, stop and eject still work while spinning up; play, ticks and track end are ignored', () => {
+    expect(reduce(resuming(), { type: 'pause' }).status).toBe('paused');
+    expect(reduce(resuming(), { type: 'stop' })).toMatchObject({ status: 'stopped', positionSec: 0 });
+    expect(reduce(resuming(), { type: 'eject' }).status).toBe('ejecting');
+    expect(reduce(resuming(), { type: 'play' }).status).toBe('resuming');
+    expect(reduce(resuming(), { type: 'tick', positionSec: 31 }).positionSec).toBe(30);
+    expect(reduce(resuming(), { type: 'trackEnded' }).status).toBe('resuming');
+  });
+
+  test('next keeps spinning up on the new track; picking a track calibrates instead', () => {
+    expect(reduce(resuming(), { type: 'next' })).toMatchObject({ status: 'resuming', trackIndex: 1, positionSec: 0 });
+    expect(reduce(resuming(), { type: 'select', index: 4 })).toMatchObject({ status: 'seeking', trackIndex: 4 });
+  });
+
+  test('play key latches while spinning up', () => {
+    expect(keyLatches(resuming())).toMatchObject({ play: true, pause: false });
   });
 });
 
