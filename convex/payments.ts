@@ -236,7 +236,9 @@ export const rebuildFromStripe = internalAction({
         const stripeProductIds = lineItems.map(lineItemProductId).filter((id): id is string => Boolean(id));
         const products = await ctx.runQuery(internal.fulfilment.productsByStripeIds, { stripeProductIds });
         outcomes.push(products.length > 0 ? 'granted' : 'unmatched');
-      } catch {
+      } catch (err) {
+        // Counts only, no customer data: the message says which step failed.
+        console.error('rebuildFromStripe: session failed:', errorMessage(err));
         outcomes.push('error');
       }
     }
