@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "convex codegen --typecheck=disable",
+    "prebuild": "convex codegen --typecheck=disable || echo 'convex codegen skipped (no deployment credentials); using the committed convex/_generated'",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
