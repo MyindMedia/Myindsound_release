@@ -20,6 +20,7 @@ import {
 } from 'three';
 import { addCartridgeDetail, paperGrainNormal, type DetailQuality } from './cartridge-detail';
 import geometry from './geometry.json';
+import { Spindle } from './spindle';
 import type { Bounds } from './scene';
 import { SHELL } from './shaders';
 import type { KeyId } from './state';
@@ -34,6 +35,9 @@ export const CART_SEATED_Z = -BODY_DEPTH / 2;
 /** The disc's top face (the art) and thickness, inside the shell. */
 const DISC_TOP_Z = -0.003;
 const DISC_THICKNESS = 0.008;
+/** The separate hub plate: from just under the disc to just proud of its art. */
+const HUB_BASE_Z = DISC_TOP_Z - DISC_THICKNESS - 0.001;
+const HUB_TOP_Z = DISC_TOP_Z + 0.003;
 /** Rounded shell edges that catch highlights. */
 const CART_BEVEL = 0.004;
 const KEY_DEPTH = 0.09;
@@ -129,6 +133,7 @@ export class Deck {
   readonly cartridgeHeight: number;
   readonly glare: MeshBasicMaterial;
   private discs: Object3D[] = [];
+  private readonly spindle: Spindle;
   private rpm = 0;
   private rpmTarget = 0;
   private readonly spinScale: number;
@@ -209,6 +214,23 @@ export class Deck {
 
     this.buildCartridge(textures, cartRect);
     this.buildKeys(textures);
+
+    // Spindle motor on the tray, under where the disc's hub sits once seated. Starts dropped clear.
+    const [discX, discY] = geometry.disc.center;
+    this.spindle = new Spindle({
+      x: discX,
+      y: discY,
+      floorZ: -BODY_DEPTH + 0.009,
+      hubBaseZ: CART_SEATED_Z + HUB_BASE_Z,
+      hubTopZ: CART_SEATED_Z + HUB_TOP_Z,
+      holeRadius: geometry.disc.hub.spindle * geometry.disc.radius,
+      plateRadius: geometry.disc.hub.plate * geometry.disc.radius,
+      // Drops the shaft tip (just under the hub top) clear of the cartridge's back face and bezel, so the
+      // cartridge can slide in past it.
+      travel: HUB_TOP_Z - 0.002 + CART_DEPTH / 2 + 0.006,
+      environment: this.environment,
+    });
+    this.group.add(this.spindle.group);
 
     const lowestKey = Math.min(...geometry.keys.map((key) => key.rect.y0));
     this.bounds = { minX: bodyRect.x0, maxX: bodyRect.x1, minY: lowestKey, maxY: this.bodyTop + 0.04 };
@@ -332,7 +354,16 @@ export class Deck {
       rect: local,
       screws: geometry.cartridge.screws,
       backHub: geometry.cartridge.backHub,
-      disc: { x: discCentre.x, y: discCentre.y, topZ: DISC_TOP_Z, thickness: DISC_THICKNESS, radius, hub: geometry.disc.hub },
+      disc: {
+        x: discCentre.x,
+        y: discCentre.y,
+        topZ: DISC_TOP_Z,
+        thickness: DISC_THICKNESS,
+        radius,
+        hub: geometry.disc.hub,
+        hubBaseZ: HUB_BASE_Z,
+        hubTopZ: HUB_TOP_Z,
+      },
       normals: { front: textures.shellNormal, back: textures.shellBackNormal },
       environment: this.environment,
       quality: this.quality,
@@ -395,6 +426,11 @@ export class Deck {
     return this.rpm;
   }
 
+  /** Raise the spindle into a seated disc's hub, or drop it clear before ejecting. */
+  setSpindleEngaged(engaged: boolean, immediate = false): void {
+    this.spindle.setEngaged(engaged, immediate);
+  }
+
   setKeyTarget(id: KeyId, depth: number): void {
     const key = this.keys.get(id);
     if (key) key.target = depth;
@@ -404,6 +440,7 @@ export class Deck {
     this.rpm += (this.rpmTarget - this.rpm) * (1 - Math.exp(-dt * RPM_RESPONSE));
     const angle = ((this.rpm * Math.PI * 2) / 60) * dt * this.spinScale;
     for (const disc of this.discs) disc.rotation.z -= angle;
+    this.spindle.update(dt, angle);
 
     for (const key of this.keys.values()) {
       // Fast in (80 ms feel), slightly slower out.

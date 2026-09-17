@@ -35,7 +35,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
  *   is cut open at each screw and a plastic well (wall + floor) sinks below the surface,
  * - a disc with real thickness (top face, outer edge, inner wall, silver data side) and a separate machined
  *   metal hub sitting in its centre opening (plate, steel ring, spindle hole, dimples) that spins with it,
- * - a steel hub ring and chrome cap on the back,
+ * - an opening in the back of the shell at the hub (steel bezel, plastic wall), where the deck's spindle
+ *   (spindle.ts) rises in to drive the disc,
  * - clear-plastic gloss: an additive clearcoat pass over the shell, with normals from the artwork,
  * - a rainbow sheen on the disc that shows at an angle,
  * - paper grain for the label.
@@ -238,14 +239,14 @@ function wellCup(radius: number, depth: number, facing: 1 | -1): LatheGeometry {
   );
 }
 
-/** White with black ellipses at the well openings, in shell UV space (for alphaMap cut-outs). */
-function wellMask(points: number[][], radiusU: number, aspect: number): CanvasTexture {
+/** White with black ellipses at the openings (u, v, radius in u units), in shell UV space, for alphaMap cut-outs. */
+function openingMask(openings: { u: number; v: number; radiusU: number }[], aspect: number): CanvasTexture {
   const size = 512;
   const [element, ctx] = canvas(size);
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, size, size);
   ctx.fillStyle = '#000';
-  for (const [u, v] of points) {
+  for (const { u, v, radiusU } of openings) {
     ctx.beginPath();
     ctx.ellipse(u * size, (1 - v) * size, radiusU * size, radiusU * aspect * size, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -294,6 +295,9 @@ export interface CartridgeDetailInput {
     thickness: number;
     radius: number;
     hub: { hole: number; plate: number; ring: number[]; spindle: number };
+    /** Hub plate bottom and top, in cartridge space. */
+    hubBaseZ: number;
+    hubTopZ: number;
   };
   normals: { front: Texture; back: Texture };
   environment: Texture | null;
@@ -306,6 +310,16 @@ export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Obj
   const width = rect.x1 - rect.x0;
   const height = rect.y1 - rect.y0;
   const toLocal = ([u, v]: number[]) => [rect.x0 + u * width, rect.y0 + v * height];
+  const disc = input.disc;
+  const R = disc.radius;
+
+  // Back opening at the hub, centred on the disc. The back art prints its hub ring off-centre by `offset`,
+  // so the opening and its steel bezel are sized to cover that print.
+  const backHub = input.backHub;
+  const [artX, artY] = toLocal([backHub.u, backHub.v]);
+  const offset = Math.hypot(disc.x - artX, disc.y - artY);
+  const openingR = backHub.inner * width - offset;
+  const bezelR = backHub.outer * width + offset + 0.002;
 
   const steel = (overrides: MeshStandardMaterialParameters = {}) =>
     new MeshStandardMaterial({ color: '#c4c7cd', metalness: 1, roughness: 0.38, envMap, envMapIntensity: 0.35, ...overrides });
@@ -313,8 +327,12 @@ export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Obj
   // Screw wells: openings cut in both caps, a plastic counterbore below each, the screw head on its floor.
   const aspect = width / height;
   const wellRadiusU = input.screws.radius * WELL_RATIO;
-  const frontMask = wellMask(input.screws.front, wellRadiusU, aspect);
-  const backMask = wellMask(input.screws.back, wellRadiusU, aspect);
+  const wells = (points: number[][]) => points.map(([u, v]) => ({ u, v, radiusU: wellRadiusU }));
+  const frontMask = openingMask(wells(input.screws.front), aspect);
+  const backMask = openingMask(
+    [...wells(input.screws.back), { u: (disc.x - rect.x0) / width, v: (disc.y - rect.y0) / height, radiusU: openingR / width }],
+    aspect,
+  );
   input.shellMaterial.uniforms.uWells.value = input.screws.front.map(([u, v]) => new Vector3(u, v, wellRadiusU));
   input.shellMaterial.uniforms.uWellAspect.value = aspect;
   input.backMaterial.alphaMap = backMask;
@@ -348,18 +366,18 @@ export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Obj
     }
   }
 
-  // Back hub: steel ring and centre cap over the printed hub.
-  const hub = input.backHub;
-  const [hx, hy] = toLocal([hub.u, hub.v]);
-  const backRing = new Mesh(ring(hub.inner * width, hub.outer * width, 0.0022, -1), steel({ roughness: 0.22 }));
-  const cap = new Mesh(screwHead(hub.cap * width, -1), steel({ roughness: 0.18 }));
-  backRing.position.set(hx, hy, input.backZ);
-  cap.position.set(hx, hy, input.backZ);
-  input.cartridge.add(backRing, cap);
+  // Back opening: a steel bezel and a plastic wall up to the disc, so the hub shows through from behind.
+  const bezel = new Mesh(ring(openingR, bezelR, 0.0022, -1), steel({ roughness: 0.22 }));
+  bezel.position.set(disc.x, disc.y, input.backZ);
+  const wallHeight = disc.topZ - disc.thickness - 0.0005 - input.backZ;
+  const wall = new Mesh(
+    new CylinderGeometry(openingR, openingR, wallHeight, 64, 1, true).rotateX(Math.PI / 2),
+    new MeshStandardMaterial({ color: '#1b1f29', roughness: 0.42, envMap, envMapIntensity: 0.4, side: BackSide }),
+  );
+  wall.position.set(disc.x, disc.y, input.backZ + wallHeight / 2);
+  input.cartridge.add(bezel, wall);
 
   // Disc body: the art is the top face (deck.ts); here its outer edge, inner wall and silver data side.
-  const disc = input.disc;
-  const R = disc.radius;
   const bottomZ = disc.topZ - disc.thickness;
   const holeR = disc.hub.hole * R;
   const edgeMaterial = new MeshStandardMaterial({ color: '#8d95a3', metalness: 0.55, roughness: 0.28, envMap, envMapIntensity: 0.45 });
@@ -388,19 +406,23 @@ export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Obj
   underside.position.set(disc.x, disc.y, bottomZ);
   input.cartridge.add(tube(R, false), tube(holeR, true), underside);
 
-  // Metal hub: a separate machined part sitting in the disc's opening, standing proud of the art.
+  // Metal hub: a separate machined part sitting in the disc's opening, standing proud of the art, with a
+  // real centre hole for the spindle.
   const discHub = new Group();
-  discHub.position.set(disc.x, disc.y, bottomZ - 0.001);
+  discHub.position.set(disc.x, disc.y, disc.hubBaseZ);
   const plateR = disc.hub.plate * R;
-  const plateHeight = disc.thickness + 0.001 + 0.003;
+  const plateHeight = disc.hubTopZ - disc.hubBaseZ;
   const bevel = 0.0014;
+  const spindleR = disc.hub.spindle * R;
   const plate = new Mesh(
     lathe(
       [
+        [spindleR, 0],
         [plateR, 0],
         [plateR, plateHeight - bevel],
         [plateR - bevel, plateHeight],
-        [0, plateHeight],
+        [spindleR, plateHeight],
+        [spindleR, 0],
       ],
       plateR,
       1,
@@ -411,12 +433,9 @@ export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Obj
   const clamp = new Mesh(ring(ringInner, ringOuter, 0.0016, 1), steel({ color: '#d2d5da', roughness: 0.26, envMapIntensity: 0.4 }));
   clamp.position.z = plateHeight;
   const hole = new MeshBasicMaterial({ color: '#050507' });
-  const spindleR = disc.hub.spindle * R;
-  const spindle = new Mesh(new CircleGeometry(spindleR, 40), hole);
-  spindle.position.z = plateHeight + 0.0001;
   const lip = new Mesh(ring(spindleR, spindleR * 1.35, 0.0007, 1), steel({ roughness: 0.3 }));
   lip.position.z = plateHeight;
-  discHub.add(plate, clamp, spindle, lip);
+  discHub.add(plate, clamp, lip);
   for (const side of [-1, 1]) {
     const dimple = new Mesh(new CircleGeometry(0.02 * R, 20), hole);
     dimple.position.set(side * 0.2 * R, 0, plateHeight + 0.0001);

@@ -36,6 +36,7 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
 
   if (scene.reducedMotion || !gsap) {
     deck.seatCartridge();
+    deck.setSpindleEngaged(true, true);
     deck.forceDiscRpm(PLAY_RPM);
     hooks.onInserted();
     hooks.onReady();
@@ -68,6 +69,8 @@ export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertH
     .to(deck.glare, { opacity: 0.14, duration: 0.45 }, 1.83)
     .to(deck.doorPivot.rotation, { x: 0, duration: 0.22, ease: 'power2.in' }, 1.8)
     .to(camera, { dolly: 1, look: 0, duration: 1.1, ease: 'sine.inOut', onUpdate: applyCamera }, 1.25)
+    // Seated: the spindle rises into the hub before the motor spins it up.
+    .call(() => deck.setSpindleEngaged(true), null, 1.8)
     .call(() => hooks.onInserted(), null, 1.8)
     .to(spin, { rpm: PLAY_RPM, duration: 0.8, ease: 'power2.in', onUpdate: () => deck.forceDiscRpm(spin.rpm) }, 1.8)
     .call(() => hooks.onReady(), null, 2.6);
@@ -128,6 +131,7 @@ export function runEjectSequence(
 
   if (scene.reducedMotion || !gsap) {
     deck.forceDiscRpm(0);
+    deck.setSpindleEngaged(false, true);
     deck.seatCartridge();
     inspector.takeCartridge();
     cart.position.set(0, 0, 0);
@@ -147,6 +151,8 @@ export function runEjectSequence(
     { rpm: 0, duration: EJECT_SPIN_DOWN_SECONDS, ease: 'power1.out', onUpdate: () => deck.forceDiscRpm(spin.rpm) },
     0,
   )
+    // Once stopped, the spindle drops clear of the hub, then the door opens.
+    .call(() => deck.setSpindleEngaged(false), null, release - 0.25)
     .to(deck.doorPivot.rotation, { x: -1.35, duration: 0.22, ease: 'power2.out' }, release)
     // Push-to-release catch, then the spring throws it clear of the slot.
     .to(cart.position, { y: seated.y - 0.012, duration: 0.1, ease: 'power2.in' }, release + 0.15)
