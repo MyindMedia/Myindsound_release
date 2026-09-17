@@ -24,7 +24,6 @@ export interface HudFrame {
 
 const STATUS_TEXT: Record<DeckStatus, string> = {
   booting: 'BOOTING',
-  empty: 'INSERT DISC',
   inserting: 'LOADING',
   reading: 'READING',
   playing: 'PLAY',
@@ -337,7 +336,7 @@ export class Hud {
       this.root.dataset.status = state.status;
       if (!this.errorActive) glitchText(this.statusText, STATUS_TEXT[state.status], this.reducedMotion);
       this.stripStatus.textContent = STATUS_TEXT[state.status];
-      this.insertButton.hidden = state.status !== 'empty' && state.status !== 'ejected';
+      this.insertButton.hidden = state.status !== 'ejected';
       this.inspectHint.hidden = state.status !== 'ejected';
     }
 
@@ -355,7 +354,7 @@ export class Hud {
       });
     }
 
-    const loaded = state.status !== 'booting' && state.status !== 'empty' && state.status !== 'inserting';
+    const loaded = state.status !== 'booting';
     const trackLabel = loaded && total ? `${pad2(state.trackIndex + 1)}/${pad2(total)}` : `--/${pad2(total)}`;
     const timeLabel = track ? `${formatTime(state.positionSec)} / ${formatTime(track.durationSeconds)}` : '0:00 / 0:00';
     const rpmLabel = String(Math.round(frame.rpm)).padStart(3, '0');

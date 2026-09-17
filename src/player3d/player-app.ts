@@ -6,7 +6,7 @@ import { ComicCity } from './backdrop';
 import { Deck } from './deck';
 import { DiscHalo } from './halo';
 import { Hud } from './hud';
-import { PLAY_RPM, runEjectSequence, runInsertSequence } from './insert-sequence';
+import { PLAY_RPM, runEjectSequence, runFloatInSequence, runInsertSequence } from './insert-sequence';
 import { CartridgeInspector } from './inspect';
 import { KeyController, type KeyCommand } from './keys';
 import { PlayerScene } from './scene';
@@ -59,6 +59,7 @@ export class PlayerApp {
   private mediaRetries = 0;
   private seekTimer = 0;
   private lastInput = performance.now();
+  private started = false;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   constructor(root: HTMLElement, source: TrackSource) {
@@ -101,6 +102,20 @@ export class PlayerApp {
     this.hud.hideBoot();
     if (this.scene) this.scene.start();
     else this.startFallbackLoop();
+    for (const type of ['pointerdown', 'pointermove', 'wheel', 'keydown']) {
+      window.addEventListener(type, () => (this.lastInput = performance.now()), { passive: true });
+    }
+    this.started = true;
+    if (this.state.status === 'ejected') this.presentFloating();
+  }
+
+  /** Page open (or a retry that loads the tracks): the cartridge floats in front of the empty deck. */
+  private presentFloating(): void {
+    this.keys?.setInspecting(true);
+    this.scene?.setTiltEnabled(false);
+    if (!this.deck || !this.scene || !this.inspector) return;
+    runFloatInSequence(this.deck, this.scene, this.inspector);
+    this.inspector.activate();
   }
 
   private async initScene(): Promise<void> {
@@ -196,7 +211,7 @@ export class PlayerApp {
       this.hud.setTilt(tilt.yaw, tilt.pitch);
       this.city?.setParallax(tilt.yaw, tilt.pitch);
     }
-    scene.setIdleThrottle(this.state.status === 'empty' && performance.now() - this.lastInput > IDLE_THROTTLE_MS);
+    scene.setIdleThrottle(this.state.status === 'ejected' && performance.now() - this.lastInput > IDLE_THROTTLE_MS);
     this.renderHud(dt);
   }
 
@@ -271,7 +286,8 @@ export class PlayerApp {
 
   private async recoverFromMediaError(): Promise<void> {
     const track = this.currentTrack();
-    if (!track || this.state.status === 'booting' || this.state.status === 'empty') return;
+    const status = this.state.status;
+    if (!track || status === 'booting' || status === 'ejecting' || status === 'ejected') return;
     if (this.mediaRetries < 2 && (await this.refreshLinks())) {
       this.mediaRetries++;
       const resumeAt = this.engine.currentTime;
@@ -302,7 +318,7 @@ export class PlayerApp {
         return;
       case 'toggle':
         if (status === 'playing') this.dispatch({ type: 'pause' });
-        else if (status === 'empty' || status === 'ejected') this.dispatch({ type: 'insert' });
+        else if (status === 'ejected') this.dispatch({ type: 'insert' });
         else this.dispatch({ type: 'play' });
         return;
       case 'play':
@@ -362,31 +378,24 @@ export class PlayerApp {
       return;
     }
     if (next.status === 'ejected') {
-      this.inspector?.activate();
+      if (prev.status === 'ejecting') this.inspector?.activate();
+      else if (this.started) this.presentFloating();
       return;
     }
 
-    if ((prev.status === 'empty' || prev.status === 'ejected') && next.status === 'inserting') {
-      const fromInspector = prev.status === 'ejected';
+    if (prev.status === 'ejected' && next.status === 'inserting') {
       if (track) this.engine.load(track.streamUrl);
       this.engine.unlock();
       this.resetListen();
       this.halo?.boot();
-      if (fromInspector) {
-        this.inspector?.release();
-        this.keys?.setInspecting(false);
-        this.scene?.setTiltEnabled(true);
-      }
+      this.inspector?.release();
+      this.keys?.setInspecting(false);
+      this.scene?.setTiltEnabled(true);
       if (this.deck && this.scene) {
-        runInsertSequence(
-          this.deck,
-          this.scene,
-          {
-            onInserted: () => this.dispatch({ type: 'inserted' }),
-            onReady: () => this.dispatch({ type: 'ready' }),
-          },
-          { fromCurrentPose: fromInspector },
-        );
+        runInsertSequence(this.deck, this.scene, {
+          onInserted: () => this.dispatch({ type: 'inserted' }),
+          onReady: () => this.dispatch({ type: 'ready' }),
+        });
       } else {
         this.dispatch({ type: 'inserted' });
         this.dispatch({ type: 'ready' });

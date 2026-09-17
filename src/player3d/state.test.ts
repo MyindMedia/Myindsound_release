@@ -9,9 +9,10 @@ const loaded = (count = 6): DeckEvent => ({ type: 'loaded', trackCount: count })
 const playing = () => run([loaded(), { type: 'insert' }, { type: 'inserted' }, { type: 'ready' }]);
 
 describe('deck state', () => {
-  test('boots, then waits for a disc', () => {
+  test('boots, then shows the disc floating out of the deck', () => {
     expect(initialState().status).toBe('booting');
-    expect(run([loaded()]).status).toBe('empty');
+    expect(run([loaded()]).status).toBe('ejected');
+    expect(run([loaded(), loaded(3)])).toMatchObject({ status: 'ejected', trackCount: 3 });
   });
 
   test('insert → inserting → reading → playing', () => {
@@ -22,7 +23,7 @@ describe('deck state', () => {
     expect(reduce(s2, { type: 'ready' }).status).toBe('playing');
   });
 
-  test('play while empty starts the insert; transport keys are ignored while inserting', () => {
+  test('play while the disc is out starts the insert; transport keys are ignored while inserting', () => {
     const s = run([loaded(), { type: 'play' }]);
     expect(s.status).toBe('inserting');
     expect(reduce(s, { type: 'pause' }).status).toBe('inserting');
@@ -73,7 +74,7 @@ describe('deck state', () => {
     expect(reduce(repeatLast, { type: 'trackEnded' })).toMatchObject({ status: 'playing', trackIndex: 0 });
   });
 
-  test('select calibrates then plays; from an empty deck it inserts first', () => {
+  test('select calibrates then plays; with the disc out it inserts first', () => {
     const paused = reduce(playing(), { type: 'pause' });
     const seeking = reduce(paused, { type: 'select', index: 3 });
     expect(seeking).toMatchObject({ trackIndex: 3, status: 'seeking' });
@@ -118,7 +119,7 @@ describe('eject', () => {
 
   test('is ignored with no disc in or while the disc is moving', () => {
     expect(run([{ type: 'eject' }]).status).toBe('booting');
-    expect(run([loaded(), { type: 'eject' }]).status).toBe('empty');
+    expect(run([loaded(), { type: 'eject' }]).status).toBe('ejected');
     expect(run([loaded(), { type: 'insert' }, { type: 'eject' }]).status).toBe('inserting');
     expect(run([loaded(), { type: 'insert' }, { type: 'inserted' }, { type: 'eject' }]).status).toBe('reading');
     expect(reduce(ejected(), { type: 'eject' }).status).toBe('ejected');

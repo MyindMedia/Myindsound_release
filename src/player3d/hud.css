@@ -411,11 +411,12 @@
   }
 }
 
+/* Shown while the cartridge floats out of the deck, under the inspect stage. */
 .p3d-insert {
   position: absolute;
-  left: var(--p3d-disc-x, 50%);
-  top: var(--p3d-disc-y, 50%);
-  transform: translate(-50%, -50%);
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
   min-height: 48px;
   padding: 0 26px;
   font-size: 15px;
@@ -775,13 +776,6 @@
   pointer-events: none !important;
 }
 
-.p3d[data-status='ejected'] .p3d-insert {
-  left: 50%;
-  top: auto;
-  bottom: 64px;
-  transform: translateX(-50%);
-}
-
 .p3d-inspect-hint {
   position: absolute;
   left: 50%;
@@ -852,7 +846,7 @@
     right: 20px;
   }
 
-  .p3d[data-status='ejected'] .p3d-insert {
+  .p3d-insert {
     bottom: 112px;
   }
 

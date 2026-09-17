@@ -4,7 +4,6 @@
 
 export type DeckStatus =
   | 'booting'
-  | 'empty'
   | 'inserting'
   | 'reading'
   | 'playing'
@@ -51,8 +50,6 @@ export function initialState(): DeckState {
 const LOADED: ReadonlySet<DeckStatus> = new Set(['playing', 'paused', 'stopped']);
 /** Selecting a track while the deck is running recalibrates the laser before playback (≥ 2 s). */
 const RUNNING: ReadonlySet<DeckStatus> = new Set(['playing', 'seeking']);
-/** No disc in the deck: the next insert, play or track pick loads one. */
-const OUT: ReadonlySet<DeckStatus> = new Set(['empty', 'ejected']);
 
 function atTrack(state: DeckState, trackIndex: number): DeckState {
   return { ...state, trackIndex, positionSec: 0 };
@@ -63,13 +60,14 @@ export function reduce(state: DeckState, event: DeckEvent): DeckState {
   const last = Math.max(0, state.trackCount - 1);
 
   switch (event.type) {
+    // The page opens with the cartridge floating out of the deck; insert, play or a track pick loads it.
     case 'loaded':
       return state.status === 'booting'
-        ? { ...state, status: 'empty', trackCount: event.trackCount }
+        ? { ...state, status: 'ejected', trackCount: event.trackCount }
         : { ...state, trackCount: event.trackCount };
 
     case 'insert':
-      return OUT.has(state.status) ? { ...state, status: 'inserting' } : state;
+      return state.status === 'ejected' ? { ...state, status: 'inserting' } : state;
 
     case 'inserted':
       return state.status === 'inserting' ? { ...state, status: 'reading' } : state;
@@ -88,7 +86,7 @@ export function reduce(state: DeckState, event: DeckEvent): DeckState {
       return state.status === 'ejecting' ? { ...state, status: 'ejected' } : state;
 
     case 'play':
-      if (OUT.has(state.status)) return { ...state, status: 'inserting' };
+      if (state.status === 'ejected') return { ...state, status: 'inserting' };
       return state.status === 'paused' || state.status === 'stopped' ? { ...state, status: 'playing' } : state;
 
     case 'pause':
@@ -120,7 +118,7 @@ export function reduce(state: DeckState, event: DeckEvent): DeckState {
 
     case 'select': {
       if (event.index < 0 || event.index > last || state.trackCount === 0) return state;
-      if (OUT.has(state.status)) return { ...atTrack(state, event.index), status: 'inserting' };
+      if (state.status === 'ejected') return { ...atTrack(state, event.index), status: 'inserting' };
       if (!transport) return state;
       return { ...atTrack(state, event.index), status: 'seeking' };
     }

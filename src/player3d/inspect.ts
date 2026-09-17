@@ -60,6 +60,7 @@ export class CartridgeInspector {
   private zoomTarget = 1;
   private zoomRay = new Vector3(0, 0, -1);
   private pan = new Vector2();
+  private bob = 0;
   private velocity = new Vector2();
   private pointers = new Map<number, PointerTrack>();
   private lastMoveAt = 0;
@@ -135,7 +136,8 @@ export class CartridgeInspector {
     this.setPresent(false);
     if (!this.holding) return;
     this.holding = false;
-    this.deck.cartridge.position.y = 0;
+    this.bob = 0;
+    this.placePivot();
     this.deck.group.attach(this.deck.cartridge);
   }
 
@@ -177,9 +179,9 @@ export class CartridgeInspector {
     const after = this.distance();
     this.pan.x += (this.zoomRay.x - this.restRay.x) * (after - before);
     this.pan.y += (this.zoomRay.y - this.restRay.y) * (after - before);
+    // Gentle float on the pivot, so tweens on the cartridge itself stay untouched.
+    this.bob = this.interactive && !this.reducedMotion ? Math.sin(elapsed * 1.3) * 0.01 : 0;
     this.placePivot();
-
-    if (this.interactive && !this.reducedMotion) this.deck.cartridge.position.y = Math.sin(elapsed * 1.3) * 0.01;
   }
 
   private distance(): number {
@@ -197,7 +199,7 @@ export class CartridgeInspector {
     this.pan.set(Math.max(-limitX, Math.min(limitX, this.pan.x)), Math.max(-limitY, Math.min(limitY, this.pan.y)));
     this.pivot.position.copy(this.restRay).multiplyScalar(distance);
     this.pivot.position.x += this.pan.x;
-    this.pivot.position.y += this.pan.y;
+    this.pivot.position.y += this.pan.y + this.bob;
   }
 
   private rotateBy(yaw: number, pitch: number): void {

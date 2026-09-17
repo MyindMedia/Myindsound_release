@@ -70,18 +70,15 @@ export class KeyController {
   private bindPointer(canvas: HTMLCanvasElement): void {
     canvas.addEventListener('pointerdown', (event) => {
       if (this.inspecting) return;
-      const object = this.hit(event, canvas);
-      if (!object) return;
-      const keyId = object.userData.keyId as KeyId | undefined;
+      const keyId = this.hit(event, canvas)?.userData.keyId as KeyId | undefined;
       if (keyId) this.trigger(keyId);
-      else this.onCommand('insert');
     });
     let lastMove = 0;
     canvas.addEventListener('pointermove', (event) => {
       const now = performance.now();
       if (this.inspecting || now - lastMove < 60) return;
       lastMove = now;
-      canvas.style.cursor = this.hit(event, canvas) ? 'pointer' : '';
+      canvas.style.cursor = this.hit(event, canvas)?.userData.keyId ? 'pointer' : '';
     });
   }
 

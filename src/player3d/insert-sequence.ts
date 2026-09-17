@@ -27,16 +27,10 @@ export interface InsertHooks {
 export const PLAY_RPM = 300;
 
 /**
- * Cartridge fly-in → slot → seat → spin-up (about 2.6 s).
- * `fromCurrentPose` starts from wherever the cartridge is (pushed back in from the eject inspector)
- * instead of the off-screen start. Reduced motion (or no GSAP) seats the cartridge immediately.
+ * Cartridge flies from wherever it floats in the inspector → slot → seat → spin-up (about 2.6 s).
+ * Reduced motion (or no GSAP) seats the cartridge immediately.
  */
-export function runInsertSequence(
-  deck: Deck,
-  scene: PlayerScene,
-  hooks: InsertHooks,
-  options: { fromCurrentPose?: boolean } = {},
-): { cancel(): void } {
+export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertHooks): { cancel(): void } {
   const gsap = getGsap();
   const seated = deck.cartridge.userData.seated as Vector3;
 
@@ -60,10 +54,6 @@ export function runInsertSequence(
 
   deck.forceDiscRpm(0);
   cart.visible = true;
-  if (!options.fromCurrentPose) {
-    cart.position.set(seated.x + 0.95, seated.y + 0.05, 1.35);
-    cart.rotation.set(-0.35, -1.15, 0.3);
-  }
 
   const tl = gsap.timeline();
   tl.to(camera, { dolly: 1.3, look: 0.45, duration: 0.9, ease: 'sine.inOut', onUpdate: applyCamera }, 0)
@@ -82,6 +72,35 @@ export function runInsertSequence(
     .to(spin, { rpm: PLAY_RPM, duration: 0.8, ease: 'power2.in', onUpdate: () => deck.forceDiscRpm(spin.rpm) }, 1.8)
     .call(() => hooks.onReady(), null, 2.6);
 
+  return { cancel: () => tl.kill() };
+}
+
+/**
+ * Page open: the cartridge drifts in from the lower right and settles into the inspector, floating
+ * in front of the empty deck (about 1.6 s, after the boot overlay starts fading).
+ */
+export function runFloatInSequence(deck: Deck, scene: PlayerScene, inspector: CartridgeInspector): { cancel(): void } {
+  const gsap = getGsap();
+  const cart = deck.cartridge;
+  cart.visible = true;
+  inspector.takeCartridge();
+  inspector.setPresent(true);
+
+  if (scene.reducedMotion || !gsap) {
+    cart.position.set(0, 0, 0);
+    cart.rotation.set(0, 0, 0);
+    return { cancel() {} };
+  }
+
+  // Inspector space: +x right, -y down, -z further from the camera.
+  cart.position.set(0.9, -0.55, -1.2);
+  cart.rotation.set(0.5, -1.4, 0.25);
+  const tl = gsap.timeline({ delay: 0.35 });
+  tl.to(cart.position, { x: 0, y: 0, z: 0, duration: 1.4, ease: 'power3.out' }, 0).to(
+    cart.rotation,
+    { x: 0, y: 0, z: 0, duration: 1.6, ease: 'power3.out' },
+    0,
+  );
   return { cancel: () => tl.kill() };
 }
 
