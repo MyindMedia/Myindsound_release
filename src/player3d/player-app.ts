@@ -2,6 +2,7 @@ import { DirectionalLight, HemisphereLight, PointLight } from 'three';
 import { convexErrorCode } from '../convex';
 import { refreshDelayMs } from './audio-math';
 import { AudioEngine } from './audio-engine';
+import { createStudioEnvironment } from './cartridge-detail';
 import { ComicCity } from './backdrop';
 import { Deck } from './deck';
 import { DiscHalo } from './halo';
@@ -51,6 +52,7 @@ export class PlayerApp {
   private halo: DiscHalo | null = null;
   private inspector: CartridgeInspector | null = null;
   private city: ComicCity | null = null;
+  private accentLights: { light: PointLight; intensity: number }[] = [];
   private tracks: PlayerTrack[] = [];
   private expiresAt = 0;
   private refreshTimer = 0;
@@ -123,7 +125,11 @@ export class PlayerApp {
     const textures = await loadDeckTextures(scene.renderer.capabilities.getMaxAnisotropy(), (ratio) =>
       this.hud.setBootProgress(ratio * 0.9),
     );
-    const deck = new Deck(textures, { reducedMotion: this.reducedMotion });
+    const deck = new Deck(textures, {
+      reducedMotion: this.reducedMotion,
+      environment: createStudioEnvironment(scene.renderer),
+      quality: scene.coarsePointer ? 'low' : 'high',
+    });
     deck.setCartridgeVisible(false);
     scene.deckRoot.add(deck.group);
     const disc = deck.discAnchor();
@@ -148,6 +154,7 @@ export class PlayerApp {
     const ice = new PointLight('#9FD8FF', 4, 9, 1.6);
     ice.position.set(2.2, -0.6, 1.4);
     scene.scene.add(new HemisphereLight('#9FD8FF', '#1a0a14', 0.9), key, pink, ice);
+    this.accentLights = [pink, ice].map((light) => ({ light, intensity: light.intensity }));
 
     this.inspector = new CartridgeInspector({
       scene,
@@ -200,6 +207,9 @@ export class PlayerApp {
     deck.update(dt);
     this.halo?.update(dt, elapsed, deck.getDiscRpm() / PLAY_RPM);
     this.inspector?.update(dt, elapsed);
+    // The neon accents sit near the floating cartridge and would blow out its edges.
+    const presence = this.inspector?.getPresence() ?? 0;
+    for (const accent of this.accentLights) accent.light.intensity = accent.intensity * (1 - 0.75 * presence);
 
     const slot = scene.project(deck.slotAnchor());
     const disc = deck.discAnchor();

@@ -82,6 +82,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 - `track-source.ts`: `ConvexTrackSource` / `MockTrackSource`.
 - `scene.ts`: renderer, framing to the HUD's `.p3d-frame`, tilt spring, bloom + CRT pass, visibility pause.
 - `deck.ts`: extruded body/cartridge/keys from `geometry.json` + WebP textures. The disc face is the LIT cover; the cartridge label is "Do Not Duplicate".
+- `cartridge-detail.ts`: realism layer over the Canva art. Lathe-turned steel Phillips screws (occlusion-mapped recess) and hub rings, an additive clearcoat pass with normals baked from the artwork, iridescent disc sheen, paper-grain label, and a studio environment map tinted with the city's neon. Coarse pointers get standard materials instead of clearcoat/iridescence.
 - `halo.ts`: 3D start-up halo hovering in front of the disc while inserting or calibrating; dissipates when playback starts.
 - `backdrop.ts` / `backdrop-shaders.ts`: comic-book 90s-anime city (`city-comic.webp`, 21:9), depth-map parallax (`city-depth.webp`), pulsing neon and beam shimmer (`city-mask.webp`), flying craft, embers, rain.
 - `insert-sequence.ts`: GSAP timelines for the page-open float-in, insert (from wherever the cartridge floats) and eject. GSAP comes from the CDN, `window.gsap`.
@@ -96,7 +97,7 @@ See `docs/superpowers/specs/2026-09-16-minidisc-player-3d-design.md` and the bui
 - **Deck:**
   - Source: Canva design `DAHAUDNdp9k`, exported as transparent PNGs via the Canva MCP to `~/Downloads/CD PLYAER MYINDSOUND/transparent/`.
   - Disc art source: `~/Downloads/CD PLYAER MYINDSOUND/lit-cover-clean.png`.
-  - Cartridge back face: Canva page 6, mirrored (`shell-back.webp`). The cartridge edge samples the shell texture just inside its outline. The red key face gets an eject glyph drawn in the build script.
+  - Cartridge back face: Canva page 6, mirrored (`shell-back.webp`). The build also writes `shell-normal.webp` / `shell-back-normal.webp` and the screw and hub positions (`geometry.json`) for `cartridge-detail.ts`. The cartridge edge samples the shell texture just inside its outline. The red key face gets an eject glyph drawn in the build script.
   - Build: `npm run textures` (`scripts/build-player-assets.py`) writes `public/assets/images/minidisc/*.webp` and `src/player3d/geometry.json`.
 - **City:**
   - Source: `~/Downloads/Covers Albums.png` (the LIT street reference).

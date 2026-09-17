@@ -1,4 +1,4 @@
-import { LoadingManager, SRGBColorSpace, TextureLoader, type Texture } from 'three';
+import { LoadingManager, NoColorSpace, SRGBColorSpace, TextureLoader, type Texture } from 'three';
 import { KEY_ORDER, type KeyId } from './state';
 
 const BASE = '/assets/images/minidisc/';
@@ -10,6 +10,8 @@ export type TextureName =
   | 'glare'
   | 'shell'
   | 'shellBack'
+  | 'shellNormal'
+  | 'shellBackNormal'
   | 'disc'
   | 'discClear'
   | 'label'
@@ -22,6 +24,8 @@ const FILES: Record<TextureName, string> = {
   glare: 'glare.webp',
   shell: 'shell.webp',
   shellBack: 'shell-back.webp',
+  shellNormal: 'shell-normal.webp',
+  shellBackNormal: 'shell-back-normal.webp',
   disc: 'disc.webp',
   discClear: 'disc-clear.webp',
   label: 'label.webp',
@@ -40,7 +44,8 @@ export function loadDeckTextures(anisotropy: number, onProgress: (ratio: number)
     manager.onError = (url) => reject(new Error(`Texture failed: ${url}`));
     for (const [name, file] of Object.entries(FILES) as [TextureName, string][]) {
       const texture = loader.load(BASE + file);
-      texture.colorSpace = SRGBColorSpace;
+      // Normal maps are data, not colour.
+      texture.colorSpace = name.endsWith('Normal') ? NoColorSpace : SRGBColorSpace;
       texture.anisotropy = anisotropy;
       textures[name] = texture;
     }

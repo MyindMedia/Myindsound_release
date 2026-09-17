@@ -94,7 +94,11 @@ export const RAIN = {
   `,
 };
 
-/** Shell texture with the baked disc faded out so the real spinning disc shows through. */
+/**
+ * Shell texture with the baked disc faded out so the real spinning disc shows through. Everywhere else the
+ * shell is solid: the art is laid over dark plastic, so edges where the art's outline is smaller than the
+ * 3D shape never open onto the scene behind.
+ */
 export const SHELL = {
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -108,13 +112,14 @@ export const SHELL = {
     uniform vec4 uDisc;
     uniform float uDim;
     varying vec2 vUv;
+    const vec3 PLASTIC = vec3(0.012, 0.014, 0.022);
     void main() {
       vec4 tex = texture2D(uMap, vUv);
-      if (tex.a < 0.02) discard;
       float d = length((vUv - uDisc.xy) / uDisc.zw);
       float inside = 1.0 - smoothstep(0.93, 1.0, d);
-      float alpha = tex.a * mix(1.0, 0.16, inside);
-      gl_FragColor = vec4(tex.rgb * uDim, alpha);
+      vec3 colour = mix(PLASTIC, tex.rgb, tex.a);
+      float alpha = mix(1.0, 0.16, inside);
+      gl_FragColor = vec4(colour * uDim, alpha);
       #include <colorspace_fragment>
     }
   `,

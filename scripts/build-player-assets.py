@@ -203,6 +203,58 @@ def shell_back_face(back, size):
     return base
 
 
+def _components(mask):
+    """4-connected components of a boolean mask, as arrays of (y, x)."""
+    h, w = mask.shape
+    seen = np.zeros_like(mask, bool)
+    out = []
+    for y0, x0 in zip(*np.nonzero(mask)):
+        if seen[y0, x0]:
+            continue
+        queue, points = deque([(y0, x0)]), []
+        seen[y0, x0] = True
+        while queue:
+            y, x = queue.popleft()
+            points.append((y, x))
+            for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    queue.append((ny, nx))
+        out.append(np.array(points))
+    return out
+
+
+def detect_screws(img):
+    """Corner screw heads (bright metal inside the dark wells): [[u, v], ...] in UV space (v up), plus the
+    median head radius as a fraction of the texture width."""
+    lum = np.asarray(img.convert("RGB")).astype(float) @ [0.299, 0.587, 0.114]
+    h, w = lum.shape
+    centres, radii = [], []
+    for fx, fy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+        x0, y0 = int(fx * w * 0.78), int(fy * h * 0.78)
+        corner = lum[y0 : y0 + int(h * 0.22) : 2, x0 : x0 + int(w * 0.22) : 2]
+        head = max(_components(corner > 150), key=len)
+        ys, xs = head[:, 0] * 2 + y0, head[:, 1] * 2 + x0
+        centres.append([round((xs.min() + xs.max()) / 2 / w, 5), round(1 - (ys.min() + ys.max()) / 2 / h, 5)])
+        radii.append(max(xs.max() - xs.min(), ys.max() - ys.min()) / 2 / w)
+    return centres, round(float(np.median(radii)), 5)
+
+
+def normal_map(img, size=1024, strength=5.0):
+    """Tangent-space normal map from the artwork's fine detail (luminance high-pass): plastic grain, ridges,
+    screw wells. Encoded for three.js (+x right, +y up)."""
+    small = img.convert("L").resize((size, round(size * img.height / img.width)), Image.LANCZOS)
+    lum = np.asarray(small).astype(float) / 255
+    blurred = np.asarray(small.filter(ImageFilter.GaussianBlur(6))).astype(float) / 255
+    height = lum - blurred
+    d_rows, d_cols = np.gradient(height)
+    nx, ny = -d_cols * strength, d_rows * strength  # rows grow downward, v grows upward
+    nz = np.ones_like(nx)
+    length = np.sqrt(nx * nx + ny * ny + nz * nz)
+    rgb = np.stack([nx / length, ny / length, nz / length], axis=-1) * 0.5 + 0.5
+    return Image.fromarray((rgb * 255).round().astype("uint8"), "RGB")
+
+
 def draw_eject_glyph(key):
     """Prints an eject symbol inside the red key's round button (page 11 has a plain circle)."""
     from PIL import ImageDraw
@@ -327,11 +379,25 @@ def main():
             "ry": round(disc_r / (sy1 - sy0), 5),
         },
     }
-    geometry["disc"] = {"center": to_world(disc_cx, disc_cy), "radius": round(disc_r / body_w, 5)}
+    # hubRing: the clamp plate's metal ring on the disc face, as fractions of the disc radius.
+    geometry["disc"] = {"center": to_world(disc_cx, disc_cy), "radius": round(disc_r / body_w, 5), "hubRing": [0.105, 0.145]}
     # 2048 px (source is about 2340 px) so the eject inspector can zoom in.
     shell_crop = shell.crop((sx0, sy0, sx1, sy1))
     sizes["shell.webp"] = save_webp(shell_crop, "shell.webp", 2048)
-    sizes["shell-back.webp"] = save_webp(shell_back_face(page(6), shell_crop.size), "shell-back.webp", 1536)
+    back_face = shell_back_face(page(6), shell_crop.size)
+    sizes["shell-back.webp"] = save_webp(back_face, "shell-back.webp", 1536)
+    # Realism layer (cartridge-detail.ts): surface normals, and where the 3D screws and hub go.
+    sizes["shell-normal.webp"] = save_webp(normal_map(shell_crop), "shell-normal.webp", 1024)
+    sizes["shell-back-normal.webp"] = save_webp(normal_map(back_face), "shell-back-normal.webp", 1024)
+    front_screws, front_radius = detect_screws(shell_crop)
+    back_screws, back_radius = detect_screws(back_face)
+    geometry["cartridge"]["screws"] = {
+        "front": front_screws,
+        "back": back_screws,
+        "radius": round((front_radius + back_radius) / 2, 5),
+    }
+    # Metal hub ring on the back (page 6), measured from its radial luminance profile, in shell-width units.
+    geometry["cartridge"]["backHub"] = {"u": 0.5, "v": 0.5, "outer": 0.174, "inner": 0.151, "cap": 0.03}
     # Square crop centred on the disc so rotation stays true.
     half = round(disc_r)
     canva_disc = disc.crop((round(disc_cx) - half, round(disc_cy) - half, round(disc_cx) + half, round(disc_cy) + half))

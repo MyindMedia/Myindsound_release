@@ -1,4 +1,4 @@
-import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector2, Vector3 } from 'three';
+import { DirectionalLight, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector2, Vector3 } from 'three';
 import type { Deck } from './deck';
 import type { PlayerScene } from './scene';
 
@@ -48,6 +48,8 @@ export class CartridgeInspector {
   private readonly pivot = new Group();
   private readonly dim: Mesh;
   private readonly dimMaterial: MeshBasicMaterial;
+  /** Camera-fixed key light: highlights sweep across the metal and plastic as the cartridge turns. */
+  private readonly keyLight = new DirectionalLight('#fff6e8', 0);
   private holding = false;
   private interactive = false;
   private touched = false;
@@ -94,7 +96,9 @@ export class CartridgeInspector {
     // Drawn after the deck and city, depth-tested so the cartridge in front stays bright.
     this.dim.renderOrder = 50;
     this.dim.visible = false;
-    this.stage.add(this.dim, this.pivot);
+    this.keyLight.position.set(-1.2, 1.4, 0.6);
+    this.keyLight.target = this.pivot;
+    this.stage.add(this.dim, this.pivot, this.keyLight);
     this.scene.camera.add(this.stage);
 
     this.bindPointer();
@@ -119,6 +123,11 @@ export class CartridgeInspector {
   setPresent(present: boolean): void {
     this.presenceTarget = present ? 1 : 0;
     if (this.reducedMotion) this.applyPresence(this.presenceTarget);
+  }
+
+  /** 0 with the cartridge in the deck, 1 while it floats in the inspector. */
+  getPresence(): number {
+    return this.presence;
   }
 
   activate(): void {
@@ -210,6 +219,7 @@ export class CartridgeInspector {
   private applyPresence(value: number): void {
     this.presence = value;
     this.dimMaterial.opacity = DIM_OPACITY * value;
+    this.keyLight.intensity = 0.9 * value;
     this.dim.visible = value > 0.001;
     this.scene.setCrtIntensity(1 - 0.65 * value);
     if (this.dim.visible) this.placeDim();

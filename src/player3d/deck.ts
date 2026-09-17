@@ -15,8 +15,10 @@ import {
   Vector3,
   type Material,
   type Object3D,
+  type Texture,
   type UVGenerator,
 } from 'three';
+import { addCartridgeDetail, paperGrainNormal, type DetailQuality } from './cartridge-detail';
 import geometry from './geometry.json';
 import type { Bounds } from './scene';
 import { SHELL } from './shaders';
@@ -28,6 +30,8 @@ type Rect = { x0: number; y0: number; x1: number; y1: number };
 export const BODY_DEPTH = 0.16;
 export const CART_DEPTH = 0.036;
 export const CART_SEATED_Z = -BODY_DEPTH / 2;
+/** Rounded shell edges that catch highlights. */
+const CART_BEVEL = 0.004;
 const KEY_DEPTH = 0.09;
 const KEY_TRAVEL = 0.05;
 const KEY_FRONT_Z = -0.006;
@@ -124,9 +128,16 @@ export class Deck {
   private rpm = 0;
   private rpmTarget = 0;
   private readonly spinScale: number;
+  private readonly environment: Texture | null;
+  private readonly quality: DetailQuality;
 
-  constructor(textures: DeckTextures, options: { reducedMotion: boolean }) {
+  constructor(
+    textures: DeckTextures,
+    options: { reducedMotion: boolean; environment?: Texture | null; quality?: DetailQuality },
+  ) {
     this.spinScale = options.reducedMotion ? 0.2 : 1;
+    this.environment = options.environment ?? null;
+    this.quality = options.quality ?? 'high';
     const bodyRect = geometry.body.rect as Rect;
     this.bodyTop = bodyRect.y1;
     const plastic = new MeshStandardMaterial({ color: '#1A1A1A', roughness: 0.55, metalness: 0.15 });
@@ -216,24 +227,32 @@ export class Deck {
       },
       transparent: true,
     });
-    // Solid edge in the shell's own rim texture; emissive keeps it matching the unlit caps.
+    // Solid edge in the shell's own rim texture; emissive keeps it matching the unlit caps. Double-sided with the
+    // back cap, so looking past the disc through the window shows the inside of the shell, never the scene.
     const edge = new MeshStandardMaterial({
       map: textures.shell,
       emissiveMap: textures.shell,
       emissive: new Color(0.6, 0.6, 0.6),
       roughness: 0.3,
       metalness: 0.15,
+      side: DoubleSide,
     });
-    // Seen from behind in the eject inspector: the back cap is its own face (metal hub), opaque so it hides the disc.
-    const back = new MeshBasicMaterial({ map: textures.shellBack, alphaTest: 0.5 });
-    const slabGeometry = new ExtrudeGeometry(roundedRect(local, 0.035), {
-      depth: CART_DEPTH,
-      bevelEnabled: false,
+    // Seen from behind in the eject inspector: the back cap is its own face (metal hub), fully opaque (the build
+    // lays the art over dark plastic), so it hides the disc and has no see-through edges.
+    const back = new MeshBasicMaterial({ map: textures.shellBack, side: DoubleSide });
+    // The bevel grows the outline and depth, so the shape is inset to keep the cartridge's size.
+    const inset: Rect = { x0: local.x0 + CART_BEVEL, y0: local.y0 + CART_BEVEL, x1: local.x1 - CART_BEVEL, y1: local.y1 - CART_BEVEL };
+    const slabGeometry = new ExtrudeGeometry(roundedRect(inset, 0.035 - CART_BEVEL), {
+      depth: CART_DEPTH - 2 * CART_BEVEL,
+      bevelEnabled: true,
+      bevelThickness: CART_BEVEL,
+      bevelSize: CART_BEVEL,
+      bevelSegments: 3,
       UVGenerator: rimUv(local, 0.035),
     });
     splitCaps(slabGeometry, 2);
     const slab = new Mesh(slabGeometry, [shellMaterial, edge, back]);
-    slab.position.z = -CART_DEPTH / 2;
+    slab.position.z = -CART_DEPTH / 2 + CART_BEVEL;
     slab.renderOrder = 3;
 
     const discCentre = new Vector2(geometry.disc.center[0] - c.x, geometry.disc.center[1] - c.y);
@@ -256,19 +275,58 @@ export class Deck {
     const labelRect = geometry.label.rect as Rect;
     // Sits a touch lower than in the Canva comp so the window frame doesn't clip the handwriting.
     const labelDrop = 0.045;
+    const labelLocal: Rect = {
+      x0: labelRect.x0 - c.x,
+      y0: labelRect.y0 - c.y - labelDrop,
+      x1: labelRect.x1 - c.x,
+      y1: labelRect.y1 - c.y - labelDrop,
+    };
+    // Paper sticker: lit so it shades as it turns, with fibre grain; emissive keeps the handwriting legible.
     const label = plane(
-      {
-        x0: labelRect.x0 - c.x,
-        y0: labelRect.y0 - c.y - labelDrop,
-        x1: labelRect.x1 - c.x,
-        y1: labelRect.y1 - c.y - labelDrop,
-      },
-      new MeshBasicMaterial({ map: textures.label, transparent: true }),
+      labelLocal,
+      new MeshStandardMaterial({
+        map: textures.label,
+        emissiveMap: textures.label,
+        emissive: new Color(0.62, 0.62, 0.62),
+        normalMap: paperGrainNormal(),
+        normalScale: new Vector2(0.5, 0.5),
+        roughness: 0.92,
+        transparent: true,
+        envMap: this.environment,
+        envMapIntensity: 0.1,
+      }),
       CART_DEPTH / 2 + 0.0015,
     );
     label.renderOrder = 4;
+    // Its thickness, seen when the cartridge is edge-on.
+    const paperEdge = 0.0045;
+    const stock = new Mesh(
+      new ExtrudeGeometry(
+        roundedRect(
+          { x0: labelLocal.x0 + paperEdge, y0: labelLocal.y0 + paperEdge, x1: labelLocal.x1 - paperEdge, y1: labelLocal.y1 - paperEdge },
+          0.01,
+        ),
+        { depth: 0.0013, bevelEnabled: false },
+      ),
+      new MeshStandardMaterial({ color: '#b9b3a8', roughness: 0.95 }),
+    );
+    stock.position.z = CART_DEPTH / 2 + 0.0001;
 
-    this.cartridge.add(litDisc, clearDisc, slab, label);
+    this.cartridge.add(litDisc, clearDisc, slab, stock, label);
+    addCartridgeDetail({
+      cartridge: this.cartridge,
+      slabGeometry,
+      slabZ: slab.position.z,
+      frontZ: CART_DEPTH / 2,
+      backZ: -CART_DEPTH / 2,
+      rect: local,
+      screws: geometry.cartridge.screws,
+      backHub: geometry.cartridge.backHub,
+      disc: { x: discCentre.x, y: discCentre.y, z: litDisc.position.z, radius, hubRing: geometry.disc.hubRing },
+      normals: { front: textures.shellNormal, back: textures.shellBackNormal },
+      environment: this.environment,
+      quality: this.quality,
+    });
     this.cartridge.position.set(c.x, c.y, CART_SEATED_Z);
     this.cartridge.userData.seated = new Vector3(c.x, c.y, CART_SEATED_Z);
     this.group.add(this.cartridge);
