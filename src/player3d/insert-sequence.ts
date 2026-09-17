@@ -108,9 +108,13 @@ export interface EjectHooks {
   onEjected(): void;
 }
 
+/** How long the disc takes to wind down after the red key, before the cartridge is released. */
+export const EJECT_SPIN_DOWN_SECONDS = 3;
+
 /**
- * Spin-down → door opens → spring pops the cartridge up out of the slot → it flies forward into the
- * inspector with one full turn (about 2.2 s). Reduced motion (or no GSAP) presents it immediately.
+ * Spin-down (about 3 s) → door opens → spring pops the cartridge up out of the slot → it flies forward
+ * into the inspector with one full turn (about 4.7 s in all). Reduced motion (or no GSAP) presents it
+ * immediately.
  */
 export function runEjectSequence(
   deck: Deck,
@@ -135,15 +139,21 @@ export function runEjectSequence(
 
   const hoverY = deck.bodyTop + deck.cartridgeHeight / 2 + 0.03;
   const spin = { rpm: deck.getDiscRpm() };
+  // The mechanism waits for the disc to wind down, then releases it.
+  const release = EJECT_SPIN_DOWN_SECONDS - 0.2;
   const tl = gsap.timeline();
-  tl.to(spin, { rpm: 0, duration: 0.55, ease: 'power2.out', onUpdate: () => deck.forceDiscRpm(spin.rpm) }, 0)
-    .to(deck.doorPivot.rotation, { x: -1.35, duration: 0.22, ease: 'power2.out' }, 0.35)
+  tl.to(
+    spin,
+    { rpm: 0, duration: EJECT_SPIN_DOWN_SECONDS, ease: 'power1.out', onUpdate: () => deck.forceDiscRpm(spin.rpm) },
+    0,
+  )
+    .to(deck.doorPivot.rotation, { x: -1.35, duration: 0.22, ease: 'power2.out' }, release)
     // Push-to-release catch, then the spring throws it clear of the slot.
-    .to(cart.position, { y: seated.y - 0.012, duration: 0.1, ease: 'power2.in' }, 0.5)
-    .to(deck.glare, { opacity: 0.5, duration: 0.08 }, 0.6)
-    .to(deck.glare, { opacity: 0.14, duration: 0.4 }, 0.68)
-    .to(cart.position, { y: hoverY, duration: 0.45, ease: 'power3.out' }, 0.6)
-    .to(deck.doorPivot.rotation, { x: 0, duration: 0.22, ease: 'power2.in' }, 1.1)
+    .to(cart.position, { y: seated.y - 0.012, duration: 0.1, ease: 'power2.in' }, release + 0.15)
+    .to(deck.glare, { opacity: 0.5, duration: 0.08 }, release + 0.25)
+    .to(deck.glare, { opacity: 0.14, duration: 0.4 }, release + 0.33)
+    .to(cart.position, { y: hoverY, duration: 0.45, ease: 'power3.out' }, release + 0.25)
+    .to(deck.doorPivot.rotation, { x: 0, duration: 0.22, ease: 'power2.in' }, release + 0.75)
     // Same start time, inserted after the handoff: tweens read their start values once the
     // cartridge is in the inspector's space.
     .call(
@@ -152,15 +162,15 @@ export function runEjectSequence(
         inspector.setPresent(true);
       },
       null,
-      1.05,
+      release + 0.7,
     )
-    .to(cart.position, { x: 0, y: 0, z: 0, duration: 1.0, ease: 'power3.inOut' }, 1.05)
+    .to(cart.position, { x: 0, y: 0, z: 0, duration: 1.0, ease: 'power3.inOut' }, release + 0.7)
     .to(
       cart.rotation,
       { x: 0, y: Math.PI * 2, z: 0, duration: 1.1, ease: 'power2.inOut', onComplete: () => cart.rotation.set(0, 0, 0) },
-      1.05,
+      release + 0.7,
     )
-    .call(() => hooks.onEjected(), null, 2.2);
+    .call(() => hooks.onEjected(), null, release + 1.85);
 
   return { cancel: () => tl.kill() };
 }

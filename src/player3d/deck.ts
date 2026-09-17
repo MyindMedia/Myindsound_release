@@ -28,7 +28,8 @@ import type { DeckTextures } from './textures';
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 export const BODY_DEPTH = 0.16;
-export const CART_DEPTH = 0.036;
+/** Cartridge thickness (about 5.7% of its width; a real MiniDisc is about 7%). */
+export const CART_DEPTH = 0.048;
 export const CART_SEATED_Z = -BODY_DEPTH / 2;
 /** Rounded shell edges that catch highlights. */
 const CART_BEVEL = 0.004;
@@ -188,16 +189,18 @@ export class Deck {
     this.cartridgeWidth = width(cartRect);
     this.cartridgeHeight = height(cartRect);
     const slotWidth = width(cartRect) + 0.03;
-    const slot = new Mesh(new PlaneGeometry(slotWidth, 0.03), new MeshBasicMaterial({ color: '#020203' }));
+    // The slot and its door follow the cartridge thickness, with a little clearance.
+    const slotDepth = CART_DEPTH + 0.008;
+    const slot = new Mesh(new PlaneGeometry(slotWidth, slotDepth), new MeshBasicMaterial({ color: '#020203' }));
     slot.rotation.x = -Math.PI / 2;
     slot.position.set(centre(cartRect).x, this.bodyTop + 0.0008, CART_SEATED_Z);
     const door = new Mesh(
-      new PlaneGeometry(slotWidth, 0.03),
+      new PlaneGeometry(slotWidth, slotDepth),
       new MeshStandardMaterial({ color: '#26262b', roughness: 0.4, metalness: 0.3, side: DoubleSide }),
     );
     door.rotation.x = -Math.PI / 2;
-    door.position.set(0, 0, -0.015);
-    this.doorPivot.position.set(centre(cartRect).x, this.bodyTop + 0.0012, CART_SEATED_Z + 0.015);
+    door.position.set(0, 0, -slotDepth / 2);
+    this.doorPivot.position.set(centre(cartRect).x, this.bodyTop + 0.0012, CART_SEATED_Z + slotDepth / 2);
     this.doorPivot.add(door);
     this.group.add(slot, this.doorPivot);
 
