@@ -38,11 +38,17 @@ const SEAT_AT = 1.8;
  * before its motor is heard and follows the whine up, and playback starts as it reaches full speed (5.4 s).
  * Reduced motion (or no GSAP) seats the cartridge immediately.
  */
-export function runInsertSequence(deck: Deck, scene: PlayerScene, hooks: InsertHooks): { cancel(): void } {
+export function runInsertSequence(
+  deck: Deck,
+  scene: PlayerScene,
+  hooks: InsertHooks,
+  /** Straight to a seated, spinning disc: coming back to the player with the music already going. */
+  instant = false,
+): { cancel(): void } {
   const gsap = getGsap();
   const seated = deck.cartridge.userData.seated as Vector3;
 
-  if (scene.reducedMotion || !gsap) {
+  if (instant || scene.reducedMotion || !gsap) {
     deck.seatCartridge();
     deck.setSpindleEngaged(true, true);
     deck.forceDiscRpm(PLAY_RPM);

@@ -5,6 +5,7 @@
 import { api, convexErrorMessage, getConvex } from './convex';
 import { saveFromUrl } from './download';
 import { getClerk, isClerkConfigured } from './clerk';
+import { markOpened } from './playback-handoff';
 
 function show(id: string, display = 'block') {
   const element = document.getElementById(id);
@@ -91,6 +92,8 @@ async function init() {
 
     hide('loading-state');
     show('success-content');
+    // They have paid: PLAY THE ALBUM goes straight into the player, no unwrapping it again.
+    markOpened();
     void offerSignIn();
   } catch (err) {
     console.error('Session verification failed:', convexErrorMessage(err, 'unknown error'));

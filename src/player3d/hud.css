@@ -662,25 +662,12 @@
   }
 }
 
-/* ── Phones and tablets: the window the browser actually gives us ──────── */
+/* ── Phones and tablets ────────────────────────────────────────────────── */
 
-/* A fixed `inset: 0` box is the *large* viewport on iOS and Android, so the bottom
-   of the HUD sat under the address bar until the toolbar collapsed. `dvh` is the
-   window as it is right now, and it follows the toolbar as it comes and goes. */
+/* The player keeps the whole window: `inset: 0` on the fixed box, the size it has always been. Sizing it in
+   `dvh` instead made the deck smaller than it should be, so only the overlays allow for the browser's own
+   furniture, never the frame the deck is drawn into. */
 @media (max-width: 900px) {
-  .p3d {
-    bottom: auto;
-    height: 100vh;
-    height: 100dvh;
-  }
-
-  /* Home indicator and notch. */
-  .p3d-hud {
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-  }
-
   .p3d-tracklist {
     bottom: calc(76px + env(safe-area-inset-bottom));
   }

@@ -436,3 +436,245 @@ body .sold-out-badge {
     transform: none;
   }
 }
+
+/* ── The music follows you round the site (src/mini-player.ts) ─────────── */
+
+/* Left the player mid-track? These are the controls that carry it: bottom right on a desktop, a bar across
+   the bottom on a phone. The panel is the HUD's, so it reads as part of the deck rather than a web widget. */
+.mini-player {
+  position: fixed;
+  right: 18px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 900;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  width: min(424px, calc(100vw - 36px));
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line-dim);
+  border-radius: 4px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--float);
+  color: var(--text);
+  animation: mini-player-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.mini-player::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.mini-player--playing {
+  border-color: rgba(253, 185, 19, 0.45);
+}
+
+@keyframes mini-player-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* The cartridge itself, with the LIT disc turning inside it the way it does on the deck. */
+.mini-player__art {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  background: #0b0a12;
+  border: 1px solid var(--line-dim);
+}
+
+.mini-player__shell {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mini-player__disc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+}
+
+.mini-player--playing .mini-player__disc {
+  animation: mini-player-spin 3.4s linear infinite;
+}
+
+@keyframes mini-player-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.mini-player__body {
+  min-width: 0;
+}
+
+.mini-player__title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-player__title:hover {
+  color: var(--gold);
+}
+
+.mini-player__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  margin: 3px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mini-player__tag {
+  color: var(--gold);
+}
+
+.mini-player__bar {
+  position: relative;
+  height: 4px;
+  background: rgba(245, 241, 230, 0.14);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.mini-player__bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(253, 185, 19, 0.5);
+}
+
+.mini-player__bar:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.mini-player__keys {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mini-player__key,
+.mini-player__close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.mini-player__key:hover,
+.mini-player__close:hover,
+.mini-player__key:focus-visible,
+.mini-player__close:focus-visible {
+  color: var(--gold);
+  background: rgba(253, 185, 19, 0.1);
+}
+
+.mini-player__key--play {
+  color: var(--text);
+  border: 1px solid var(--line-dim);
+}
+
+/* Autoplay refused on this page: the play button asks for the tap it needs. */
+.mini-player--blocked .mini-player__key--play {
+  color: var(--gold);
+  border-color: var(--gold);
+  animation: mini-player-ask 1.8s ease-in-out infinite;
+}
+
+@keyframes mini-player-ask {
+  50% {
+    box-shadow: 0 0 0 4px rgba(253, 185, 19, 0.16);
+  }
+}
+
+.mini-player__close {
+  width: 26px;
+  height: 26px;
+  align-self: start;
+}
+
+/* Phones: a bar across the bottom, above the home indicator. */
+@media (max-width: 640px) {
+  .mini-player {
+    right: 10px;
+    left: 10px;
+    width: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    grid-template-columns: 42px minmax(0, 1fr) auto auto;
+    gap: 10px;
+    padding: 9px 10px;
+  }
+
+  .mini-player__art {
+    width: 42px;
+    height: 42px;
+  }
+
+  .mini-player__key {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Three keys and a close button is a lot of bar on a small screen: the disc art goes back to the player. */
+  .mini-player__meta {
+    margin: 2px 0 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-player {
+    animation: none;
+  }
+
+  .mini-player--playing .mini-player__disc,
+  .mini-player--blocked .mini-player__key--play {
+    animation: none;
+  }
+}

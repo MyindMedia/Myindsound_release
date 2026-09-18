@@ -9,6 +9,7 @@ import './player3d/hud.css';
 import './nav-auth';
 import { initAnalytics, track } from './analytics';
 import { mountNavReveal } from './nav-reveal';
+import { clearHandoff, clearOpened, isReload, markOpened, readHandoff, resumeFrom, wasOpened } from './playback-handoff';
 import { CheckoutFlow } from './checkout';
 import { getClerk, isClerkConfigured } from './clerk';
 import { convexErrorCode, isConvexConfigured } from './convex';
@@ -55,9 +56,26 @@ async function start(): Promise<void> {
   mountNavReveal();
   const root = document.getElementById('player-root');
   if (!root) return;
-  // Sealed from the first paint: black, with nothing on it until the packaging is off.
-  root.classList.add('p3d', 'p3d--intro');
-  document.body.classList.add('p3d-sealed');
+
+  // Refreshing the player is a fresh start: the package comes back, sealed, and whatever was playing is
+  // forgotten. Coming back to it from another page in the same tab is not, and nor is arriving straight
+  // from a purchase: the packaging has been dealt with, so the disc is simply there.
+  const refreshed = isReload();
+  if (refreshed) {
+    clearOpened();
+    clearHandoff();
+  }
+  const wrapped = refreshed || !(paid || wasOpened());
+  if (!wrapped) markOpened();
+  const handoff = wrapped ? null : readHandoff();
+  const resume = handoff ? resumeFrom(handoff, Date.now()) : undefined;
+
+  root.classList.add('p3d');
+  if (wrapped) {
+    // Sealed from the first paint: black, with nothing on it until the packaging is off.
+    root.classList.add('p3d--intro');
+    document.body.classList.add('p3d-sealed');
+  }
 
   const checkout = new CheckoutFlow();
   const previews = new PreviewTrackSource();
@@ -76,11 +94,11 @@ async function start(): Promise<void> {
       });
 
   // The page opens on the shrink-wrapped cartridge (player3d/wrap.ts); unwrapping it brings the page up.
-  const app = new PlayerApp(root, source, { wrapped: true, onGetLit: () => checkout.startPayWhatYouWant() });
+  const app = new PlayerApp(root, source, { wrapped, resume, onGetLit: () => checkout.startPayWhatYouWant() });
   await app.mount();
   // Straight back from a purchase: open it for them. Loading the disc stays a tap, which is also what lets
   // the browser start the audio.
-  if (paid) app.openPackage();
+  if (paid && wrapped) app.openPackage();
 }
 
 void start();

@@ -1,5 +1,6 @@
 import { DirectionalLight, HemisphereLight, PointLight, SRGBColorSpace, TextureLoader, type Texture } from 'three';
 import { convexErrorCode } from '../convex';
+import { markOpened, writeHandoff } from '../playback-handoff';
 import { refreshDelayMs, timeToReach } from './audio-math';
 import { AudioEngine } from './audio-engine';
 import { createStudioEnvironment } from './cartridge-detail';
@@ -18,6 +19,8 @@ import { initialState, keyLatches, reduce, type DeckEvent, type DeckState } from
 import { loadDeckTextures } from './textures';
 import type { PlayerTrack, TrackSource } from './track-source';
 
+/** How often the handoff is rewritten while the music runs. */
+const HANDOFF_SAVE_MS = 2000;
 const PLAY_LOG_AFTER_SEC = 30;
 const CALIBRATION_MS = 2000;
 const SEEK_RPM_FRACTION = 0.35;
@@ -59,6 +62,11 @@ export interface PlayerOptions {
   onGetLit?(): void;
   /** Hold the cartridge inside its wrapper until `reveal()` (the poster peels first). */
   wrapped?: boolean;
+  /**
+   * Coming back from another page in the same tab: put the disc back in at the track and the place the
+   * mini player left off, and start playing again if it was (`playback-handoff.ts`).
+   */
+  resume?: { index: number; positionSec: number; playing: boolean };
 }
 
 /** Composition root: state machine → audio, 3D deck, keys and HUD. */
@@ -91,6 +99,11 @@ export class PlayerApp {
   private lcdFlash: { text: string; until: number } | null = null;
   private lastInput = performance.now();
   private started = false;
+  /** Consumed by the next `engine.load`: where the track was when it was handed over. */
+  private resumeAt = 0;
+  /** The next insert is a resume, so the disc goes back in without the timeline. */
+  private instantInsert = false;
+  private lastHandoffSave = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   constructor(root: HTMLElement, source: TrackSource, options: PlayerOptions = {}) {
@@ -102,6 +115,7 @@ export class PlayerApp {
   /** The wrapping is off: bring the deck, the city and the HUD up behind the disc. */
   private reveal(): void {
     this.introInput.abort();
+    markOpened();
     this.keys?.setEnabled(true);
     this.scene?.setBloomStrength(BLOOM_STRENGTH);
     window.setTimeout(() => {
@@ -170,6 +184,59 @@ export class PlayerApp {
     }
     if (this.state.status === 'ejected') this.presentFloating(this.options.wrapped);
     if (this.options.wrapped) await this.startWrapped();
+    else this.startResume();
+    // The music carries on to the rest of the site, so the state goes with whoever leaves the page.
+    window.addEventListener('pagehide', () => this.saveHandoff(true));
+    document.addEventListener(
+      'visibilitychange',
+      () => document.visibilityState === 'hidden' && this.saveHandoff(true),
+    );
+  }
+
+  /**
+   * Back from another page in the same tab, or straight from a purchase: the disc goes back in where the
+   * mini player left it, without the insert timeline, and carries on if it was playing.
+   */
+  private startResume(): void {
+    const resume = this.options.resume;
+    if (!resume || this.tracks.length === 0 || this.state.status !== 'ejected') return;
+    this.resumeAt = Math.max(0, resume.positionSec);
+    this.instantInsert = true;
+    this.dispatch({ type: 'select', index: Math.max(0, Math.min(resume.index, this.tracks.length - 1)) });
+    // Paused when they left it: the disc is in and cued, it just isn't running.
+    if (!resume.playing) this.dispatch({ type: 'pause' });
+  }
+
+  /** Where the track was when the handoff was written, used once by the next load. */
+  private takeResumeAt(): number {
+    const at = this.resumeAt;
+    this.resumeAt = 0;
+    return at;
+  }
+
+  /**
+   * What the mini player on the other pages picks up: the tracklist, the track, the place and whether it
+   * was running. Written while a disc is in, thrown away when there isn't one.
+   */
+  private saveHandoff(force = false): void {
+    if (!force && performance.now() - this.lastHandoffSave < HANDOFF_SAVE_MS) return;
+    this.lastHandoffSave = performance.now();
+    const seated = !['booting', 'ejected', 'ejecting', 'inserting'].includes(this.state.status);
+    if (!seated || this.tracks.length === 0) return;
+    writeHandoff({
+      tracks: this.tracks.map((track) => ({
+        position: track.position,
+        title: track.title,
+        streamUrl: track.streamUrl,
+        durationSeconds: track.durationSeconds,
+      })),
+      index: this.state.trackIndex,
+      positionSec: this.engine.currentTime,
+      playing: this.state.status === 'playing' && this.engine.isPlaying,
+      at: Date.now(),
+      access: this.source.access?.mode === 'preview' ? 'preview' : 'full',
+      volume: this.engine.getVolume(),
+    });
   }
 
   /** Page open (or a retry that loads the tracks): the cartridge floats in front of the empty deck. */
@@ -390,6 +457,7 @@ export class PlayerApp {
     if (this.state.status === 'playing' && this.engine.isPlaying) {
       this.listenedSec += dt;
       if (this.listenedSec >= PLAY_LOG_AFTER_SEC) this.logPlayOnce();
+      this.saveHandoff();
     }
     this.hud.render(
       {
@@ -538,6 +606,9 @@ export class PlayerApp {
 
   private applyEffects(prev: DeckState, next: DeckState, event: DeckEvent): void {
     const track = this.tracks[next.trackIndex];
+    if (prev.status !== next.status || prev.trackIndex !== next.trackIndex) {
+      window.setTimeout(() => this.saveHandoff(true), 0);
+    }
     if (next.status !== 'resuming') window.clearTimeout(this.resumeTimer);
 
     // Red key: fade out, spin down, unload, and hand the cartridge to the inspector.
@@ -566,7 +637,9 @@ export class PlayerApp {
     }
 
     if (prev.status === 'ejected' && next.status === 'inserting') {
-      if (track) this.engine.load(track.streamUrl);
+      const instant = this.instantInsert;
+      this.instantInsert = false;
+      if (track) this.engine.load(track.streamUrl, this.takeResumeAt());
       this.engine.unlock();
       this.mechanics.attach(this.engine.context);
       this.resetListen();
@@ -574,11 +647,16 @@ export class PlayerApp {
       this.keys?.setInspecting(false);
       this.scene?.setTiltEnabled(true);
       if (this.deck && this.scene) {
-        runInsertSequence(this.deck, this.scene, {
-          onInserted: () => this.dispatch({ type: 'inserted' }),
-          onSpinUp: () => this.mechanics.spinUp(),
-          onReady: () => this.dispatch({ type: 'ready' }),
-        });
+        runInsertSequence(
+          this.deck,
+          this.scene,
+          {
+            onInserted: () => this.dispatch({ type: 'inserted' }),
+            onSpinUp: () => this.mechanics.spinUp(),
+            onReady: () => this.dispatch({ type: 'ready' }),
+          },
+          instant,
+        );
       } else {
         this.mechanics.spinUp();
         this.dispatch({ type: 'inserted' });
