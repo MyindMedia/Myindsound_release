@@ -1083,6 +1083,117 @@ body:has(.p3d--intro) .main-nav {
   transition: opacity 2.6s ease 0.6s;
 }
 
+/* ── The nav gets out of the way of the deck ───────────────────────── */
+
+/* Parked above the top of the screen so the player has the whole window. `nav-reveal.ts` drops it into
+   place when the pointer comes into the top strip (or the pill is tapped) and parks it again five seconds
+   after the last interaction up there. */
+body.home-page .main-nav {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.35s ease;
+}
+
+body.home-page.nav-open .main-nav {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The handle: a semi-transparent pill under the top edge with a downward arrow in it. */
+.nav-peek {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 1001;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(245, 241, 230, 0.16);
+  border-radius: 999px;
+  background: rgba(7, 7, 12, 0.45);
+  backdrop-filter: blur(10px);
+  color: rgba(245, 241, 230, 0.72);
+  cursor: pointer;
+  transform: translate(-50%, 0);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease,
+    color 0.3s ease, opacity 0.6s ease;
+}
+
+.nav-peek:hover,
+.nav-peek:focus-visible {
+  background: rgba(253, 185, 19, 0.16);
+  border-color: rgba(253, 185, 19, 0.7);
+  color: var(--gold);
+}
+
+.nav-peek:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* Open: the pill rides down under the bar and its arrow turns to point back up. */
+body.nav-open .nav-peek {
+  transform: translate(-50%, var(--nav-peek-drop, 76px));
+}
+
+.nav-peek__arrow {
+  display: block;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: nav-peek-bob 3.4s ease-in-out infinite;
+}
+
+body.nav-open .nav-peek__arrow {
+  transform: rotate(180deg);
+  animation: none;
+}
+
+/* A slow nudge downwards, so the pill reads as something that pulls open. */
+@keyframes nav-peek-bob {
+  0%,
+  68%,
+  100% {
+    transform: translateY(0);
+  }
+  80% {
+    transform: translateY(2.5px);
+  }
+}
+
+/* Nothing but the package on black while it is still wrapped. */
+body:has(.p3d--intro) .nav-peek {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-peek .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* A finger has no hover, so the pill carries the whole affordance: give it a real tap target. */
+@media (pointer: coarse) {
+  .nav-peek {
+    width: 64px;
+    height: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.home-page .main-nav,
+  .nav-peek,
+  .nav-peek__arrow {
+    transition-duration: 0.01ms;
+    animation: none;
+  }
+}
+
 /* And the page can't be scrolled away from it while it's still wrapped (html is the scroller here). */
 html:has(body.p3d-sealed),
 body.p3d-sealed {

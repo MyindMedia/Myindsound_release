@@ -17,8 +17,8 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, ut
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-type TrackConfig = { position: number; title: string; file: string; name: string; previewStart?: number };
-type Config = { slug: string; defaultSourceDir: string; zipName: string; tracks: TrackConfig[] };
+type TrackConfig = { position: number; title: string; file: string; name: string; previewStart?: number; gainDb?: number };
+type Config = { slug: string; defaultSourceDir: string; zipName: string; albumLufs?: number; previewLufs?: number; tracks: TrackConfig[] };
 
 const root = resolve(import.meta.dirname, '..');
 const config = JSON.parse(readFileSync(join(root, 'scripts/lit-tracks.json'), 'utf8')) as Config;
@@ -70,11 +70,27 @@ function prepare() {
       }
       uploads.push({ kind: 'original', position: track.position, path: source, contentType: 'audio/wav' });
     }
+    // Album levelling: a master that came in louder or quieter than the rest is corrected by a flat gain
+    // (measured with ffmpeg loudnorm, recorded in the manifest). Nothing else about the mix is touched, and
+    // the levelled file is what both the stream and the album zip carry, so a buyer hears one album.
+    const gainDb = track.gainDb ?? 0;
+    let albumPath = source;
+    if (gainDb) {
+      const levelled = join(cacheDir, `${track.name}-${gainDb.toFixed(2)}dB.mp3`);
+      if (!existsSync(levelled) || statSync(levelled).mtimeMs < statSync(streamPath).mtimeMs) {
+        execFileSync('ffmpeg', [
+          '-y', '-v', 'error', '-i', streamPath, '-map', '0:a', '-map_metadata', '-1',
+          '-af', `volume=${gainDb}dB`, '-codec:a', 'libmp3lame', '-b:a', '320k', levelled,
+        ]);
+      }
+      streamPath = levelled;
+      albumPath = levelled;
+    }
     uploads.push({ kind: 'stream', position: track.position, path: streamPath, contentType: 'audio/mpeg' });
-    const extension = track.file.slice(track.file.lastIndexOf('.'));
+    const extension = gainDb ? '.mp3' : track.file.slice(track.file.lastIndexOf('.'));
     const numbered = `${String(track.position).padStart(2, '0')} - ${track.title.replace(/[/\\:]/g, '-')}${extension}`;
     const staged = join(zipStaging, numbered);
-    copyFileSync(source, staged);
+    copyFileSync(albumPath, staged);
     // Keep the master's timestamps so the zip is byte-identical between runs (and isn't re-uploaded).
     const { atime, mtime } = statSync(source);
     utimesSync(staged, atime, mtime);

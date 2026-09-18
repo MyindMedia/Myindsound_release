@@ -8,6 +8,7 @@ import './style.css';
 import './player3d/hud.css';
 import './nav-auth';
 import { initAnalytics, track } from './analytics';
+import { mountNavReveal } from './nav-reveal';
 import { CheckoutFlow } from './checkout';
 import { getClerk, isClerkConfigured } from './clerk';
 import { convexErrorCode, isConvexConfigured } from './convex';
@@ -50,6 +51,8 @@ async function start(): Promise<void> {
   // style.css hides overflow for the old one-screen layout; this page scrolls.
   document.documentElement.style.overflow = 'auto';
   document.body.style.overflow = 'auto';
+  // The nav stays out of the deck's way until the pointer goes looking for it.
+  mountNavReveal();
   const root = document.getElementById('player-root');
   if (!root) return;
   // Sealed from the first paint: black, with nothing on it until the packaging is off.

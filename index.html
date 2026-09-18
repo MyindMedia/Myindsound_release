@@ -26,7 +26,7 @@
 </head>
 
 <body class="stream-page home-page">
-  <nav class="main-nav" aria-label="Site">
+  <nav class="main-nav" id="site-nav" aria-label="Site">
     <div class="nav-links">
       <a href="/" class="active" aria-current="page">LISTEN</a>
       <a href="/physical">PHYSICAL</a>
@@ -34,6 +34,14 @@
       <a href="/login">GET ACCESS</a>
     </div>
   </nav>
+  <!-- The nav is parked off the top of the screen; this pill brings it down (src/nav-reveal.ts). -->
+  <button class="nav-peek" type="button" id="nav-peek" aria-controls="site-nav" aria-expanded="false">
+    <span class="sr-only">Show navigation</span>
+    <svg class="nav-peek__arrow" width="14" height="9" viewBox="0 0 14 9" fill="none" aria-hidden="true">
+      <path d="M1 1.5 7 7.5l6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+        stroke-linejoin="round" />
+    </svg>
+  </button>
 
   <!-- Wrapped MiniDisc + 3D deck + HUD (src/player3d) -->
   <main id="player-root" class="p3d--inline" aria-label="LIT MiniDisc player"></main>
