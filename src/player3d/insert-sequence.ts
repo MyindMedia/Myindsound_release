@@ -170,6 +170,8 @@ export function runEjectSequence(
     cart.position.set(0, 0, 0);
     cart.rotation.set(0, 0, 0);
     inspector.setPresent(true);
+    scene.setDolly(1);
+    scene.setLookOffset(0);
     hooks.onEjected();
     return { cancel() {} };
   }
@@ -184,9 +186,23 @@ export function runEjectSequence(
   const unloadAt = spinning ? EJECT_SPIN_DOWN_SECONDS - 0.2 : 0.15;
   // The cartridge springs up (0.25 s after the door starts) on the catch releasing.
   const release = unloadAt + unload.releaseAt - 0.25;
+  // The camera eases back as the cartridge comes out and settles again once it is floating, the same
+  // move the load makes in reverse, so the two transitions match.
+  const camera = { dolly: scene.getDolly(), look: scene.getLookOffset() };
+  const applyCamera = () => {
+    scene.setDolly(camera.dolly);
+    scene.setLookOffset(camera.look);
+  };
+
   const tl = gsap.timeline();
   // The spindle drops clear of the hub on the unclamp clunk, then the door opens.
   tl.call(() => hooks.onUnload(), null, unloadAt)
+    .to(
+      camera,
+      { dolly: 1.3, look: 0.45, duration: 0.9, ease: 'sine.inOut', onUpdate: applyCamera },
+      Math.max(0, release - 0.35),
+    )
+    .to(camera, { dolly: 1, look: 0, duration: 1.1, ease: 'sine.inOut', onUpdate: applyCamera }, release + 0.95)
     .call(() => deck.setSpindleEngaged(false), null, unloadAt + unload.unclampAt - 0.1)
     .to(deck.doorPivot.rotation, { x: -1.35, duration: 0.22, ease: 'power2.out' }, release)
     // Push-to-release catch, then the spring throws it clear of the slot.

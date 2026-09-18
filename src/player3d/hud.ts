@@ -54,6 +54,27 @@ function readout(label: string): { row: HTMLElement; value: HTMLElement } {
   return { row, value };
 }
 
+/**
+ * The analyser's colour ramp, bass to treble: the scene's own pink, orange, gold and ice. `t` runs 0 to 1
+ * across the bands, and the colour is mixed between the two stops it falls between.
+ */
+const BANDS: [number, number, number][] = [
+  [255, 61, 168],
+  [255, 140, 0],
+  [253, 185, 19],
+  [159, 216, 255],
+];
+
+function bandColor(t: number): [number, number, number] {
+  const scaled = Math.max(0, Math.min(1, t)) * (BANDS.length - 1);
+  const low = Math.min(BANDS.length - 1, Math.floor(scaled));
+  const high = Math.min(BANDS.length - 1, low + 1);
+  const mix = scaled - low;
+  return [0, 1, 2].map((channel) =>
+    Math.round(BANDS[low][channel] + (BANDS[high][channel] - BANDS[low][channel]) * mix),
+  ) as [number, number, number];
+}
+
 /** HTML HUD: tracklist, readouts, spectrum and the phone strip. The deck's own LCD carries the status. */
 export class Hud {
   readonly root: HTMLElement;
@@ -466,16 +487,14 @@ export class Hud {
       return;
     }
     const gap = width / values.length;
-    const barWidth = gap * 0.62;
-    const gradient = ctx.createLinearGradient(0, height, 0, 0);
-    gradient.addColorStop(0, '#FF3DA8');
-    gradient.addColorStop(0.55, '#FF8C00');
-    gradient.addColorStop(1, '#FDB913');
-    ctx.fillStyle = gradient;
-    ctx.shadowColor = 'rgba(253, 185, 19, 0.55)';
-    ctx.shadowBlur = 8;
+    const barWidth = gap * 0.58;
+    ctx.shadowBlur = 6;
     values.forEach((value, index) => {
+      // Every band has its own colour, low to high across the scene's palette.
+      const [r, g, b] = bandColor(values.length > 1 ? index / (values.length - 1) : 0);
       const barHeight = Math.max(2, value * height * 0.95);
+      ctx.fillStyle = `rgb(${r} ${g} ${b})`;
+      ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.55)`;
       ctx.fillRect(index * gap + (gap - barWidth) / 2, height - barHeight, barWidth, barHeight);
     });
     ctx.shadowBlur = 0;

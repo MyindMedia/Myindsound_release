@@ -101,11 +101,11 @@
   display: grid;
   pointer-events: none;
   grid-template-columns: minmax(240px, 300px) 1fr minmax(220px, 270px);
-  grid-template-rows: 104px minmax(0, 1fr) 88px;
+  grid-template-rows: 104px minmax(0, 1fr) 66px;
   grid-template-areas:
     '. . .'
     'tracks frame readouts'
-    '. spectrum .';
+    '. . spectrum';
   column-gap: 32px;
   row-gap: 12px;
   padding: 0 36px 24px;
@@ -350,21 +350,23 @@
   outline-offset: 2px;
 }
 
-/* Spectrum */
+/* Spectrum: a short analyser hanging off the bottom of the DECK MD-01 panel. */
 .p3d-spectrum {
   grid-area: spectrum;
   position: relative;
+  align-self: start;
+  height: 54px;
   pointer-events: none !important;
   border-top: 1px solid var(--line-dim);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
 
 .p3d-spectrum canvas {
   position: absolute;
-  inset: 8px 0 0;
+  inset: 6px 0 0;
   width: 100%;
-  height: calc(100% - 8px);
+  height: calc(100% - 6px);
 }
 
 /* Anchored overlays */
