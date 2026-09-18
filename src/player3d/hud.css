@@ -917,10 +917,18 @@
 
 /* ── React Bits Pro ports (src/player3d/hud-fx.ts) ─────────────────── */
 
-/* 404-6 chromatic glitch on status changes (the phone strip) */
-.p3d-strip__status {
+/* 404-6 chromatic glitch, wherever HUD text changes in steps: the phone's status and track counter, the
+   deck readouts, and the collapsed tracklist bar. The offset copies are drawn inside the element, so
+   everything that glitches has to be a positioned box of its own. */
+.p3d-strip__status,
+.p3d-strip__value {
   position: relative;
   display: inline-block;
+}
+
+.p3d-readout__value,
+.p3d-sheet-toggle > span:first-child {
+  position: relative;
 }
 
 .p3d-glitch {

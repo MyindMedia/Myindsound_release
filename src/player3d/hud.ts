@@ -118,6 +118,10 @@ export class Hud {
   private sheetLabel: HTMLElement;
   private tracks: PlayerTrack[] = [];
   private lastStatus: DeckStatus | null = null;
+  /** Text that glitches when it changes: only fired on a real change, never on every frame. */
+  private lastSheetText = '';
+  private lastTrackLabel = '';
+  private lastRepeatText = '';
   private lastIndex = -1;
   private errorActive = false;
 
@@ -137,7 +141,7 @@ export class Hud {
     strip.setAttribute('aria-hidden', 'true');
     this.stripStatus = el('span', 'p3d-strip__status', 'BOOTING');
     this.stripTime = el('span', '', '0:00');
-    this.stripTrack = el('span', '', 'TRK --/--');
+    this.stripTrack = el('span', 'p3d-strip__value', 'TRK --/--');
     this.stripRpm = el('span', '', '0 RPM');
     strip.append(this.stripStatus, this.stripTime, this.stripTrack, this.stripRpm);
 
@@ -442,23 +446,38 @@ export class Hud {
     const rpmLabel = String(Math.round(frame.rpm)).padStart(3, '0');
 
     this.readouts.time.textContent = timeLabel;
-    this.readouts.track.textContent = trackLabel;
     this.readouts.rpm.textContent = rpmLabel;
     this.readouts.format.textContent = track ? track.format.toUpperCase() : '--';
-    this.readouts.repeat.textContent = state.repeat ? 'ON' : 'OFF';
     this.readouts.repeat.classList.toggle('p3d-readout__value--on', state.repeat);
+
+    // Anything that changes in steps rather than ticking glitches on the change, the way the phone's
+    // status does. The clock and the RPM move every frame, so they are left alone.
+    if (trackLabel !== this.lastTrackLabel) {
+      this.lastTrackLabel = trackLabel;
+      glitchText(this.readouts.track, trackLabel, this.reducedMotion);
+      glitchText(this.stripTrack, `TRK ${trackLabel}`, this.reducedMotion);
+    }
+    const repeatText = state.repeat ? 'ON' : 'OFF';
+    if (repeatText !== this.lastRepeatText) {
+      this.lastRepeatText = repeatText;
+      glitchText(this.readouts.repeat, repeatText, this.reducedMotion);
+    }
     this.signalMode.textContent = frame.simulated && state.status === 'playing' ? 'SIGNAL SIM' : 'SIGNAL';
     const now = performance.now();
     this.sparkline.push(frame.level * 1.8, now);
     this.gauge.set(frame.rpm / 300, now);
 
     this.stripTime.textContent = track ? formatTime(state.positionSec) : '0:00';
-    this.stripTrack.textContent = `TRK ${trackLabel}`;
     this.stripRpm.textContent = `${rpmLabel} RPM`;
-    // The phone's collapsed tracklist is the only place the title shows, so it carries the song itself.
-    this.sheetLabel.textContent = track
+    // The phone's collapsed tracklist is the only place the title shows, so it carries the song itself,
+    // and it glitches over to the new one when the track changes.
+    const sheetText = track
       ? `${String(track.position).padStart(2, '0')} · ${track.title}`
       : `TRACKLIST ${trackLabel}${this.sheetSuffix}`;
+    if (sheetText !== this.lastSheetText) {
+      this.lastSheetText = sheetText;
+      glitchText(this.sheetLabel, sheetText, this.reducedMotion);
+    }
 
 
     this.drawSpectrum(frame.spectrum, frame.waveform);
