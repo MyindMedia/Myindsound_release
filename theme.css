@@ -478,6 +478,15 @@ body .sold-out-badge {
   border-color: rgba(253, 185, 19, 0.45);
 }
 
+/* Closed by hand: it goes the way it came rather than vanishing. */
+.mini-player--leaving {
+  opacity: 0;
+  translate: 0 14px;
+  transition:
+    opacity 0.26s ease,
+    translate 0.26s ease;
+}
+
 @keyframes mini-player-in {
   from {
     opacity: 0;
@@ -676,5 +685,81 @@ body .sold-out-badge {
   .mini-player--playing .mini-player__disc,
   .mini-player--blocked .mini-player__key--play {
     animation: none;
+  }
+}
+
+/* ── Nothing snaps ─────────────────────────────────────────────────────── */
+
+/* Each page fades up as it arrives and down as it leaves (src/page-fade.ts), so a link crosses through
+   black instead of cutting. `backwards` rather than `both`, or the finished animation would out-rank the
+   fade-out's own opacity. */
+@keyframes myind-page-in {
+  from {
+    opacity: 0;
+  }
+}
+
+body {
+  animation: myind-page-in 0.45s ease backwards;
+}
+
+body.page-leaving {
+  opacity: 0;
+  transition: opacity 0.17s ease;
+}
+
+/* Anything the pages show and hide by hand comes up the same way rather than appearing outright. */
+@keyframes myind-rise-in {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+
+body .modal-overlay,
+body .cart-modal,
+body .quickview-modal,
+body #success-content,
+body #error-state,
+body #dashboard-content,
+body #dashboard-signin,
+body .products-grid,
+body .merch-hero {
+  animation: myind-rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+/* Closing is a fade too: the class goes on first and the element is hidden when it has gone. */
+body .modal-overlay.is-closing,
+body .cart-modal.is-closing,
+body .quickview-modal.is-closing {
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+body a,
+body button,
+body .product-card,
+body .action-card,
+body .nav-link {
+  transition-duration: 0.28s;
+  transition-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  body .modal-overlay,
+  body .cart-modal,
+  body .quickview-modal,
+  body #success-content,
+  body #error-state,
+  body #dashboard-content,
+  body #dashboard-signin,
+  body .products-grid,
+  body .merch-hero {
+    animation: none;
+  }
+
+  body.page-leaving {
+    transition: none;
   }
 }

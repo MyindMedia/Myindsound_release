@@ -7,6 +7,8 @@
  *
  * Styling lives with the rest of the site's chrome in `theme.css`.
  */
+// Loaded on every page but the player, so it is also where the site's page-to-page fade is wired in.
+import './page-fade';
 import {
   clearHandoff,
   readHandoff,
@@ -238,12 +240,13 @@ class MiniPlayer {
     });
   }
 
-  /** Closed by hand, or the audio failed: stop, forget it, and take the controls off the page. */
+  /** Closed by hand, or the audio failed: stop, forget it, and let the controls fade off the page. */
   private dismiss(): void {
     this.audio.pause();
     this.audio.removeAttribute('src');
     clearHandoff();
-    this.root.remove();
+    this.root.classList.add('mini-player--leaving');
+    window.setTimeout(() => this.root.remove(), 280);
   }
 }
 

@@ -9,6 +9,7 @@ import './player3d/hud.css';
 import './nav-auth';
 import { initAnalytics, track } from './analytics';
 import { mountNavReveal } from './nav-reveal';
+import './page-fade';
 import { clearHandoff, clearOpened, isReload, markOpened, readHandoff, resumeFrom, wasOpened } from './playback-handoff';
 import { CheckoutFlow } from './checkout';
 import { getClerk, isClerkConfigured } from './clerk';

@@ -20,9 +20,16 @@
   -webkit-font-smoothing: antialiased;
 }
 
-.p3d [hidden] {
+/* Nothing on the HUD snaps on or off. `hidden` still takes an element out of the layout and the tab order,
+   but the display switch is carried through the transition (`allow-discrete`), so these fade and lift in,
+   and fade out again before they go. `translate`, not `transform`, because most of them are centred with
+   a transform of their own. */
+/* `hidden` takes things out of the layout, except the three overlays that come and go mid-session: those
+   fade out first and are pulled from the tab order at the end of it (see the end of this file). */
+.p3d [hidden]:not(:is(.p3d-insert, .p3d-inspect-hint, .p3d-open-hint)) {
   display: none !important;
 }
+
 
 .p3d-mono {
   font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -209,6 +216,13 @@
   font: 500 14px/1.25 'Inter', system-ui, sans-serif;
   text-align: left;
   cursor: pointer;
+}
+
+.p3d-track {
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
 }
 
 .p3d-track:hover {
@@ -585,16 +599,29 @@
   }
 
   /* A long title runs out in an ellipsis rather than shoving the chevron off the end. */
-  .p3d-sheet-toggle > span:first-child {
+  .p3d-sheet-toggle__label {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: left;
+    transform-origin: left center;
+    will-change: transform;
   }
 
   .p3d-sheet-toggle__chevron {
     flex: none;
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Opening: the title squashes out of the line and springs back, bright for a moment, the way a tube
+     display jumps when it switches. Closing settles the other way. */
+  .p3d-sheet-toggle__label--open {
+    animation: p3d-label-open 0.5s cubic-bezier(0.22, 1.35, 0.32, 1) 1;
+  }
+
+  .p3d-sheet-toggle__label--close {
+    animation: p3d-label-close 0.44s cubic-bezier(0.3, 0.9, 0.3, 1) 1;
   }
 
   .p3d-sheet-toggle:focus-visible {
@@ -739,9 +766,14 @@
   z-index: 20;
 }
 
-/* Open tracklist sheet covers the deck overlays */
-.p3d--sheet-open .p3d-insert {
+/* Open tracklist sheet covers the deck overlays: they fade under it rather than blinking out. */
+.p3d--sheet-open .p3d-insert,
+.p3d--sheet-open .p3d-inspect-hint {
+  opacity: 0;
   visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0s linear 0.3s;
 }
 
 @media (max-width: 900px) {
@@ -795,9 +827,7 @@
   z-index: 6;
 }
 
-.p3d--sheet-open .p3d-inspect-hint {
-  visibility: hidden;
-}
+
 
 /* Previews note: shown to anyone not hearing the full album. */
 .p3d-access {
@@ -927,7 +957,7 @@
 }
 
 .p3d-readout__value,
-.p3d-sheet-toggle > span:first-child {
+.p3d-sheet-toggle__label {
   position: relative;
 }
 
@@ -1295,14 +1325,115 @@ body:has(.p3d--intro) .main-nav {
   background: var(--gold);
 }
 
+@keyframes p3d-label-open {
+  0% {
+    transform: scale(0.86, 1.22);
+    filter: brightness(2.4) blur(0.5px);
+  }
+
+  40% {
+    transform: scale(1.07, 0.93);
+    filter: brightness(1.4);
+  }
+
+  70% {
+    transform: scale(0.99, 1.02);
+  }
+
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes p3d-label-close {
+  0% {
+    transform: scale(1.06, 0.88);
+    filter: brightness(2);
+  }
+
+  55% {
+    transform: scale(0.98, 1.04);
+    filter: brightness(1.2);
+  }
+
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
 @keyframes p3d-open-pulse {
   50% {
-    opacity: 0.45;
+    filter: brightness(0.6);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .p3d-open-hint {
+    animation: none;
+  }
+}
+
+/* ── Nothing snaps on or off ───────────────────────────────────────────── */
+
+/* The overlays that come and go while the deck is in use fade instead of blinking. They are absolutely
+   positioned, so `hidden` can leave them in the layout and let visibility do the work; everything else the
+   HUD hides still leaves the flow outright. Placed last so it out-ranks the opening scene's slow fade,
+   which is only meant for the first reveal. */
+.p3d-insert,
+.p3d-inspect-hint,
+.p3d-open-hint {
+  transition:
+    opacity 0.42s ease,
+    translate 0.42s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s;
+}
+
+:is(.p3d-insert, .p3d-inspect-hint, .p3d-open-hint)[hidden] {
+  /* The browser's own `[hidden] { display: none }` would take it out of the layout before it has faded. */
+  display: block;
+  opacity: 0;
+  translate: 0 10px;
+  visibility: hidden;
+  pointer-events: none;
+  /* Out of reach only once it has actually gone. */
+  transition:
+    opacity 0.42s ease,
+    translate 0.42s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 0.42s;
+}
+
+/* The notes inside the panels are in the flow, so they rise in when they arrive. */
+@keyframes p3d-rise-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+.p3d-access:not([hidden]),
+.p3d-error:not([hidden]) {
+  animation: p3d-rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+/* The opening scene fades the HUD as a whole; its children hold still until it has. */
+.p3d--intro .p3d-insert,
+.p3d--intro .p3d-inspect-hint,
+.p3d--intro .p3d-open-hint {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p3d-insert,
+  .p3d-inspect-hint,
+  .p3d-open-hint,
+  :is(.p3d-insert, .p3d-inspect-hint, .p3d-open-hint)[hidden] {
+    transition: none;
+  }
+
+  .p3d-access:not([hidden]),
+  .p3d-error:not([hidden]) {
     animation: none;
   }
 }

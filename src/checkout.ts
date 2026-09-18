@@ -60,11 +60,22 @@ export class CheckoutFlow {
   }
 
   private show() {
-    if (this.modal) this.modal.style.display = 'flex';
+    if (!this.modal) return;
+    this.modal.classList.remove('is-closing');
+    this.modal.style.display = 'flex';
   }
 
+  /** Fades out before it goes, so the page doesn't snap back (`theme.css`, `.is-closing`). */
   public hide() {
-    if (this.modal) this.modal.style.display = 'none';
+    const modal = this.modal;
+    if (!modal) return;
+    modal.classList.add('is-closing');
+    window.setTimeout(() => {
+      // Reopened while it was fading: leave it alone.
+      if (!modal.classList.contains('is-closing')) return;
+      modal.style.display = 'none';
+      modal.classList.remove('is-closing');
+    }, 220);
   }
 
   private showUpsell() {

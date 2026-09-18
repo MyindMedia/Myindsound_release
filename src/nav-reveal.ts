@@ -10,6 +10,9 @@
 
 /** How far down the top of the window counts as "the nav's area" while it is closed. */
 const REVEAL_ZONE = 88;
+/** The pointer has left the nav's area: it retracts almost at once, with just enough grace to cross a gap. */
+const LEAVE_MS = 450;
+/** Opened by a tap or the keyboard, where there is no pointer to leave: it goes on its own after this. */
 const HIDE_AFTER_MS = 5000;
 
 export function mountNavReveal(): void {
@@ -35,9 +38,9 @@ export function mountNavReveal(): void {
     peek.setAttribute('aria-expanded', 'false');
   };
 
-  const countdown = (): void => {
+  const countdown = (delay = HIDE_AFTER_MS): void => {
     window.clearTimeout(timer);
-    timer = window.setTimeout(close, HIDE_AFTER_MS);
+    timer = window.setTimeout(close, delay);
   };
 
   const show = (): void => {
@@ -60,15 +63,16 @@ export function mountNavReveal(): void {
         show();
         hold();
       } else if (open && !timer) {
-        countdown();
+        // The pointer has moved off the nav: retract rather than sitting there for five seconds.
+        countdown(LEAVE_MS);
       }
     },
     { passive: true },
   );
 
   // Off the window entirely (or into another tab): let it park itself.
-  document.documentElement.addEventListener('pointerleave', () => open && countdown());
-  window.addEventListener('blur', () => open && countdown());
+  document.documentElement.addEventListener('pointerleave', () => open && countdown(LEAVE_MS));
+  window.addEventListener('blur', () => open && countdown(LEAVE_MS));
 
   peek.addEventListener('click', () => {
     if (open) close();

@@ -163,12 +163,13 @@ export class Hud {
     this.sheetToggle = el('button', 'p3d-sheet-toggle p3d-mono');
     this.sheetToggle.type = 'button';
     this.sheetToggle.setAttribute('aria-expanded', 'false');
-    this.sheetLabel = el('span', '', 'TRACKLIST --/--');
+    this.sheetLabel = el('span', 'p3d-sheet-toggle__label', 'TRACKLIST --/--');
     this.sheetToggle.append(this.sheetLabel, el('span', 'p3d-sheet-toggle__chevron', '▲'));
     this.sheetToggle.addEventListener('click', () => {
       const open = !this.root.classList.contains('p3d--sheet-open');
       this.root.classList.toggle('p3d--sheet-open', open);
       this.sheetToggle.setAttribute('aria-expanded', String(open));
+      this.popLabel(open ? 'open' : 'close');
     });
 
     this.frame = el('div', 'p3d-frame');
@@ -481,6 +482,19 @@ export class Hud {
 
 
     this.drawSpectrum(frame.spectrum, frame.waveform);
+  }
+
+  /**
+   * The song title springs when the sheet opens and settles when it closes: a squash and a flare of
+   * brightness, the way a tube display jumps as it switches.
+   */
+  private popLabel(direction: 'open' | 'close'): void {
+    if (this.reducedMotion) return;
+    const classes = ['p3d-sheet-toggle__label--open', 'p3d-sheet-toggle__label--close'];
+    this.sheetLabel.classList.remove(...classes);
+    void this.sheetLabel.offsetWidth;
+    this.sheetLabel.classList.add(classes[direction === 'open' ? 0 : 1]);
+    window.setTimeout(() => this.sheetLabel.classList.remove(...classes), 520);
   }
 
   private measure(): void {
