@@ -38,8 +38,15 @@
   },
   {
    "position": 6,
+   "title": "He The Truth",
+   "streamUrl": "/assets/audio/lit-previews/06-he-the-truth.mp3",
+   "durationSeconds": 30.0,
+   "previewStart": 45.8
+  },
+  {
+   "position": 7,
    "title": "Faith",
-   "streamUrl": "/assets/audio/lit-previews/06-faith.mp3",
+   "streamUrl": "/assets/audio/lit-previews/07-faith.mp3",
    "durationSeconds": 30.0,
    "previewStart": 45.6
   }

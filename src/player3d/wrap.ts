@@ -109,6 +109,7 @@ const TRACKS: [string, string][] = [
   ['VICTORY IN THE VALLEY', '2:38'],
   ['TIRED', '2:22'],
   ['LET HIM COOK', '2:19'],
+  ['HE THE TRUTH', '3:03'],
   ['FAITH', '3:03'],
 ];
 
@@ -155,7 +156,7 @@ function backCover(size: number): HTMLCanvasElement {
 
   ctx.fillStyle = 'rgba(245, 241, 230, 0.45)';
   ctx.font = `500 ${size * 0.021}px ${MONO}`;
-  ctx.fillText('MINIDISC · 6 TRACKS · MS-LIT-001', left, size * 0.79);
+  ctx.fillText('MINIDISC · 7 TRACKS · MS-LIT-001', left, size * 0.79);
   ctx.fillText('© MYIND SOUND. ALL RIGHTS RESERVED.', left, size * 0.83);
   ctx.fillText('MYINDSOUND.COM', left, size * 0.87);
 
@@ -285,10 +286,10 @@ function addPeel(material: Material, uniforms: PeelUniforms): void {
          if (peelTheta >= 0.0) {
            float past = dot(position.xy, uDir) - uFold;
            vec2 base = position.xy - uDir * past;
-           // The roll is dragged off the package and towards the viewer, so it hangs over the screen
-           // instead of staying inside the sleeve's outline.
+           // The roll is dragged the way the peel runs, down towards the bottom-left corner, and out
+           // towards the viewer, so it hangs over the screen instead of staying inside the sleeve.
            float hang = uDrag * smoothstep(0.0, 1.2, peelTheta);
-           transformed.xy = base + uDir * (uRadius * sin(peelTheta) + hang * 0.45);
+           transformed.xy = base + uDir * (uRadius * sin(peelTheta) - hang * 0.45);
            // Mostly towards the viewer: the coil lifts off the sleeve instead of sliding across it.
            transformed.z = position.z + uRadius * (1.0 - cos(peelTheta)) + hang * 1.3;
          }`,
@@ -579,13 +580,14 @@ export class DiscWrap {
     this.uniforms.uFold.value = start + (end - start) * peel;
     this.uniforms.uDrag.value = peel * this.dragBy;
 
-    // The sheet lifts off the face as it rolls, then the whole wrapper is carried out of shot. It leaves the
-    // frame rather than fading, so nothing dissolves on screen.
+    // The sheet lifts off the face as it rolls, then the whole wrapper is thrown off the way the peel ran:
+    // the fold sweeps towards the bottom-left corner, so the plastic carries on that way and out of shot.
+    // It leaves the frame rather than fading, so nothing dissolves on screen.
     const direction = this.uniforms.uDir.value;
     const fall = discard * discard;
     this.peelGroup.position.set(
-      direction.x * discard * this.exitBy,
-      direction.y * discard * this.exitBy * 0.55 - fall * this.exitBy * 0.8,
+      -direction.x * discard * this.exitBy,
+      -direction.y * discard * this.exitBy * 0.55 - fall * this.exitBy * 0.8,
       discard * 0.35 + peel * 0.012,
     );
     this.peelGroup.rotation.set(discard * 0.9, discard * 0.4, discard * 1.4);
