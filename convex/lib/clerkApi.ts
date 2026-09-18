@@ -34,6 +34,23 @@ export async function findOrCreateClerkUser(email: string, fullName?: string): P
   return ((await create.json()) as ClerkUser).id;
 }
 
+/**
+ * A one-shot ticket that signs a buyer straight into their new account (Clerk's sign-in tokens). The site
+ * hands it to `signIn.create({ strategy: 'ticket' })`, so paying and typing an email is all it takes to
+ * reach the dashboard. Short-lived by design: it is minted only for a checkout that Stripe says is paid.
+ */
+export async function createSignInTicket(clerkId: string, expiresInSeconds = 600): Promise<string> {
+  const response = await fetch(`${CLERK_API}/sign_in_tokens`, {
+    method: 'POST',
+    headers: clerkHeaders(),
+    body: JSON.stringify({ user_id: clerkId, expires_in_seconds: expiresInSeconds }),
+  });
+  if (!response.ok) throw new Error(`Clerk sign-in token failed (${response.status})`);
+  const { token } = (await response.json()) as { token?: string };
+  if (!token) throw new Error('Clerk sign-in token came back empty');
+  return token;
+}
+
 export async function deleteClerkUser(clerkId: string): Promise<boolean> {
   const response = await fetch(`${CLERK_API}/users/${encodeURIComponent(clerkId)}`, {
     method: 'DELETE',

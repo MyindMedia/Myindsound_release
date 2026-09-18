@@ -7,6 +7,12 @@ import { Clerk } from '@clerk/clerk-js';
 
 const CLERK_PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
 
+/**
+ * How long a sign-in lasts. After a day the session is dropped and they sign in again, whether they got
+ * here through the sign-in page or straight from a purchase (`purchase-signin.ts`).
+ */
+const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
+
 // Singleton Clerk instance
 let clerkInstance: Clerk | null = null;
 let clerkPromise: Promise<Clerk> | null = null;
@@ -51,6 +57,7 @@ export async function getClerk(): Promise<Clerk> {
     try {
       const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
       await clerk.load();
+      await endStaleSession(clerk);
       clerkInstance = clerk;
       return clerk;
     } catch (error: any) {
@@ -61,6 +68,18 @@ export async function getClerk(): Promise<Clerk> {
   })();
 
   return clerkPromise;
+}
+
+/** A day after signing in, the session goes and they sign in again. */
+async function endStaleSession(clerk: Clerk): Promise<void> {
+  const session = clerk.session;
+  const startedAt = session?.createdAt ? new Date(session.createdAt).getTime() : 0;
+  if (!session || !startedAt || Date.now() - startedAt < SESSION_MAX_MS) return;
+  try {
+    await clerk.signOut();
+  } catch (error) {
+    console.warn('Could not end the expired session:', error);
+  }
 }
 
 /**

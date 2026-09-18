@@ -5,6 +5,7 @@
 import { api, convexErrorMessage, getConvex } from './convex';
 import { saveFromUrl } from './download';
 import { getClerk, isClerkConfigured } from './clerk';
+import { claimAccountFromCheckout } from './purchase-signin';
 import { markOpened } from './playback-handoff';
 
 function show(id: string, display = 'block') {
@@ -37,16 +38,34 @@ async function startStreamReveal() {
   }
 }
 
-async function offerSignIn() {
+/**
+ * Paying is signing up: the checkout email already made the account, so this hands it over signed in and
+ * points at the dashboard. Only if that can't be done does it fall back to asking them to sign in.
+ */
+async function offerAccount(sessionId: string) {
   if (!isClerkConfigured()) return;
   try {
-    const clerk = await getClerk();
-    if (clerk.user) return;
+    const signedIn = (await claimAccountFromCheckout(sessionId)) || Boolean((await getClerk()).user);
+    const prompt = document.getElementById('signup-prompt');
     const container = document.getElementById('clerk-signup-container');
-    if (!container) return;
+    if (!prompt || !container) return;
     show('signup-prompt');
-    // The checkout already created the account, so buyers sign in with their checkout email.
-    clerk.mountSignIn(container as HTMLDivElement, { afterSignInUrl: '/', signUpUrl: '/login.html#sign-up' });
+
+    if (signedIn) {
+      const heading = prompt.querySelector('h2');
+      const copy = prompt.querySelector('.description');
+      if (heading) heading.textContent = 'YOUR ACCOUNT IS READY';
+      if (copy) {
+        copy.textContent =
+          'It was made with your checkout email, and you are signed in. Everything you have bought is in your dashboard; after 24 hours you sign in again.';
+      }
+      container.replaceChildren(linkButton('OPEN MY DASHBOARD', 'dashboard-btn', '/dashboard'));
+      return;
+    }
+
+    // Couldn't be signed in automatically: the account still exists, so they sign in with the same email.
+    const clerk = await getClerk();
+    clerk.mountSignIn(container as HTMLDivElement, { afterSignInUrl: '/dashboard', signUpUrl: '/login.html#sign-up' });
   } catch (err) {
     console.error('Clerk load error:', err);
   }
@@ -94,7 +113,7 @@ async function init() {
     show('success-content');
     // They have paid: PLAY THE ALBUM goes straight into the player, no unwrapping it again.
     markOpened();
-    void offerSignIn();
+    void offerAccount(sessionId);
   } catch (err) {
     console.error('Session verification failed:', convexErrorMessage(err, 'unknown error'));
     hide('loading-state');

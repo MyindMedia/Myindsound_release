@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action, internalAction, type ActionCtx } from './_generated/server';
 import { isCheckoutSessionId, withinDownloadWindow } from './downloadLogic';
-import { findOrCreateClerkUser } from './lib/clerkApi';
+import { createSignInTicket, findOrCreateClerkUser } from './lib/clerkApi';
 import { fail } from './lib/errors';
 import { fileUrl } from './lib/storage';
 import { playerTracks, type PlayerTrack } from './tracks';
@@ -196,6 +196,34 @@ export const streamForCheckoutSession = action({
       fail('NOT_ENTITLED', 'That checkout did not include this release.');
     }
     return playerTracks(ctx, product);
+  },
+});
+
+/**
+ * The account a buyer already paid for, handed to them signed in.
+ *
+ * Paying and typing an email is the whole sign-up: this checks the checkout with Stripe, makes sure the
+ * account and the licence exist (the webhook usually got there first; this is the same idempotent path),
+ * and returns a single-use Clerk ticket the site turns into a session. Held to the same 24-hour window as
+ * the downloads, because the checkout id is what proves the purchase.
+ */
+export const claimAccountForCheckoutSession = action({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }): Promise<{ ticket: string; email: string }> => {
+    if (!isCheckoutSessionId(sessionId)) fail('INVALID_INPUT', 'That checkout link is not valid.');
+    const stripe = stripeClient();
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!isPaidSession(session)) fail('SESSION_NOT_PAID', 'This checkout has not been paid.');
+    if (!withinDownloadWindow(session.created, Date.now())) {
+      fail('DOWNLOAD_WINDOW_CLOSED', 'This link has expired. Sign in to reach your dashboard.');
+    }
+    const email = sessionEmail(session);
+    if (!email) fail('INVALID_INPUT', 'That checkout has no email on it.');
+
+    // Idempotent: if the webhook has already run this is a no-op, and if it hasn't the buyer doesn't wait.
+    await fulfilSession(ctx, stripe, session);
+    const clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined);
+    return { ticket: await createSignInTicket(clerkId), email };
   },
 });
 

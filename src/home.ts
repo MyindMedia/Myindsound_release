@@ -18,6 +18,7 @@ import { LitStreamSource } from './player3d/lit-stream-source';
 import { PlayerApp } from './player3d/player-app';
 import { PreviewTrackSource } from './player3d/preview-track-source';
 import { CheckoutSessionTrackSource, ConvexTrackSource } from './player3d/track-source';
+import { claimAccountFromCheckout } from './purchase-signin';
 import { purchaseSessionId, rememberPurchase } from './purchase-session';
 
 const PRODUCT = 'lit';
@@ -49,7 +50,11 @@ async function start(): Promise<void> {
   // (analytics included) can see it.
   const { paid } = readCheckoutReturn();
   initAnalytics();
-  if (paid) track('purchase_completed', { product_id: PRODUCT });
+  if (paid) {
+    track('purchase_completed', { product_id: PRODUCT });
+    // Paying and typing an email is the whole sign-up: the account it created is handed over signed in.
+    void claimAccountFromCheckout(purchaseSessionId() ?? '');
+  }
   // style.css hides overflow for the old one-screen layout; this page scrolls.
   document.documentElement.style.overflow = 'auto';
   document.body.style.overflow = 'auto';

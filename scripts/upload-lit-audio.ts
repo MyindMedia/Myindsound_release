@@ -18,7 +18,16 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 type TrackConfig = { position: number; title: string; file: string; name: string; previewStart?: number; gainDb?: number };
-type Config = { slug: string; defaultSourceDir: string; zipName: string; albumLufs?: number; previewLufs?: number; tracks: TrackConfig[] };
+type AlbumConfig = { title: string; artist: string; year: string; genre: string; publisher: string; cover: string };
+type Config = {
+  slug: string;
+  defaultSourceDir: string;
+  zipName: string;
+  albumLufs?: number;
+  previewLufs?: number;
+  album: AlbumConfig;
+  tracks: TrackConfig[];
+};
 
 const root = resolve(import.meta.dirname, '..');
 const config = JSON.parse(readFileSync(join(root, 'scripts/lit-tracks.json'), 'utf8')) as Config;
@@ -50,6 +59,50 @@ function sha256(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('base64');
 }
 
+/** The cover that goes into every tagged MP3 and rides along in the zip. */
+function buildCover(): string {
+  const source = join(root, config.album.cover);
+  if (!existsSync(source)) throw new Error(`Album cover not found: ${config.album.cover}`);
+  const out = join(cacheDir, 'cover.jpg');
+  if (!existsSync(out) || statSync(out).mtimeMs < statSync(source).mtimeMs) {
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', source, '-vf', 'scale=1000:1000:flags=lanczos', '-q:v', '3', out]);
+    // The cover's timestamps follow the artwork, so the zip stays byte-identical between runs.
+    const { atime, mtime } = statSync(source);
+    utimesSync(out, atime, mtime);
+  }
+  return out;
+}
+
+/**
+ * What a buyer actually downloads: the same audio as the stream, stream-copied (so nothing is re-encoded
+ * twice), carrying clean album tags and the cover art, named `01 - Title.mp3`.
+ */
+function stageForAlbum(track: TrackConfig, audioPath: string, coverPath: string, staged: string): void {
+  const { album } = config;
+  execFileSync('ffmpeg', [
+    '-y', '-v', 'error',
+    '-i', audioPath,
+    '-i', coverPath,
+    '-map', '0:a', '-map', '1:v',
+    '-c:a', 'copy', '-c:v', 'mjpeg',
+    '-map_metadata', '-1',
+    '-id3v2_version', '3', '-write_id3v1', '1',
+    '-disposition:v', 'attached_pic',
+    '-metadata:s:v', 'title=Album cover',
+    '-metadata:s:v', 'comment=Cover (front)',
+    '-metadata', `title=${track.title}`,
+    '-metadata', `artist=${album.artist}`,
+    '-metadata', `album_artist=${album.artist}`,
+    '-metadata', `album=${album.title}`,
+    '-metadata', `track=${track.position}/${config.tracks.length}`,
+    '-metadata', `date=${album.year}`,
+    '-metadata', `genre=${album.genre}`,
+    '-metadata', `publisher=${album.publisher}`,
+    '-metadata', `copyright=(C) ${album.year} ${album.publisher}`,
+    staged,
+  ]);
+}
+
 function prepare() {
   if (!existsSync(sourceDir)) throw new Error(`Masters folder not found: ${sourceDir}`);
   mkdirSync(cacheDir, { recursive: true });
@@ -58,6 +111,7 @@ function prepare() {
   const zipStaging = join(cacheDir, 'zip');
   rmSync(zipStaging, { recursive: true, force: true });
   mkdirSync(zipStaging, { recursive: true });
+  const coverPath = buildCover();
 
   for (const track of config.tracks) {
     const source = join(sourceDir, track.file);
@@ -74,7 +128,6 @@ function prepare() {
     // (measured with ffmpeg loudnorm, recorded in the manifest). Nothing else about the mix is touched, and
     // the levelled file is what both the stream and the album zip carry, so a buyer hears one album.
     const gainDb = track.gainDb ?? 0;
-    let albumPath = source;
     if (gainDb) {
       const levelled = join(cacheDir, `${track.name}-${gainDb.toFixed(2)}dB.mp3`);
       if (!existsSync(levelled) || statSync(levelled).mtimeMs < statSync(streamPath).mtimeMs) {
@@ -84,18 +137,22 @@ function prepare() {
         ]);
       }
       streamPath = levelled;
-      albumPath = levelled;
     }
     uploads.push({ kind: 'stream', position: track.position, path: streamPath, contentType: 'audio/mpeg' });
-    const extension = gainDb ? '.mp3' : track.file.slice(track.file.lastIndexOf('.'));
-    const numbered = `${String(track.position).padStart(2, '0')} - ${track.title.replace(/[/\\:]/g, '-')}${extension}`;
+    const numbered = `${String(track.position).padStart(2, '0')} - ${track.title.replace(/[/\\:]/g, '-')}.mp3`;
     const staged = join(zipStaging, numbered);
-    copyFileSync(albumPath, staged);
+    stageForAlbum(track, streamPath, coverPath, staged);
     // Keep the master's timestamps so the zip is byte-identical between runs (and isn't re-uploaded).
     const { atime, mtime } = statSync(source);
     utimesSync(staged, atime, mtime);
     seedTracks.push({ position: track.position, title: track.title, durationSeconds: probeDuration(streamPath) });
   }
+
+  // The cover travels with the songs, for players that show a folder image.
+  const coverInZip = join(zipStaging, 'cover.jpg');
+  copyFileSync(coverPath, coverInZip);
+  const coverTimes = statSync(coverPath);
+  utimesSync(coverInZip, coverTimes.atime, coverTimes.mtime);
 
   const zipPath = join(cacheDir, config.zipName);
   rmSync(zipPath, { force: true });

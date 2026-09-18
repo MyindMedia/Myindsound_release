@@ -5,6 +5,14 @@
   "_levels": "Measured with ffmpeg loudnorm (EBU R128). Five of the seven masters sit between -13.9 and -13.3 LUFS, so the album level is -13.7 and only the outliers carry a gainDb: everything else is used untouched. The 30-second previews are each normalised to previewLufs, because they are heard on their own.",
   "albumLufs": -13.7,
   "previewLufs": -14.0,
+  "album": {
+    "title": "LIT",
+    "artist": "Tha Myind",
+    "year": "2026",
+    "genre": "Hip-Hop",
+    "publisher": "Myind Sound",
+    "cover": "public/assets/images/lit-sleeve.webp"
+  },
   "tracks": [
     {"position": 1, "title": "L.I.T. (Living In Truth)", "file": "L.I.T. ( Living In Truth).mp3", "name": "01-lit"},
     {"position": 2, "title": "G. O. D.", "file": "G. O. D.mp3", "name": "02-god"},
