@@ -101,7 +101,7 @@
   display: grid;
   pointer-events: none;
   grid-template-columns: minmax(240px, 300px) 1fr minmax(220px, 270px);
-  grid-template-rows: 150px minmax(0, 1fr) 88px;
+  grid-template-rows: 104px minmax(0, 1fr) 88px;
   grid-template-areas:
     '. . .'
     'tracks frame readouts'
@@ -570,6 +570,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     min-height: 48px;
     padding: 0 16px;
     font-size: 12px;
@@ -579,6 +580,19 @@
     background: var(--panel);
     border: 1px solid var(--line-dim);
     cursor: pointer;
+  }
+
+  /* A long title runs out in an ellipsis rather than shoving the chevron off the end. */
+  .p3d-sheet-toggle > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .p3d-sheet-toggle__chevron {
+    flex: none;
   }
 
   .p3d-sheet-toggle:focus-visible {

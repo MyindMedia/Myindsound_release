@@ -434,7 +434,10 @@ export class Hud {
     this.stripTime.textContent = track ? formatTime(state.positionSec) : '0:00';
     this.stripTrack.textContent = `TRK ${trackLabel}`;
     this.stripRpm.textContent = `${rpmLabel} RPM`;
-    this.sheetLabel.textContent = `TRACKLIST ${trackLabel}${this.sheetSuffix}`;
+    // The phone's collapsed tracklist is the only place the title shows, so it carries the song itself.
+    this.sheetLabel.textContent = track
+      ? `${String(track.position).padStart(2, '0')} · ${track.title}`
+      : `TRACKLIST ${trackLabel}${this.sheetSuffix}`;
 
 
     this.drawSpectrum(frame.spectrum, frame.waveform);

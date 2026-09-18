@@ -178,11 +178,15 @@ export class PlayerScene {
     const tanHalf = Math.tan((FOV * Math.PI) / 360);
     const deckW = this.deckBounds.maxX - this.deckBounds.minX;
     const deckH = this.deckBounds.maxY - this.deckBounds.minY;
-    // Leave room for tilt so the deck never clips its frame.
-    const fill = 0.94;
+    // How much of the HUD's frame the deck fills. On a phone it stays inside it, with room for the tilt;
+    // on a desktop it is deliberately bigger than the box, because the deck is what people came for and
+    // the frame is only a layout hint (there is nothing to collide with above or below it).
+    const fill = width <= 900 ? 0.94 : 1.22;
     const byHeight = (deckH * height) / (2 * tanHalf * frameH * fill);
     const byWidth = (deckW * height) / (2 * tanHalf * frameW * fill);
-    this.baseDistance = Math.max(byHeight, byWidth);
+    // ...but never so close that the deck runs off the top and bottom of a tall window.
+    const byWindow = deckH / (2 * tanHalf * 0.86);
+    this.baseDistance = Math.max(byHeight, byWidth, byWindow);
 
     const frameCenterX = rect.left + rect.width / 2;
     const frameCenterY = rect.top + rect.height / 2;
