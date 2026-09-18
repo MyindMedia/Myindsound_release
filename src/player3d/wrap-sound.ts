@@ -9,8 +9,8 @@ import { UNWRAP } from './wrap-math';
 
 type Part = keyof typeof sounds;
 
-/** Against the music volume. */
-const MIX = 0.85;
+/** Against the music volume. Kept well under it: the packaging is a texture, not an event. */
+const MIX = 0.45;
 
 const buffers: Partial<Record<Part, AudioBuffer>> = {};
 let fetched: Promise<Partial<Record<Part, ArrayBuffer>>> | null = null;
@@ -77,10 +77,10 @@ export function playUnwrap(ctx: AudioContext, volume: number): number {
     {
       part: 'peel',
       at: UNWRAP.peel.at,
-      level: 1,
+      level: 0.9,
       rate: Math.max(0.4, sounds.peel.duration / UNWRAP.peel.duration),
     },
-    { part: 'sleeve', at: Math.max(0, UNWRAP.slide.at - 0.1), level: 1, rate: 0.9 },
+    { part: 'sleeve', at: Math.max(0, UNWRAP.slide.at - 0.1), level: 0.85, rate: 0.9 },
   ];
 
   for (const hit of hits) play(ctx, out, now, hit);

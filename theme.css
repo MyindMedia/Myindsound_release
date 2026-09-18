@@ -1,0 +1,438 @@
+/* ============================================================================
+   Myind Sound HUD theme
+
+   One look across the whole site: the palette, the type and the chrome of the
+   MiniDisc player's HUD (`src/player3d/hud.css`), applied to every page.
+   Loaded after `style.css`, so it repoints that stylesheet's tokens instead of
+   replacing it, and then restyles the parts that carry the look: the nav, the
+   panels and cards, the buttons, the store grid.
+
+   Rules of the house: ink background, gold hairlines, panels that float over
+   the backdrop, mono uppercase for anything that reads as an instrument label,
+   Inter for anything you actually read.
+   ========================================================================== */
+
+:root {
+  --gold: #fdb913;
+  --orange: #ff8c00;
+  --pink: #ff3da8;
+  --ice: #9fd8ff;
+  --ink: #07070c;
+  --panel: rgba(9, 8, 16, 0.78);
+  --panel-solid: #0b0a12;
+  --line: rgba(253, 185, 19, 0.6);
+  --line-dim: rgba(253, 185, 19, 0.22);
+  --text: #f5f1e6;
+  --muted: rgba(245, 241, 230, 0.66);
+  --font-hud: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --float: 0 18px 44px rgba(0, 0, 0, 0.55);
+  --float-lift: 0 26px 60px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(253, 185, 19, 0.5);
+
+  /* The older palette, repointed: everything that already reads these follows the HUD. */
+  --bg-color: var(--ink);
+  --card-bg: var(--panel);
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --accent-gold: var(--gold);
+  --accent-color: var(--gold);
+  --accent-pink: var(--pink);
+  --border-color: var(--line-dim);
+  --font-main: var(--font-hud);
+}
+
+body {
+  background-color: var(--ink);
+  color: var(--text);
+  font-family: var(--font-hud);
+  /* Nothing on this site scrolls sideways. */
+  overflow-x: clip;
+}
+
+/* The WebGL backdrop stays, sunk a little further under the ink. */
+body #background-overlay {
+  background: rgba(7, 7, 12, 0.82);
+}
+
+body .bg-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(253, 185, 19, 0.07) 0%, transparent 62%);
+}
+
+/* ── Type ─────────────────────────────────────────────────────────────── */
+
+body h1,
+body h2,
+body h3,
+body .merch-title,
+body .dashboard-title,
+body .auth-title {
+  font-family: var(--font-hud);
+  letter-spacing: 0.06em;
+}
+
+/* Instrument labels: anything small, uppercase and spaced out is mono. */
+body .nav-link,
+body .auth-tab,
+body .section-label,
+body .merch-subtitle,
+body .dashboard-subtitle,
+body .auth-subtitle,
+body .product-price,
+body .quickview-price,
+body .stat-value,
+body .account-member,
+body .sold-out-badge,
+body .quick-view-btn,
+body .primary-btn,
+body .secondary-btn,
+body .cta-button,
+body .btn {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────── */
+
+body .top-nav,
+body .admin-nav {
+  background: rgba(7, 7, 12, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line-dim);
+}
+
+body .nav-link {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition: color 0.25s ease;
+}
+
+body .nav-link:hover {
+  color: var(--text);
+}
+
+body .nav-link.active {
+  color: var(--gold);
+}
+
+body .nav-link::after,
+body .nav-link.active::after {
+  background: var(--gold);
+}
+
+/* ── Page frame ───────────────────────────────────────────────────────── */
+
+/* style.css centres a single card in here, which laid the store's hero, its
+   loader and its grid out side by side in a row. Stack them instead, and let
+   the one-card pages centre themselves with auto margins. */
+body .main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+body .auth-container {
+  margin: auto;
+}
+
+/* ── Panels: the HUD's own chrome, given to the cards the site already has ── */
+
+body .product-card,
+body .account-card,
+body .action-card,
+body .stats-card,
+body .auth-container,
+body .download-card,
+body .order-card,
+body .empty-state,
+body .purchase-box,
+body .cart-modal-content,
+body .quickview-content,
+body .modal-content,
+body .upsell-card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line-dim);
+  border-radius: 4px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--float);
+}
+
+/* A gold tick in the top-left corner, the way the HUD frames its readouts. */
+body .product-card::before,
+body .account-card::before,
+body .stats-card::before,
+body .auth-container::before,
+body .purchase-box::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 14px;
+  height: 14px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+
+body .primary-btn,
+body .cta-button,
+body .quick-view-btn,
+body .checkout-btn,
+body .add-to-cart-btn {
+  background: var(--gold);
+  color: #120d02;
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  touch-action: manipulation;
+  transition: box-shadow 0.25s ease, transform 0.25s ease, background-color 0.25s ease;
+}
+
+body .primary-btn:hover,
+body .cta-button:hover,
+body .quick-view-btn:hover,
+body .checkout-btn:hover,
+body .add-to-cart-btn:hover {
+  background: #ffc93a;
+  box-shadow: 0 0 22px rgba(253, 185, 19, 0.35);
+  transform: translateY(-1px);
+}
+
+body .secondary-btn,
+body .cart-btn,
+body .variant-option {
+  background: rgba(253, 185, 19, 0.06);
+  color: var(--text);
+  border: 1px solid var(--line-dim);
+  border-radius: 2px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  touch-action: manipulation;
+  transition: border-color 0.25s ease, color 0.25s ease, background-color 0.25s ease;
+}
+
+body .secondary-btn:hover,
+body .cart-btn:hover,
+body .variant-option:hover,
+body .variant-option.selected {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(253, 185, 19, 0.12);
+}
+
+body .cart-count {
+  background: var(--gold);
+  color: #120d02;
+  font-family: var(--font-mono);
+}
+
+/* style.css gives every primary button a full-width modal shape. On a page where
+   one sits on its own, that reads as a gold band across the screen. */
+body .dashboard-signin .primary-btn,
+body .empty-state .primary-btn,
+body .success-hero .primary-btn,
+body .cancel-hero .primary-btn,
+body .auth-section .primary-btn {
+  width: auto;
+  min-width: 220px;
+  padding-inline: 2.25rem;
+}
+
+/* ── Fields ───────────────────────────────────────────────────────────── */
+
+body input:not([type='checkbox']):not([type='radio']):not([type='range']),
+body select,
+body textarea,
+body .primary-input {
+  background: rgba(7, 7, 12, 0.75);
+  color: var(--text);
+  border: 1px solid var(--line-dim);
+  border-radius: 2px;
+  font-family: var(--font-hud);
+}
+
+body input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+body select:focus,
+body textarea:focus,
+body .primary-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(253, 185, 19, 0.35);
+}
+
+/* The browser's own number spinner is the one grey thing in a gold room. */
+body #pwyw-amount::-webkit-outer-spin-button,
+body #pwyw-amount::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+body #pwyw-amount {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+body .loading-spinner {
+  border-color: rgba(253, 185, 19, 0.18);
+  border-top-color: var(--gold);
+}
+
+/* ── The store: a floating grid ───────────────────────────────────────── */
+
+body .merch-title {
+  font-size: clamp(1.9rem, 6vw, 3rem);
+  letter-spacing: 0.14em;
+}
+
+body .merch-subtitle {
+  color: var(--muted);
+  letter-spacing: 0.24em;
+}
+
+body .products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+
+/* Each product sits on its own panel, lifted off the city behind it. */
+body .product-card {
+  overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+body .product-card:hover,
+body .product-card:focus-within {
+  transform: translateY(-6px);
+  border-color: var(--line);
+  box-shadow: var(--float-lift);
+}
+
+body .product-image {
+  background: #101016;
+  border-bottom: 1px solid var(--line-dim);
+}
+
+body .product-info {
+  padding: 1rem 1.05rem 1.15rem;
+}
+
+body .product-name {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  /* Long product names used to be clipped mid-word on narrow cards. */
+  overflow-wrap: anywhere;
+}
+
+body .product-price {
+  color: var(--gold);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+
+body .product-overlay {
+  background: linear-gradient(180deg, rgba(7, 7, 12, 0.1), rgba(7, 7, 12, 0.72));
+}
+
+body .sold-out-badge {
+  background: rgba(7, 7, 12, 0.85);
+  border: 1px solid var(--pink);
+  border-radius: 2px;
+  color: var(--pink);
+  letter-spacing: 0.16em;
+}
+
+/* ── Phones ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* style.css takes the gutters away on mobile, which leaves content on the edge. */
+  body .container,
+  body .merch-section,
+  body .main-content {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  body .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
+
+  body .product-info {
+    padding: 0.7rem 0.75rem 0.85rem;
+  }
+
+  body .product-name {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  body .product-price {
+    font-size: 0.85rem;
+  }
+
+  /* Everything you tap is at least a finger wide. */
+  body .nav-link,
+  body .primary-btn,
+  body .secondary-btn,
+  body .quick-view-btn,
+  body .cart-btn,
+  body .variant-option,
+  body .auth-tab {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Sheets that come up from the bottom clear the home indicator. */
+  body .cart-modal-content,
+  body .quickview-content,
+  body .modal-content {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  body h1,
+  body .merch-title,
+  body .dashboard-title,
+  body .auth-title {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 400px) {
+  body .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .product-card,
+  body .primary-btn,
+  body .cta-button,
+  body .quick-view-btn {
+    transition-duration: 0.01ms;
+  }
+
+  body .product-card:hover,
+  body .product-card:focus-within {
+    transform: none;
+  }
+}

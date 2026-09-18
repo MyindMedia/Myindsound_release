@@ -662,6 +662,45 @@
   }
 }
 
+/* ── Phones and tablets: the window the browser actually gives us ──────── */
+
+/* A fixed `inset: 0` box is the *large* viewport on iOS and Android, so the bottom
+   of the HUD sat under the address bar until the toolbar collapsed. `dvh` is the
+   window as it is right now, and it follows the toolbar as it comes and goes. */
+@media (max-width: 900px) {
+  .p3d {
+    bottom: auto;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* Home indicator and notch. */
+  .p3d-hud {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .p3d-tracklist {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  /* No double-tap zoom, no 300 ms wait: a tap on a control is a tap. */
+  .p3d button,
+  .p3d .p3d-track,
+  .p3d-sheet-toggle,
+  .p3d-open-hint {
+    touch-action: manipulation;
+  }
+
+  /* Every control is at least a finger across. */
+  .p3d-key-button,
+  .p3d-sheet-toggle,
+  .p3d-repeat {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .p3d-insert,
   .p3d[data-status='playing'] .p3d-track[aria-current='true'] .p3d-track__eq {

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+  The social share card, rendered to public/og.jpg at 1200x630.
+
+  Open it in the dev server at /scripts/og-card.html, screenshot the 1200x630 body, and save it over
+  public/og.jpg. Everything it uses is already in the repo: the city the player is set in, the LIT sleeve,
+  and the HUD's own palette and type.
+-->
+
+<head>
+  <meta charset="UTF-8" />
+  <title>LIT share card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --gold: #fdb913;
+      --ink: #07070c;
+      --text: #f5f1e6;
+      --muted: rgba(245, 241, 230, 0.66);
+      --line: rgba(253, 185, 19, 0.55);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      /* The capture draws the pointer over the page; this keeps it out of the card. */
+      cursor: none;
+    }
+
+    html,
+    body {
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    .card {
+      position: relative;
+      width: 1200px;
+      height: 630px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* The city the player is set in, pushed back so the type carries. */
+    .city {
+      position: absolute;
+      inset: 0;
+      background: url('/assets/images/minidisc/city-comic.webp') center 42% / cover no-repeat;
+      filter: saturate(1.05) brightness(0.78);
+    }
+
+    .scrim {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(100deg, rgba(7, 7, 12, 0.97) 26%, rgba(7, 7, 12, 0.7) 52%, rgba(7, 7, 12, 0.35) 100%),
+        radial-gradient(70% 90% at 78% 46%, rgba(255, 61, 168, 0.22), transparent 70%),
+        radial-gradient(60% 70% at 12% 14%, rgba(253, 185, 19, 0.14), transparent 72%);
+    }
+
+    /* The HUD frames everything in a gold hairline with a tick at each corner. */
+    .frame {
+      position: absolute;
+      inset: 26px;
+      border: 1px solid rgba(253, 185, 19, 0.28);
+    }
+
+    .frame span {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border: 0 solid var(--gold);
+    }
+
+    .frame span:nth-child(1) {
+      top: -1px;
+      left: -1px;
+      border-top-width: 2px;
+      border-left-width: 2px;
+    }
+
+    .frame span:nth-child(2) {
+      top: -1px;
+      right: -1px;
+      border-top-width: 2px;
+      border-right-width: 2px;
+    }
+
+    .frame span:nth-child(3) {
+      bottom: -1px;
+      left: -1px;
+      border-bottom-width: 2px;
+      border-left-width: 2px;
+    }
+
+    .frame span:nth-child(4) {
+      bottom: -1px;
+      right: -1px;
+      border-bottom-width: 2px;
+      border-right-width: 2px;
+    }
+
+    .body {
+      position: absolute;
+      inset: 26px;
+      display: grid;
+      grid-template-columns: 1fr 396px;
+      align-items: center;
+      gap: 34px;
+      padding: 54px 58px;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    .kicker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.34em;
+      color: var(--gold);
+    }
+
+    .kicker::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--line), transparent);
+    }
+
+    h1 {
+      margin: 26px 0 0;
+      font-size: 146px;
+      font-weight: 900;
+      line-height: 0.84;
+      letter-spacing: 0.02em;
+      text-shadow: 0 0 60px rgba(253, 185, 19, 0.28);
+    }
+
+    .sub {
+      margin-top: 16px;
+      font-size: 21px;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      color: var(--text);
+    }
+
+    .meta {
+      margin-top: 30px;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+    }
+
+    .meta b {
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .url {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 34px;
+      padding: 13px 22px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--gold);
+      border: 1px solid var(--line);
+      background: rgba(253, 185, 19, 0.08);
+    }
+
+    /* The sleeve, as it arrives: printed card under shrink film. */
+    .package {
+      position: relative;
+      width: 396px;
+      height: 396px;
+      transform: rotate(-4.5deg);
+      filter: drop-shadow(0 40px 60px rgba(0, 0, 0, 0.72));
+    }
+
+    .package img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border: 1px solid rgba(245, 241, 230, 0.16);
+    }
+
+    /* Film: a soft diagonal sheen and a bright edge, the way the wrap reads in the player. */
+    .film {
+      position: absolute;
+      inset: -10px -12px -14px -10px;
+      background:
+        linear-gradient(118deg, rgba(255, 255, 255, 0.3) 4%, rgba(255, 255, 255, 0.02) 24%,
+          rgba(255, 255, 255, 0.16) 44%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, 0.12) 84%);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      mix-blend-mode: screen;
+    }
+
+    .tag {
+      position: absolute;
+      right: -14px;
+      bottom: 26px;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      color: #120d02;
+      background: var(--gold);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="city"></div>
+    <div class="scrim"></div>
+    <div class="frame"><span></span><span></span><span></span><span></span></div>
+    <div class="body">
+      <div>
+        <div class="kicker mono">Myind Sound · Release 001</div>
+        <h1>LIT</h1>
+        <div class="sub mono">Living In Truth</div>
+        <div class="meta mono">Tha Myind · 7 tracks · <b>Pay what you want</b></div>
+        <div class="url mono">▸ stream.myindsound.com</div>
+      </div>
+      <div class="package">
+        <img src="/assets/images/lit-sleeve.webp" alt="" />
+        <div class="film"></div>
+        <div class="tag mono">Minidisc</div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
