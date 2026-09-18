@@ -412,6 +412,34 @@ export class CartridgeInspector {
       },
       { passive: false },
     );
+
+    // A finger on the cartridge turns it, whichever way it moves. `touch-action: pan-y` hands vertical
+    // swipes to the page by default, so a swipe up scrolled the site instead of rolling the disc, and the
+    // scroll kept the gesture for the rest of the drag. Cancelling the first touchmove that started over
+    // the cartridge keeps the gesture here; a touch anywhere else on the canvas still scrolls the page, so
+    // the rest of the site is reachable on a phone.
+    let turning = false;
+    canvas.addEventListener(
+      'touchstart',
+      (event) => {
+        const touch = event.touches[0];
+        turning = this.interactive && !!touch && this.overStage(touch.clientX, touch.clientY);
+      },
+      { passive: true },
+    );
+    canvas.addEventListener(
+      'touchmove',
+      (event) => {
+        // Two fingers is a pinch, which the pointer handlers already own.
+        if (turning || event.touches.length > 1) event.preventDefault();
+      },
+      { passive: false },
+    );
+    const stopTurning = (): void => {
+      turning = false;
+    };
+    canvas.addEventListener('touchend', stopTurning, { passive: true });
+    canvas.addEventListener('touchcancel', stopTurning, { passive: true });
   }
 
   /** Is the pointer over the box the cartridge floats in? */
