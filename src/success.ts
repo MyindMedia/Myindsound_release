@@ -70,7 +70,7 @@ function passwordSetup(): HTMLFormElement {
 
   const note = document.createElement('p');
   note.className = 'finish-account__note';
-  note.textContent = 'You can skip this and set one later from your dashboard.';
+  note.textContent = 'Skip it and you can still get in with an emailed code, or set a password later from your dashboard.';
 
   form.append(label, field, save, note);
   form.addEventListener('submit', async (event) => {
@@ -84,10 +84,12 @@ function passwordSetup(): HTMLFormElement {
     try {
       const clerk = await getClerk();
       await clerk.user?.updatePassword({ newPassword: field.value, signOutOfOtherSessions: false });
-      form.replaceChildren(Object.assign(document.createElement('p'), {
-        className: 'finish-account__note',
-        textContent: 'Password saved. You can sign in with your email and password any time.',
-      }));
+      const done = Object.assign(document.createElement('p'), {
+        className: 'finish-account__note finish-account__note--done',
+        textContent: 'Login created. Your email and this password will get you back in any time.',
+      });
+      form.replaceChildren(done);
+      form.parentElement?.appendChild(linkButton('MY DASHBOARD', 'dashboard-btn', '/dashboard'));
     } catch (err) {
       const clerkError = err as { errors?: { longMessage?: string; message?: string }[] };
       note.textContent =
@@ -113,14 +115,29 @@ async function offerAccount(sessionId: string) {
     show('signup-prompt');
 
     if (signedIn) {
+      const clerk = await getClerk();
       const heading = prompt.querySelector('h2');
       const copy = prompt.querySelector('.description');
-      if (heading) heading.textContent = 'YOUR ACCOUNT IS READY';
-      if (copy) {
-        copy.textContent =
-          'It was made with your checkout email and you are signed in. Set a password to finish it, so you can sign back in whenever you like.';
+      const needsPassword = clerk.user?.passwordEnabled === false;
+
+      if (needsPassword) {
+        // The session lasts a day; a password is what gets them back in after that, so it goes first,
+        // above the album itself, and the field is ready to type into.
+        prompt.parentElement?.insertBefore(prompt, document.getElementById('download-links-container'));
+        prompt.classList.add('finish-first');
+        if (heading) heading.textContent = 'CREATE YOUR LOGIN';
+        if (copy) {
+          copy.textContent =
+            'Your account is made and you are signed in for 24 hours. Choose a password now and it is yours for good; without one you will need an emailed code every time you come back.';
+        }
+        container.replaceChildren(passwordSetup());
+        (container.querySelector('#new-password') as HTMLInputElement | null)?.focus();
+        return;
       }
-      container.replaceChildren(passwordSetup(), linkButton('MY DASHBOARD', 'dashboard-btn', '/dashboard'));
+
+      if (heading) heading.textContent = 'YOUR ACCOUNT IS READY';
+      if (copy) copy.textContent = 'Everything you have bought is in your dashboard.';
+      container.replaceChildren(linkButton('MY DASHBOARD', 'dashboard-btn', '/dashboard'));
       return;
     }
 

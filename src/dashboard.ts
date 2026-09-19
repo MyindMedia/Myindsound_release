@@ -87,6 +87,7 @@ class DashboardController {
 
       // Show content
       this.showContent();
+      void this.askForPasswordIfMissing();
     } catch (error: any) {
       console.error('Dashboard initialization error:', error);
       this.showError(error?.message || 'Failed to load dashboard. Please try again.');
@@ -117,6 +118,41 @@ class DashboardController {
     if (loading) loading.style.display = 'none';
     if (content) content.style.display = 'none';
     if (signin) signin.style.display = 'flex';
+  }
+
+  /**
+   * A buyer who skipped the password on the way out of checkout has no way back in but an emailed code.
+   * This says so at the top of their library until they set one.
+   */
+  private async askForPasswordIfMissing() {
+    try {
+      const clerk = await getClerk();
+      if (clerk.user?.passwordEnabled !== false) return;
+      const content = document.getElementById('dashboard-content');
+      if (!content || document.getElementById('finish-login')) return;
+
+      const banner = document.createElement('section');
+      banner.id = 'finish-login';
+      banner.className = 'finish-login';
+
+      const text = document.createElement('div');
+      const title = document.createElement('h3');
+      title.textContent = 'FINISH YOUR LOGIN';
+      const copy = document.createElement('p');
+      copy.textContent = 'Set a password so you can sign back in without waiting for an emailed code.';
+      text.append(title, copy);
+
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'primary-btn';
+      action.textContent = 'SET A PASSWORD';
+      action.addEventListener('click', () => void clerk.openUserProfile());
+
+      banner.append(text, action);
+      content.insertBefore(banner, content.firstChild);
+    } catch (error) {
+      console.error('Could not check the account password:', error);
+    }
   }
 
   private showContent() {

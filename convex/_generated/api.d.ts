@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as clerkMigration from "../clerkMigration.js";
 import type * as crons from "../crons.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as downloadLogic from "../downloadLogic.js";
@@ -42,6 +43,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  clerkMigration: typeof clerkMigration;
   crons: typeof crons;
   diagnostics: typeof diagnostics;
   downloadLogic: typeof downloadLogic;

@@ -13,6 +13,51 @@ const CLERK_PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KE
  */
 const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * LIT, wherever Clerk draws: the sign-in, the sign-up, the account button and its profile all take the
+ * site's own palette and type rather than Clerk's defaults. Passed to `load()`, so every surface inherits
+ * it, and the mounted components only add what is particular to them.
+ */
+const LIT_APPEARANCE = {
+  variables: {
+    colorPrimary: '#FDB913',
+    colorBackground: '#0B0A12',
+    colorText: '#F5F1E6',
+    colorTextSecondary: 'rgba(245, 241, 230, 0.66)',
+    colorInputBackground: 'rgba(7, 7, 12, 0.78)',
+    colorInputText: '#F5F1E6',
+    colorDanger: '#FF5F6D',
+    colorSuccess: '#FDB913',
+    colorWarning: '#FF8C00',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    fontFamilyButtons: "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace",
+    fontSize: '15px',
+    borderRadius: '3px',
+  },
+  layout: {
+    socialButtonsPlacement: 'top' as const,
+    socialButtonsVariant: 'blockButton' as const,
+    showOptionalFields: false,
+  },
+  elements: {
+    card: 'clerk-card',
+    rootBox: 'clerk-root',
+    headerTitle: 'clerk-title',
+    headerSubtitle: 'clerk-subtitle',
+    formButtonPrimary: 'clerk-btn-primary',
+    formFieldInput: 'clerk-input',
+    formFieldLabel: 'clerk-label',
+    footerActionLink: 'clerk-link',
+    dividerLine: 'clerk-divider',
+    dividerText: 'clerk-divider-text',
+    socialButtonsBlockButton: 'clerk-social-btn',
+    userButtonPopoverCard: 'clerk-card',
+    userButtonPopoverActionButton: 'clerk-popover-action',
+    modalContent: 'clerk-modal',
+    profileSectionPrimaryButton: 'clerk-btn-primary',
+  },
+};
+
 // Singleton Clerk instance
 let clerkInstance: Clerk | null = null;
 let clerkPromise: Promise<Clerk> | null = null;
@@ -63,6 +108,7 @@ export async function getClerk(): Promise<Clerk> {
         signUpUrl: '/login?tab=sign-up',
         signInFallbackRedirectUrl: '/dashboard',
         signUpFallbackRedirectUrl: '/dashboard',
+        appearance: LIT_APPEARANCE,
       });
       await endStaleSession(clerk);
       clerkInstance = clerk;
@@ -157,30 +203,6 @@ export async function mountSignIn(elementId: string, options?: {
   clerk.mountSignIn(element as HTMLDivElement, {
     fallbackRedirectUrl: options?.redirectUrl || '/dashboard',
     signUpUrl: options?.signUpUrl || '/login?tab=sign-up',
-    appearance: {
-      baseTheme: undefined,
-      variables: {
-        colorPrimary: '#FFD700',
-        colorBackground: '#0a0a0a',
-        colorText: '#ffffff',
-        colorTextSecondary: '#888888',
-        colorInputBackground: '#1a1a1a',
-        colorInputText: '#ffffff',
-        borderRadius: '8px',
-      },
-      elements: {
-        rootBox: 'clerk-root',
-        card: 'clerk-card',
-        headerTitle: 'clerk-title',
-        headerSubtitle: 'clerk-subtitle',
-        formButtonPrimary: 'clerk-btn-primary',
-        formFieldInput: 'clerk-input',
-        footerActionLink: 'clerk-link',
-        dividerLine: 'clerk-divider',
-        dividerText: 'clerk-divider-text',
-        socialButtonsBlockButton: 'clerk-social-btn',
-      }
-    }
   });
 }
 
@@ -202,24 +224,6 @@ export async function mountSignUp(elementId: string, options?: {
   clerk.mountSignUp(element as HTMLDivElement, {
     fallbackRedirectUrl: options?.redirectUrl || '/dashboard',
     signInUrl: options?.signInUrl || '/login',
-    appearance: {
-      variables: {
-        colorPrimary: '#FFD700',
-        colorBackground: '#0a0a0a',
-        colorText: '#ffffff',
-        colorTextSecondary: '#888888',
-        colorInputBackground: '#1a1a1a',
-        colorInputText: '#ffffff',
-        borderRadius: '8px',
-      },
-      elements: {
-        rootBox: 'clerk-root',
-        card: 'clerk-card',
-        formButtonPrimary: 'clerk-btn-primary',
-        formFieldInput: 'clerk-input',
-        socialButtonsBlockButton: 'clerk-social-btn',
-      }
-    }
   });
 }
 
@@ -235,15 +239,7 @@ export async function mountUserButton(elementId: string): Promise<void> {
     return;
   }
 
-  clerk.mountUserButton(element as HTMLDivElement, {
-    afterSignOutUrl: '/',
-    appearance: {
-      elements: {
-        userButtonAvatarBox: 'w-10 h-10',
-        userButtonTrigger: 'clerk-user-btn',
-      }
-    }
-  });
+  clerk.mountUserButton(element as HTMLDivElement, { afterSignOutUrl: '/' });
 }
 
 /**

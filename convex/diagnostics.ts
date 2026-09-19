@@ -174,3 +174,16 @@ export const setBusinessName = internalAction({
     }
   },
 });
+
+/** How many accounts and licences exist. Counts only, so nothing about a customer leaves the database. */
+export const counts = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const [users, entitlements, orders] = await Promise.all([
+      ctx.db.query('users').collect(),
+      ctx.db.query('entitlements').collect(),
+      ctx.db.query('orders').collect(),
+    ]);
+    return { users: users.length, entitlements: entitlements.length, orders: orders.length };
+  },
+});

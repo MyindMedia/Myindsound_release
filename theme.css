@@ -888,3 +888,59 @@ body .finish-account__note {
   line-height: 1.5;
   color: var(--muted);
 }
+
+/* The login a buyer still has to finish: first thing on the success page, and on the dashboard until done. */
+body #signup-prompt.finish-first {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+body .finish-account__note--done {
+  color: var(--gold);
+}
+
+body .finish-login {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 22px;
+  padding: 16px 18px;
+  background: rgba(253, 185, 19, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+body .finish-login h3 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+
+body .finish-login p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+body .finish-login .primary-btn {
+  flex: none;
+  width: auto;
+  padding: 12px 20px;
+}
+
+@media (max-width: 640px) {
+  body .finish-login {
+    flex-direction: column;
+    align-items: stretch;
+    margin: 0 16px 20px;
+    border-radius: 14px;
+  }
+
+  body .finish-login .primary-btn {
+    width: 100%;
+  }
+}
