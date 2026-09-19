@@ -60,7 +60,10 @@ async function offerAccount(sessionId: string) {
         copy.textContent =
           'It was made with your checkout email, and you are signed in. Everything you have bought is in your dashboard; after 24 hours you sign in again.';
       }
-      container.replaceChildren(linkButton('OPEN MY DASHBOARD', 'dashboard-btn', '/dashboard'));
+      container.replaceChildren(
+        linkButton('PLAY THE ALBUM', 'play-btn', `/?success=true&session_id=${encodeURIComponent(sessionId)}`),
+        linkButton('MY DASHBOARD', 'dashboard-btn', '/dashboard'),
+      );
       return;
     }
 
@@ -112,8 +115,10 @@ async function init() {
 
     hide('loading-state');
     show('success-content');
-    // They have paid: PLAY THE ALBUM goes straight into the player, no unwrapping it again.
+    // They have paid: PLAY THE ALBUM goes straight into the player, unwrapped and already unlocked.
     markOpened();
+    const play = document.querySelector('#success-content a[href="/"]') as HTMLAnchorElement | null;
+    if (play) play.href = `/?success=true&session_id=${encodeURIComponent(sessionId)}`;
     void offerAccount(sessionId);
   } catch (err) {
     console.error('Session verification failed:', convexErrorMessage(err, 'unknown error'));

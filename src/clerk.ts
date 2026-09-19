@@ -56,7 +56,14 @@ export async function getClerk(): Promise<Clerk> {
   clerkPromise = (async () => {
     try {
       const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
-      await clerk.load();
+      // Our own pages handle sign-in and sign-up. Without these Clerk falls back to its hosted account
+      // portal (`<instance>.accounts.dev/sign-up?redirect_url=...`), which is a different site to a buyer.
+      await clerk.load({
+        signInUrl: '/login',
+        signUpUrl: '/login?tab=sign-up',
+        signInFallbackRedirectUrl: '/dashboard',
+        signUpFallbackRedirectUrl: '/dashboard',
+      });
       await endStaleSession(clerk);
       clerkInstance = clerk;
       return clerk;
@@ -148,8 +155,8 @@ export async function mountSignIn(elementId: string, options?: {
   }
 
   clerk.mountSignIn(element as HTMLDivElement, {
-    afterSignInUrl: options?.redirectUrl || '/dashboard.html',
-    signUpUrl: options?.signUpUrl || '/login.html#sign-up',
+    fallbackRedirectUrl: options?.redirectUrl || '/dashboard',
+    signUpUrl: options?.signUpUrl || '/login?tab=sign-up',
     appearance: {
       baseTheme: undefined,
       variables: {
@@ -193,8 +200,8 @@ export async function mountSignUp(elementId: string, options?: {
   }
 
   clerk.mountSignUp(element as HTMLDivElement, {
-    afterSignUpUrl: options?.redirectUrl || '/dashboard.html',
-    signInUrl: options?.signInUrl || '/login.html',
+    fallbackRedirectUrl: options?.redirectUrl || '/dashboard',
+    signInUrl: options?.signInUrl || '/login',
     appearance: {
       variables: {
         colorPrimary: '#FFD700',

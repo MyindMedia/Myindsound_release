@@ -48,7 +48,11 @@ class LoginController {
     }
 
     // Check URL hash for initial tab
-    if (window.location.hash === '#sign-up') {
+    // Clerk links to our own sign-up as `#sign-up/` or `?tab=sign-up`, depending on where it came from.
+    const wantsSignUp =
+      window.location.hash.startsWith('#sign-up') ||
+      new URLSearchParams(window.location.search).get('tab') === 'sign-up';
+    if (wantsSignUp) {
       this.currentTab = 'signup';
     }
 

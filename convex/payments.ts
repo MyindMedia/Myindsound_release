@@ -134,7 +134,9 @@ export const createDigitalSession = action({
         lit_amount: (args.amountCents / 100).toFixed(2),
         marketing_consent: args.marketingConsent ? 'true' : 'false',
       },
-      success_url: `${siteUrl()}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      // Back through the success page: it claims the account and signs them in (`purchase-signin.ts`)
+      // before handing them on to the player, so nobody meets a sign-in form for something they bought.
+      success_url: `${siteUrl()}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl()}/?cancel=true`,
     });
     if (!session.url) fail('NOT_CONFIGURED', 'Checkout could not start. Try again.');
