@@ -148,3 +148,29 @@ export const dropTestAccount = internalAction({
   args: { clerkId: v.string() },
   handler: async (_ctx, { clerkId }): Promise<{ deleted: boolean }> => ({ deleted: await deleteClerkUser(clerkId) }),
 });
+
+/**
+ * Tries to set the name the checkout page prints above the product. Stripe usually refuses to let an
+ * account update itself outside Connect, in which case this reports the refusal and it has to be changed
+ * in the Stripe dashboard (Settings > Business > Public details).
+ */
+export const setBusinessName = internalAction({
+  args: { name: v.string(), statementDescriptor: v.optional(v.string()) },
+  handler: async (_ctx, { name, statementDescriptor }): Promise<Record<string, unknown>> => {
+    const client = stripe();
+    if (!client) return { stripe: false };
+    const account = await client.accounts.retrieve();
+    try {
+      const updated = await client.accounts.update(account.id, {
+        business_profile: { name },
+        ...(statementDescriptor ? { settings: { payments: { statement_descriptor: statementDescriptor } } } : {}),
+      });
+      return {
+        businessProfileName: updated.business_profile?.name ?? null,
+        statementDescriptor: updated.settings?.payments?.statement_descriptor ?? null,
+      };
+    } catch (err) {
+      return { refused: err instanceof Error ? err.message : String(err) };
+    }
+  },
+});
