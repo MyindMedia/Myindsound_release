@@ -9,6 +9,7 @@ import { claimIfPurchased } from './purchase-signin';
 import { initAnalytics, identifyUser, track } from './analytics';
 import type { FunctionReturnType } from 'convex/server';
 import { api, connectConvexAuth, convexErrorMessage, getConvex, isConvexConfigured } from './convex';
+import { mountIosShell } from './ios';
 
 type OwnedProduct = FunctionReturnType<typeof api.products.owned>[number];
 type Order = FunctionReturnType<typeof api.orders.mine>[number];
@@ -380,3 +381,5 @@ if (document.readyState === 'loading') {
 } else {
   new DashboardController();
 }
+
+mountIosShell('Library');

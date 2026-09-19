@@ -6,6 +6,7 @@
 import { mountSignIn, mountSignUp, isSignedIn, mountUserButton, isClerkConfigured, getClerkError } from './clerk';
 import { initAnalytics } from './analytics';
 import { claimIfPurchased } from './purchase-signin';
+import { mountIosShell } from './ios';
 
 class LoginController {
   private currentTab: 'signin' | 'signup' = 'signin';
@@ -160,3 +161,5 @@ if (document.readyState === 'loading') {
 } else {
   new LoginController();
 }
+
+mountIosShell('Account');

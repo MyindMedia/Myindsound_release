@@ -16,6 +16,7 @@ import {
 } from './shopify';
 import { initNavAuth } from './nav-auth';
 import { initAnalytics, track } from './analytics';
+import { mountIosShell } from './ios';
 
 // Cart item type
 interface CartItem {
@@ -437,3 +438,5 @@ if (document.readyState === 'loading') {
   initAnalytics();
   new PhysicalStore();
 }
+
+mountIosShell('Store');

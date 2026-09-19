@@ -7,6 +7,7 @@ import { saveFromUrl } from './download';
 import { getClerk, isClerkConfigured } from './clerk';
 import { claimAccountFromCheckout } from './purchase-signin';
 import { markOpened } from './playback-handoff';
+import { mountIosShell } from './ios';
 
 function show(id: string, display = 'block') {
   const element = document.getElementById(id);
@@ -122,3 +123,5 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', () => void init());
+
+mountIosShell('Thank you');

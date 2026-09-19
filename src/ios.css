@@ -1,0 +1,533 @@
+/* ============================================================================
+   The phone layout, as an app
+
+   On a phone these pages are built the way an iOS app is: a translucent bar
+   with a large title that collapses as you scroll, grouped inset lists with
+   leading icons and trailing chevrons, album tiles, sheets, and a tab bar at
+   the bottom with the now-playing bar docked above it.
+
+   The palette stays ours (ink, gold hairlines, mono for small labels); it is
+   iOS's structure and motion that are borrowed, not its colours. Everything
+   here is inside the phone breakpoint, so the desktop layout is untouched.
+   ========================================================================== */
+
+.ios-nav,
+.ios-tabbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  body.ios-app {
+    /* System type for anything you read; the brand's mono is kept for labels. */
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+
+  /* The tab bar is the navigation now. */
+  body.ios-app .top-nav {
+    display: none;
+  }
+
+  /* ── Bar and large title ───────────────────────────────────────────── */
+
+  .ios-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(46px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0;
+    background: rgba(7, 7, 12, 0.7);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+  }
+
+  .ios-nav__title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    opacity: 0;
+    translate: 0 8px;
+    transition: opacity 0.28s ease, translate 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .ios-nav__slot {
+    position: absolute;
+    right: 10px;
+    display: flex;
+    align-items: center;
+  }
+
+  body.ios-scrolled .ios-nav {
+    border-bottom-color: var(--line-dim);
+    background: rgba(7, 7, 12, 0.86);
+  }
+
+  body.ios-scrolled .ios-nav__title {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  body.ios-app .main-content {
+    padding-top: calc(54px + env(safe-area-inset-top));
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  body.ios-app .dashboard-content {
+    padding: 0;
+  }
+
+  /* The large title: big, tight, left-aligned, and it scrolls away under the bar. */
+  body.ios-app .dashboard-header {
+    padding: 4px 20px 14px;
+    border: 0;
+    margin: 0;
+    text-align: left;
+  }
+
+  body.ios-app .dashboard-title {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-transform: none;
+    margin: 0;
+  }
+
+  body.ios-app .dashboard-subtitle {
+    margin: 6px 0 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+
+  /* The store's hero is a large title too. */
+  body.ios-app .merch-hero {
+    padding: 4px 20px 14px;
+    text-align: left;
+  }
+
+  body.ios-app .merch-title {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  body.ios-app .merch-subtitle {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  body.ios-app .merch-section {
+    padding: 0;
+  }
+
+  body.ios-app .products-grid {
+    padding: 0 16px;
+    gap: 14px;
+  }
+
+  body.ios-app .product-card {
+    border-radius: 14px;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  body.ios-app .product-card:active {
+    transform: scale(0.97);
+  }
+
+  body.ios-app .product-name {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  body.ios-app .product-price {
+    font-size: 13px;
+  }
+
+  /* The bar carries the cart on the store, so it needs room beside the title. */
+  .ios-nav__slot .cart-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+  }
+
+  /* ── Section headers ───────────────────────────────────────────────── */
+
+  body.ios-app .dashboard-section {
+    margin-bottom: 26px;
+  }
+
+  body.ios-app .section-header {
+    padding: 0 20px 7px;
+    border: 0;
+    text-align: left;
+  }
+
+  body.ios-app .section-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+
+  /* ── Grouped inset lists ───────────────────────────────────────────── */
+
+  body.ios-app .dashboard-actions,
+  body.ios-app .account-card {
+    display: block;
+    margin: 0 16px;
+    padding: 0;
+    background: rgba(245, 241, 230, 0.05);
+    border: 1px solid var(--line-dim);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  body.ios-app .dashboard-actions::before,
+  body.ios-app .account-card::before {
+    content: none;
+  }
+
+  body.ios-app .action-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) 10px;
+    align-items: center;
+    gap: 13px;
+    padding: 12px 14px;
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    text-decoration: none;
+    transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Separators start at the text, the way a grouped list does. */
+  body.ios-app .action-card + .action-card::before {
+    content: '';
+    position: absolute;
+    left: 57px;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: rgba(245, 241, 230, 0.1);
+  }
+
+  body.ios-app .action-card:active {
+    background: rgba(253, 185, 19, 0.14);
+    transform: scale(0.985);
+  }
+
+  body.ios-app .action-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+  }
+
+  body.ios-app .action-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  body.ios-app .action-info h3 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    margin: 0;
+  }
+
+  body.ios-app .action-info p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  body.ios-app .action-arrow {
+    width: 10px;
+    height: 10px;
+    color: rgba(245, 241, 230, 0.35);
+  }
+
+  /* ── Album tiles ───────────────────────────────────────────────────── */
+
+  body.ios-app .downloads-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 0 16px;
+  }
+
+  body.ios-app .download-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: rgba(245, 241, 230, 0.05);
+    border: 1px solid var(--line-dim);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  body.ios-app .download-card:active {
+    transform: scale(0.97);
+  }
+
+  body.ios-app .download-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+
+  body.ios-app .download-card-info {
+    padding: 10px 12px 12px;
+  }
+
+  body.ios-app .download-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  body.ios-app .download-card-desc {
+    margin: 2px 0 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  body.ios-app .download-btn,
+  body.ios-app .download-card .primary-btn {
+    width: 100%;
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 11px;
+    border-radius: 9px;
+  }
+
+  /* ── Orders and the account, as rows ───────────────────────────────── */
+
+  body.ios-app .orders-list {
+    margin: 0 16px;
+    background: rgba(245, 241, 230, 0.05);
+    border: 1px solid var(--line-dim);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  body.ios-app .order-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  body.ios-app .order-card + .order-card::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: rgba(245, 241, 230, 0.1);
+  }
+
+  body.ios-app .order-info h4 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  body.ios-app .order-info p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  body.ios-app .account-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  body.ios-app .account-actions {
+    display: block;
+    padding: 0;
+    border-top: 1px solid rgba(245, 241, 230, 0.1);
+  }
+
+  body.ios-app .account-actions button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    text-align: left;
+    transition: background-color 0.2s ease;
+  }
+
+  body.ios-app .account-actions button + button {
+    border-top: 1px solid rgba(245, 241, 230, 0.1);
+  }
+
+  body.ios-app .account-actions button:active {
+    background: rgba(253, 185, 19, 0.14);
+  }
+
+  /* Signing out is the destructive one, so it reads as it does on iOS. */
+  body.ios-app .account-actions .text-btn {
+    color: #ff5f6d;
+    justify-content: center;
+  }
+
+  /* The clerk id line is a support tool, not something to put on a phone screen. */
+  body.ios-app .account-id-helper {
+    display: none;
+  }
+
+  body.ios-app .account-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex: none;
+    overflow: hidden;
+  }
+
+  body.ios-app .account-email {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+
+  body.ios-app .account-member {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Status reads as a badge, the way a list row's trailing detail does. */
+  body.ios-app .order-status {
+    flex: none;
+    padding: 3px 9px;
+    border: 1px solid var(--line-dim);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    background: rgba(253, 185, 19, 0.1);
+  }
+
+  body.ios-app .empty-state {
+    margin: 0 16px;
+    border-radius: 14px;
+  }
+
+  /* ── Tab bar ───────────────────────────────────────────────────────── */
+
+  .ios-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    padding: 5px 0 calc(5px + env(safe-area-inset-bottom));
+    background: rgba(7, 7, 12, 0.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--line-dim);
+  }
+
+  .ios-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: rgba(245, 241, 230, 0.5);
+    text-decoration: none;
+    touch-action: manipulation;
+    transition: color 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .ios-tab svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .ios-tab:active {
+    transform: scale(0.92);
+  }
+
+  .ios-tab--active {
+    color: var(--gold);
+  }
+
+  /* Now playing sits on the tab bar, the way it does in a music app. */
+  body.ios-app .mini-player {
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    left: 8px;
+    right: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-nav,
+  .ios-nav__title,
+  .ios-tab,
+  body.ios-app .action-card,
+  body.ios-app .download-card {
+    transition: none;
+  }
+}
