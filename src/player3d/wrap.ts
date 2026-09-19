@@ -29,7 +29,7 @@ import { phase, UNWRAP } from './wrap-math';
 
 /** How far the sleeve stands off the cartridge, and the film off the sleeve (the film is shrunk on tight). */
 const SLEEVE_GAP = 0.009;
-const FILM_GAP = 0.0015;
+const FILM_GAP = 0.0026;
 /** Card thickness of the sleeve: enough to read as board, not paper. */
 const CARD = 0.006;
 /** Radius of the curl as the sheet rolls back. */
@@ -453,10 +453,11 @@ export class DiscWrap {
     // the normal map. One layer per face, front-side only, so you never see the far side through the near one.
     this.filmMaterial = new MeshPhysicalMaterial({
       map: options.film,
-      alphaMap: options.film,
+      // No alpha map: the sheet's crinkle is in its normal map. Used as alpha it punched holes through the
+      // wrap, so the package looked half unwrapped before anyone touched it.
       color: '#c8ced8',
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.46,
       roughness: 0.1,
       metalness: 0,
       clearcoat: 0.9,
@@ -476,12 +477,15 @@ export class DiscWrap {
     const skin = (repeatX: number, repeatY: number, offsetX: number, offsetY: number): MeshPhysicalMaterial => {
       const material = this.filmMaterial.clone();
       material.side = FrontSide;
+      // Seen edge-on, a sheet at the face's opacity disappears; these carry the wrap round the package.
+      material.opacity = 0.6;
+      material.clearcoat = 1;
+      material.envMapIntensity = 0.7;
       const slice = options.film.clone();
       slice.repeat.set(repeatX, repeatY);
       slice.offset.set(offsetX, offsetY);
       slice.needsUpdate = true;
       material.map = slice;
-      material.alphaMap = slice;
       this.textures.push(slice);
       this.skins.push(material);
       return material;
@@ -509,21 +513,24 @@ export class DiscWrap {
 
     // The rest of the skin: back and four sides, as one piece that shrivels off.
     // The back and the four sides, so the whole package is wrapped. They are part of the same wrapper, so
-    // they travel with the sheet that peels.
-    const filmRim = 0.08;
+    // they travel with the sheet that peels. The rims take a wide slice of the sheet rather than a sliver,
+    // or the edges of the package read as bare card next to the filmed face.
+    const filmRim = 0.34;
     const filmBack = new Mesh(new PlaneGeometry(w, h), skin(1, 1, 0, 0));
     filmBack.position.z = -front;
     filmBack.rotation.y = Math.PI;
-    const filmTop = new Mesh(new PlaneGeometry(w, d), skin(1, filmRim, 0, 1 - filmRim));
+    // A little proud of the sleeve on every face, so the wrap has a lip to catch the light.
+    const lip = 1.02;
+    const filmTop = new Mesh(new PlaneGeometry(w * lip, d * lip), skin(1, filmRim, 0, 1 - filmRim));
     filmTop.rotation.x = -Math.PI / 2;
     filmTop.position.y = h / 2;
-    const filmBottom = new Mesh(new PlaneGeometry(w, d), skin(1, filmRim, 0, 0));
+    const filmBottom = new Mesh(new PlaneGeometry(w * lip, d * lip), skin(1, filmRim, 0, 0));
     filmBottom.rotation.x = Math.PI / 2;
     filmBottom.position.y = -h / 2;
-    const filmLeft = new Mesh(new PlaneGeometry(d, h), skin(filmRim, 1, 0, 0));
+    const filmLeft = new Mesh(new PlaneGeometry(d * lip, h * lip), skin(filmRim, 1, 0, 0));
     filmLeft.rotation.y = -Math.PI / 2;
     filmLeft.position.x = -w / 2;
-    const filmRight = new Mesh(new PlaneGeometry(d, h), skin(filmRim, 1, 1 - filmRim, 0));
+    const filmRight = new Mesh(new PlaneGeometry(d * lip, h * lip), skin(filmRim, 1, 1 - filmRim, 0));
     filmRight.rotation.y = Math.PI / 2;
     filmRight.position.x = w / 2;
     for (const piece of [filmBack, filmTop, filmBottom, filmLeft, filmRight]) {

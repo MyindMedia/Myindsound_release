@@ -16,7 +16,7 @@ import {
   type PerspectiveCamera,
   type Texture,
 } from 'three';
-import { COMIC_CITY, EMBERS, MAX_CRAFT } from './backdrop-shaders';
+import { COMIC_CITY, EMBERS, MAX_CAR, MAX_CRAFT, MAX_WALKER } from './backdrop-shaders';
 import { PALETTE, RAIN } from './shaders';
 
 /**
@@ -32,6 +32,35 @@ const IMAGE_ASPECT = 21 / 9;
 const PARALLAX = 0.032;
 
 type Craft = { x: number; y: number; scale: number; dir: number; speed: number };
+/**
+ * The street runs away from the camera to a vanishing point, so anything on it travels a line rather than
+ * a row of pixels: `t` is how far down that line it is, 0 at the camera and 1 at the far end, and
+ * everything about it follows from that.
+ */
+type Lane = { nearX: number; nearY: number; farX: number; farY: number };
+type Car = { lane: Lane; t: number; dir: number; speed: number };
+/** Somebody on the pavement, pacing a few steps along it and back. */
+type Walker = { lane: Lane; home: number; span: number; rate: number; phase: number };
+
+/** Where the roadway and its pavements sit in the painting, near edge to vanishing point. */
+const ROAD: Lane[] = [
+  { nearX: 0.36, nearY: 0.02, farX: 0.49, farY: 0.44 },
+  { nearX: 0.64, nearY: 0.02, farX: 0.53, farY: 0.44 },
+];
+const PAVEMENT: Lane[] = [
+  { nearX: 0.1, nearY: 0.05, farX: 0.44, farY: 0.42 },
+  { nearX: 0.9, nearY: 0.05, farX: 0.57, farY: 0.42 },
+];
+
+/** Position and size at `t` along a lane: further away is nearer the vanishing point, and smaller. */
+function along(lane: Lane, t: number): { x: number; y: number; scale: number } {
+  const eased = t * t; // perspective: the far half of the street takes up very little of the frame
+  return {
+    x: lane.nearX + (lane.farX - lane.nearX) * eased,
+    y: lane.nearY + (lane.farY - lane.nearY) * eased,
+    scale: 1.55 - 1.25 * eased,
+  };
+}
 
 function load(loader: TextureLoader, file: string, srgb: boolean): Promise<Texture> {
   return new Promise((resolve, reject) => {
@@ -53,6 +82,8 @@ export class ComicCity {
   private material: ShaderMaterial | null = null;
   private timed: ShaderMaterial[] = [];
   private crafts: Craft[] = [];
+  private cars: Car[] = [];
+  private walkers: Walker[] = [];
   private bass = 0;
   private parallax = { x: 0, y: 0 };
   private readonly motion: number;
@@ -64,6 +95,9 @@ export class ComicCity {
     this.buildEmbers(options.coarsePointer ? 160 : 420);
     if (!options.reducedMotion) this.buildRain(options.coarsePointer ? 360 : 900);
     for (let i = 0; i < (options.coarsePointer ? 3 : 5); i++) this.crafts.push(this.spawnCraft(Math.random()));
+    for (let i = 0; i < (options.coarsePointer ? 2 : MAX_CAR); i++) this.cars.push(this.spawnCar(Math.random()));
+    const walkers = options.coarsePointer ? 4 : MAX_WALKER;
+    for (let i = 0; i < walkers; i++) this.walkers.push(this.spawnWalker(i, walkers));
   }
 
   /** Loads the painted city and pins it to the camera, cover-fitted. */
@@ -88,6 +122,9 @@ export class ComicCity {
         uAspect: { value: IMAGE_ASPECT },
         uCraft: { value: Array.from({ length: MAX_CRAFT }, () => new Vector4()) },
         uCraftColor: { value: Array.from({ length: MAX_CRAFT }, () => new Color()) },
+        uCar: { value: Array.from({ length: MAX_CAR }, () => new Vector4()) },
+        uWalker: { value: Array.from({ length: MAX_WALKER }, () => new Vector4()) },
+        uHaze: { value: this.motion > 0 ? 1 : 0.7 },
       },
       depthWrite: false,
       depthTest: false,
@@ -108,6 +145,31 @@ export class ComicCity {
     const viewWidth = viewHeight * camera.aspect;
     const height = Math.max(viewHeight, viewWidth / IMAGE_ASPECT);
     this.plane.scale.set(height * IMAGE_ASPECT, height, 1);
+  }
+
+  /** A car drives up or down one of the two lanes, its lights facing the way it is going. */
+  private spawnCar(start?: number): Car {
+    const dir = Math.random() < 0.5 ? -1 : 1;   // -1 comes towards the camera, +1 drives away
+    return {
+      lane: ROAD[Math.random() < 0.5 ? 0 : 1],
+      t: start ?? (dir > 0 ? 0.02 : 0.98),
+      dir,
+      speed: 0.08 + Math.random() * 0.1,
+    };
+  }
+
+  /** People are spread along both pavements and pace a little way up and down them. */
+  private spawnWalker(index: number, total: number): Walker {
+    const lane = PAVEMENT[index % 2];
+    // Spread along the near half of the pavement, where a figure is big enough to read.
+    const home = 0.12 + ((index + 0.5) / total) * 0.55;
+    return {
+      lane,
+      home,
+      span: 0.04 + Math.random() * 0.06,
+      rate: 0.06 + Math.random() * 0.09,
+      phase: Math.random() * Math.PI * 2,
+    };
   }
 
   private spawnCraft(startX?: number): Craft {
@@ -208,6 +270,27 @@ export class ComicCity {
       }
       slots[i].set(craft.x, craft.y + Math.sin(elapsed * 0.6 + i) * 0.004, this.motion > 0 ? craft.scale : 0, craft.dir);
       colors[i].copy(i % 2 === 0 ? PALETTE.ice : PALETTE.pink);
+    });
+
+    const cars = uniforms.uCar.value as Vector4[];
+    this.cars.forEach((car, i) => {
+      if (this.motion > 0) {
+        car.t += car.dir * car.speed * dt;
+        if (car.t < -0.02 || car.t > 1.02) this.cars[i] = car = this.spawnCar();
+      }
+      const at = along(car.lane, Math.max(0, Math.min(1, car.t)));
+      // Driving away shows tail lights, coming towards the camera shows heads (the shader reads the sign).
+      cars[i].set(at.x, at.y, this.motion > 0 ? at.scale : 0, car.dir > 0 ? -1 : 1);
+    });
+
+    const walkers = uniforms.uWalker.value as Vector4[];
+    this.walkers.forEach((walker, i) => {
+      // A few paces along the pavement and back, so they walk into and out of the frame's depth.
+      const swing = Math.sin(elapsed * walker.rate * Math.PI * 2 + walker.phase) * this.motion;
+      const t = Math.max(0.02, Math.min(0.95, walker.home + swing * walker.span));
+      const at = along(walker.lane, t);
+      const bob = Math.abs(Math.cos(elapsed * walker.rate * Math.PI * 6 + walker.phase)) * 0.0016 * at.scale;
+      walkers[i].set(at.x, at.y + bob, at.scale * 0.72, walker.phase);
     });
   }
 }

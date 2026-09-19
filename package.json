@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "textures": "python3 scripts/build-player-assets.py",
+    "city": "python3 scripts/build-city.py",
     "upload:audio": "tsx scripts/upload-lit-audio.ts",
     "previews": "python3 scripts/build-lit-previews.py",
     "wrap-sounds": "python3 scripts/build-wrap-sounds.py",
