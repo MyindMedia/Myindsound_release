@@ -10,24 +10,32 @@
  */
 import { api, getConvex, isConvexConfigured } from './convex';
 import { getClerk, isClerkConfigured } from './clerk';
+import { purchaseSessionId } from './purchase-session';
 
-/** Only ever claim a given checkout once per tab, however many pages it passes through. */
-const CLAIMED_KEY = 'myind.claimed';
+/** What has been tried in this tab: the checkout, and how many goes it has had. */
+const TRIES_KEY = 'myind.claimTries';
+/** A few goes across the pages a buyer passes through, then stop pestering Clerk. */
+const MAX_TRIES = 4;
 
-function alreadyClaimed(sessionId: string): boolean {
+function tries(sessionId: string): number {
   try {
-    return window.sessionStorage.getItem(CLAIMED_KEY) === sessionId;
+    const saved = JSON.parse(window.sessionStorage.getItem(TRIES_KEY) ?? 'null') as { id?: string; n?: number } | null;
+    return saved?.id === sessionId ? (saved.n ?? 0) : 0;
   } catch {
-    return false;
+    return 0;
   }
 }
 
-function markClaimed(sessionId: string): void {
+function countTry(sessionId: string, n: number): void {
   try {
-    window.sessionStorage.setItem(CLAIMED_KEY, sessionId);
+    window.sessionStorage.setItem(TRIES_KEY, JSON.stringify({ id: sessionId, n }));
   } catch {
-    /* Storage is blocked: the worst case is claiming it twice, which the ticket itself prevents. */
+    /* Storage is blocked: it will simply try again on the next page. */
   }
+}
+
+function done(sessionId: string): void {
+  countTry(sessionId, MAX_TRIES);
 }
 
 /**
@@ -40,17 +48,30 @@ export async function claimAccountFromCheckout(sessionId: string): Promise<boole
   try {
     const clerk = await getClerk();
     if (clerk.user) return true; // Already signed in: nothing to claim.
-    if (alreadyClaimed(sessionId)) return false;
-    markClaimed(sessionId);
+    const attempts = tries(sessionId);
+    if (attempts >= MAX_TRIES) return false;
+    countTry(sessionId, attempts + 1);
 
     const { ticket } = await getConvex().action(api.payments.claimAccountForCheckoutSession, { sessionId });
     const attempt = await clerk.client!.signIn.create({ strategy: 'ticket', ticket });
     if (attempt.status !== 'complete' || !attempt.createdSessionId) return false;
     await clerk.setActive({ session: attempt.createdSessionId });
+    // It took: no more goes needed in this tab.
+    done(sessionId);
     return true;
   } catch (err) {
     // A buyer who can't be signed in automatically still has their 24-hour link and the sign-in page.
     console.error('Account claim failed:', err);
     return false;
   }
+}
+
+/**
+ * The same thing for a page that wasn't the landing page: if this browser paid in the last 24 hours and
+ * isn't signed in, the account that purchase made is claimed here instead. The dashboard and the sign-in
+ * page both try this before asking anyone to sign in.
+ */
+export async function claimIfPurchased(): Promise<boolean> {
+  const sessionId = purchaseSessionId();
+  return sessionId ? claimAccountFromCheckout(sessionId) : false;
 }

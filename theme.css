@@ -763,3 +763,80 @@ body .nav-link {
     transition: none;
   }
 }
+
+/* ── Clerk's widgets inside our panels ─────────────────────────────────── */
+
+/* Clerk sizes its own card, which on a phone pushed it out through the side of the panel it sits in. */
+body .auth-container,
+body #clerk-signup-container,
+body .clerk-mount {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* The panel's gold frame needs room inside it, or the form sits on the line. */
+body .auth-container {
+  padding: 22px 20px 26px;
+}
+
+body .auth-section {
+  width: min(460px, 100%);
+  margin-inline: auto;
+}
+
+/* Clerk v5 wraps the card in `cl-cardBox`, which carries the fixed 400px width. */
+body .cl-rootBox,
+body .cl-cardBox,
+body .cl-card,
+body .cl-main,
+body .clerk-root,
+body .clerk-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+body .cl-card {
+  padding-inline: 0 !important;
+}
+
+/* The panel's own gold frame is the card, so Clerk's header repeats what is already above it. */
+body .auth-container .cl-header {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  body .auth-container {
+    padding: 18px 12px 20px;
+  }
+
+  body .cl-formButtonPrimary,
+  body .cl-socialButtonsBlockButton,
+  body .cl-formFieldInput {
+    width: 100% !important;
+    min-height: 44px;
+  }
+
+  /* The dashboard's own cards, so nothing runs off the side. */
+  body .downloads-grid,
+  body .dashboard-actions,
+  body .account-info {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  body .account-card,
+  body .action-card,
+  body .download-card,
+  body .order-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body .account-email,
+  body .account-id-helper {
+    overflow-wrap: anywhere;
+  }
+}

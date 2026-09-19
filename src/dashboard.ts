@@ -5,6 +5,7 @@
 
 import { getClerk, isSignedIn, getUserId, getUserName, getUserEmail, signOut, mountUserButton, isClerkConfigured } from './clerk';
 import { saveFromUrl } from './download';
+import { claimIfPurchased } from './purchase-signin';
 import { initAnalytics, identifyUser, track } from './analytics';
 import type { FunctionReturnType } from 'convex/server';
 import { api, connectConvexAuth, convexErrorMessage, getConvex, isConvexConfigured } from './convex';
@@ -39,8 +40,10 @@ class DashboardController {
         return;
       }
 
-      // Check authentication
-      const signedIn = await isSignedIn();
+      // Check authentication. A buyer who has just paid has an account already: claim it rather than
+      // sending them to a sign-in form for something they have bought.
+      let signedIn = await isSignedIn();
+      if (!signedIn) signedIn = await claimIfPurchased();
 
       if (!signedIn) {
         this.showSignInRequired();

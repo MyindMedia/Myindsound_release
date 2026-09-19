@@ -33,14 +33,23 @@ async function updateNavigation(): Promise<void> {
 
   if (!navLinks) return;
 
-  // Find or create the GET ACCESS / DASHBOARD link
-  let authLink = navLinks.querySelector('.nav-link[href="/login"], .nav-link[href="/dashboard"], .nav-link[href="/login.html"], .nav-link[href="/dashboard.html"]') as HTMLAnchorElement;
+  // DASHBOARD and GET ACCESS are the same doorway: only ever show the one that applies. Some pages carry
+  // both links, some carry one, and the home page's nav has no `.nav-link` class at all, so go by the path.
+  const links = [...navLinks.querySelectorAll('a')] as HTMLAnchorElement[];
+  const pathOf = (link: HTMLAnchorElement) => new URL(link.href, window.location.href).pathname.replace(/\.html$/, '');
+  const dashboardLink = links.find((link) => pathOf(link) === '/dashboard');
+  const loginLink = links.find((link) => pathOf(link) === '/login');
 
   if (signedIn) {
-    // Update link to DASHBOARD
-    if (authLink) {
-      authLink.href = '/dashboard';
-      authLink.textContent = 'DASHBOARD';
+    // Bought and signed in: the doorway is the dashboard.
+    if (dashboardLink) {
+      dashboardLink.hidden = false;
+      dashboardLink.textContent = 'DASHBOARD';
+      if (loginLink) loginLink.hidden = true;
+    } else if (loginLink) {
+      loginLink.href = '/dashboard';
+      loginLink.textContent = 'DASHBOARD';
+      loginLink.hidden = false;
     }
 
     // Add ADMIN link if Convex says this user is an admin (checked server-side)
@@ -62,10 +71,16 @@ async function updateNavigation(): Promise<void> {
       await mountUserButton('nav-user');
     }
   } else {
-    // Update link to GET ACCESS
-    if (authLink) {
-      authLink.href = '/login';
-      authLink.textContent = 'GET ACCESS';
+    // Signed out: GET ACCESS, and no dashboard link to bounce them off.
+    if (loginLink) {
+      loginLink.href = '/login';
+      loginLink.textContent = 'GET ACCESS';
+      loginLink.hidden = false;
+      if (dashboardLink) dashboardLink.hidden = true;
+    } else if (dashboardLink) {
+      dashboardLink.href = '/login';
+      dashboardLink.textContent = 'GET ACCESS';
+      dashboardLink.hidden = false;
     }
 
     // Remove admin link if it exists

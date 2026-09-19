@@ -5,6 +5,7 @@
 
 import { mountSignIn, mountSignUp, isSignedIn, mountUserButton, isClerkConfigured, getClerkError } from './clerk';
 import { initAnalytics } from './analytics';
+import { claimIfPurchased } from './purchase-signin';
 
 class LoginController {
   private currentTab: 'signin' | 'signup' = 'signin';
@@ -31,8 +32,8 @@ class LoginController {
     }
 
     try {
-      // Check if user is already signed in
-      const signedIn = await isSignedIn();
+      // Check if user is already signed in. Fresh from a purchase, the account is claimed instead of asked for.
+      const signedIn = (await isSignedIn()) || (await claimIfPurchased());
       if (signedIn) {
         // Get redirect URL from query params or default to dashboard
         const params = new URLSearchParams(window.location.search);
