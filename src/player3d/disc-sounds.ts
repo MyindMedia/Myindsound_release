@@ -19,6 +19,8 @@ type Part = 'spinUp' | 'loop' | 'spinDown' | 'unload';
 
 /** Mechanics level against the music volume; the loop sits under the music. */
 const MIX = 0.6;
+/** And drops further once a song is playing: the drive is texture under it, not something beside it. */
+const DUCK = 0.34;
 const LEVEL: Record<Part, number> = { spinUp: 1, loop: 0.5, spinDown: 1, unload: 1 };
 
 interface Voice {
@@ -35,6 +37,7 @@ export class DiscMechanics {
   private voices: Voice[] = [];
   private loop: Voice | null = null;
   private volume = 0.8;
+  private ducked = false;
 
   constructor() {
     // Fetched up front so the sounds are ready by the time the disc seats.
@@ -53,7 +56,7 @@ export class DiscMechanics {
     if (!ctx || this.ctx) return;
     this.ctx = ctx;
     this.output = ctx.createGain();
-    this.output.gain.value = this.volume * MIX;
+    this.output.gain.value = this.volume * MIX * (this.ducked ? DUCK : 1);
     this.output.connect(ctx.destination);
     void this.files.then(async (files) => {
       for (const [part, data] of Object.entries(files) as [Part, ArrayBuffer][]) {
@@ -68,7 +71,20 @@ export class DiscMechanics {
 
   setVolume(value: number): void {
     this.volume = value;
-    if (this.ctx && this.output) this.output.gain.setTargetAtTime(value * MIX, this.ctx.currentTime, 0.05);
+    this.applyOutput(0.05);
+  }
+
+  /** Music is playing: the drive drops under it, and comes back up when the song stops. */
+  setDucked(value: boolean): void {
+    if (this.ducked === value) return;
+    this.ducked = value;
+    this.applyOutput(0.3);
+  }
+
+  private applyOutput(seconds: number): void {
+    if (!this.ctx || !this.output) return;
+    const level = this.volume * MIX * (this.ducked ? DUCK : 1);
+    this.output.gain.setTargetAtTime(level, this.ctx.currentTime, seconds);
   }
 
   /** Spin-up from `from` seconds into the sound, then the loop from the moment it ends. */

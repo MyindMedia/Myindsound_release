@@ -609,6 +609,8 @@ export class PlayerApp {
     if (prev.status !== next.status || prev.trackIndex !== next.trackIndex) {
       window.setTimeout(() => this.saveHandoff(true), 0);
     }
+    // The drive noise sits under the music while a song runs, and comes back up when it stops.
+    this.mechanics.setDucked(next.status === 'playing');
     if (next.status !== 'resuming') window.clearTimeout(this.resumeTimer);
 
     // Red key: fade out, spin down, unload, and hand the cartridge to the inspector.
