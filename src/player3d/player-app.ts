@@ -103,6 +103,8 @@ export class PlayerApp {
   private resumeAt = 0;
   /** The next insert is a resume, so the disc goes back in without the timeline. */
   private instantInsert = false;
+  /** The float-in timeline, kept so an insert can cancel it: it animates the cartridge's own position. */
+  private floatIn: { cancel(): void } | null = null;
   private lastHandoffSave = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -182,7 +184,8 @@ export class PlayerApp {
     if (import.meta.env.DEV) {
       (window as unknown as Record<string, unknown>).__p3d = { app: this, scene: this.scene, deck: this.deck };
     }
-    if (this.state.status === 'ejected') this.presentFloating(this.options.wrapped);
+    // Coming back mid-song there is nothing to float in: the disc goes straight back into the deck.
+    if (this.state.status === 'ejected') this.presentFloating(this.options.wrapped || Boolean(this.options.resume));
     if (this.options.wrapped) await this.startWrapped();
     else this.startResume();
     // The music carries on to the rest of the site, so the state goes with whoever leaves the page.
@@ -244,7 +247,8 @@ export class PlayerApp {
     this.keys?.setInspecting(true);
     this.scene?.setTiltEnabled(false);
     if (!this.deck || !this.scene || !this.inspector) return;
-    runFloatInSequence(this.deck, this.scene, this.inspector, instant);
+    this.floatIn?.cancel();
+    this.floatIn = runFloatInSequence(this.deck, this.scene, this.inspector, instant);
     this.inspector.activate();
   }
 
@@ -641,6 +645,10 @@ export class PlayerApp {
     if (prev.status === 'ejected' && next.status === 'inserting') {
       const instant = this.instantInsert;
       this.instantInsert = false;
+      // The float-in animates the cartridge's own position, so it has to stop before the deck seats it:
+      // left running it drags the disc back out of the player a frame later.
+      this.floatIn?.cancel();
+      this.floatIn = null;
       if (track) this.engine.load(track.streamUrl, this.takeResumeAt());
       this.engine.unlock();
       this.mechanics.attach(this.engine.context);
