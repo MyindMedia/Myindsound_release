@@ -29,7 +29,11 @@ export class SuccessAnimationController {
   private tapOverlay: HTMLElement | null = null;
   private preventScroll: (e: Event) => void;
 
-  constructor() {
+  /** Where the reveal lets out; the checkout rides along so the player opens unlocked. */
+  private destination = '/';
+
+  constructor(destination?: string) {
+    if (destination) this.destination = destination;
     this.preventScroll = (e: Event) => {
       e.preventDefault();
     };
@@ -399,7 +403,7 @@ export class SuccessAnimationController {
     if (glitchStyles) glitchStyles.remove();
 
     // Navigate with state flag for seamless UI reveal
-    window.location.href = '/';
+    window.location.href = this.destination;
   }
 
   /**

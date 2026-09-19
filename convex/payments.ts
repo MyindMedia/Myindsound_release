@@ -129,6 +129,11 @@ export const createDigitalSession = action({
         litProductId: process.env.STRIPE_PRODUCT_ID_LIT ?? 'prod_TsqOvYycMrdhnl',
         sourceProductId: process.env.STRIPE_PRODUCT_ID_SOURCE ?? 'prod_TsqUkQtzNQ5Y3z',
       }),
+      payment_intent_data: {
+        // What the buyer's receipt and the Stripe dashboard call this payment. The name at the top of the
+        // checkout page itself is the account's public business name, which only the Stripe dashboard sets.
+        description: 'LIT [Live In Truth] - Myind Sound',
+      },
       metadata: {
         products: args.withUpsell ? 'LIT,THE_SOURCE' : 'LIT',
         lit_amount: (args.amountCents / 100).toFixed(2),

@@ -28,15 +28,75 @@ function linkButton(label: string, className: string, href = '#'): HTMLAnchorEle
   return button;
 }
 
-async function startStreamReveal() {
+async function startStreamReveal(destination: string) {
   try {
     const { SuccessAnimationController } = await import('./success-animation');
-    new SuccessAnimationController().start('/assets/images/lit-poster.png');
+    new SuccessAnimationController(destination).start('/assets/images/lit-poster.png');
   } catch (err) {
     console.error('Animation module failed:', err);
     document.getElementById('reveal-overlay')?.classList.add('active');
-    setTimeout(() => (window.location.href = '/'), 1500);
+    setTimeout(() => (window.location.href = destination), 1500);
   }
+}
+
+/**
+ * The account was made from the checkout email and has no password yet, so this is where they choose one.
+ * Without it the only way back in is a code to that address, which is a poor deal for something they bought.
+ */
+function passwordSetup(): HTMLFormElement {
+  const form = document.createElement('form');
+  form.className = 'finish-account';
+  form.noValidate = true;
+
+  const label = document.createElement('label');
+  label.className = 'finish-account__label';
+  label.setAttribute('for', 'new-password');
+  label.textContent = 'Choose a password';
+
+  const field = document.createElement('input');
+  field.type = 'password';
+  field.id = 'new-password';
+  field.name = 'new-password';
+  field.autocomplete = 'new-password';
+  field.minLength = 8;
+  field.required = true;
+  field.placeholder = 'At least 8 characters';
+  field.className = 'primary-input';
+
+  const save = document.createElement('button');
+  save.type = 'submit';
+  save.className = 'primary-btn';
+  save.textContent = 'SAVE PASSWORD';
+
+  const note = document.createElement('p');
+  note.className = 'finish-account__note';
+  note.textContent = 'You can skip this and set one later from your dashboard.';
+
+  form.append(label, field, save, note);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (field.value.length < 8) {
+      note.textContent = 'Passwords need at least 8 characters.';
+      return;
+    }
+    save.disabled = true;
+    save.textContent = 'SAVING...';
+    try {
+      const clerk = await getClerk();
+      await clerk.user?.updatePassword({ newPassword: field.value, signOutOfOtherSessions: false });
+      form.replaceChildren(Object.assign(document.createElement('p'), {
+        className: 'finish-account__note',
+        textContent: 'Password saved. You can sign in with your email and password any time.',
+      }));
+    } catch (err) {
+      const clerkError = err as { errors?: { longMessage?: string; message?: string }[] };
+      note.textContent =
+        clerkError.errors?.[0]?.longMessage ?? clerkError.errors?.[0]?.message ?? 'That password was refused. Try another.';
+      save.disabled = false;
+      save.textContent = 'SAVE PASSWORD';
+    }
+  });
+  return form;
 }
 
 /**
@@ -58,12 +118,9 @@ async function offerAccount(sessionId: string) {
       if (heading) heading.textContent = 'YOUR ACCOUNT IS READY';
       if (copy) {
         copy.textContent =
-          'It was made with your checkout email, and you are signed in. Everything you have bought is in your dashboard; after 24 hours you sign in again.';
+          'It was made with your checkout email and you are signed in. Set a password to finish it, so you can sign back in whenever you like.';
       }
-      container.replaceChildren(
-        linkButton('PLAY THE ALBUM', 'play-btn', `/?success=true&session_id=${encodeURIComponent(sessionId)}`),
-        linkButton('MY DASHBOARD', 'dashboard-btn', '/dashboard'),
-      );
+      container.replaceChildren(passwordSetup(), linkButton('MY DASHBOARD', 'dashboard-btn', '/dashboard'));
       return;
     }
 
@@ -91,10 +148,10 @@ async function init() {
     if (nameSpan) nameSpan.textContent = data.firstName ? data.firstName.toUpperCase() : '';
 
     const container = document.getElementById('download-links-container');
-    const streamButton = linkButton('STREAM NOW', 'stream-btn');
+    const streamButton = linkButton('PLAY THE ALBUM', 'stream-btn');
     streamButton.addEventListener('click', (event) => {
       event.preventDefault();
-      void startStreamReveal();
+      void startStreamReveal(`/?success=true&session_id=${encodeURIComponent(sessionId)}`);
     });
     container?.appendChild(streamButton);
 
@@ -117,8 +174,6 @@ async function init() {
     show('success-content');
     // They have paid: PLAY THE ALBUM goes straight into the player, unwrapped and already unlocked.
     markOpened();
-    const play = document.querySelector('#success-content a[href="/"]') as HTMLAnchorElement | null;
-    if (play) play.href = `/?success=true&session_id=${encodeURIComponent(sessionId)}`;
     void offerAccount(sessionId);
   } catch (err) {
     console.error('Session verification failed:', convexErrorMessage(err, 'unknown error'));
