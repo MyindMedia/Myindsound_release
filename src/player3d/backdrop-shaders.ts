@@ -88,14 +88,14 @@ export const COMIC_CITY = {
                   + valueNoise(uv * vec2(7.5, 3.6) - vec2(drift * 1.7, drift * 0.5)) * 0.38;
       float band = smoothstep(0.02, 0.5, uv.y) * (1.0 - 0.4 * smoothstep(0.78, 1.0, uv.y));
       float haze = clamp(smoke * band * uHaze, 0.0, 1.0);
-      col = mix(col, mix(vec3(0.05, 0.045, 0.085), vec3(0.15, 0.13, 0.21), smoke), haze * 0.34);
+      col = mix(col, mix(vec3(0.05, 0.045, 0.085), vec3(0.15, 0.13, 0.21), smoke), haze * 0.16);
       // Lights still punch through it, just not all the way.
-      float through = 1.0 - haze * 0.45;
+      float through = 1.0 - haze * 0.22;
 
-      // The linework goes on last, the way an inker works over a finished wash: the pen presses harder
-      // up close and lifts towards the vanishing point, and the fog takes some of it back, but a line
-      // buried under the haze is a line nobody drew.
-      float ink = mask.b * uInk * mix(0.5, 1.15, smoothstep(0.0, 0.55, depth)) * (0.45 + 0.55 * through);
+      // The linework goes on last, the way an inker works over a finished wash. The pen presses harder
+      // up close and lifts a little towards the vanishing point, and the fog takes a touch of it back,
+      // but never much: a line buried under the haze is a line nobody drew.
+      float ink = mask.b * uInk * mix(0.8, 1.35, smoothstep(0.0, 0.55, depth)) * (0.8 + 0.2 * through);
       // Only the hottest neon bleeds: there the pen picks up the sign's own glow instead of going
       // black. Everywhere else, including the lit faces around a sign, it stays a dark line.
       vec3 pen = mix(vec3(0.014, 0.016, 0.036), col * 1.7 + vec3(0.09, 0.02, 0.15), smoothstep(0.5, 0.92, mask.r));

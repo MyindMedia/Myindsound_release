@@ -121,24 +121,36 @@ def soften(a: np.ndarray, sigma: float) -> np.ndarray:
     return np.asarray(blurred(a, sigma), dtype=np.float32) / 255.0
 
 
+def gradient(a: np.ndarray) -> np.ndarray:
+    gx = np.zeros_like(a)
+    gy = np.zeros_like(a)
+    gx[:, 1:-1] = a[:, 2:] - a[:, :-2]
+    gy[1:-1, :] = a[2:, :] - a[:-2, :]
+    return np.sqrt(gx * gx + gy * gy)
+
+
 def build_ink(value: np.ndarray, saturation: np.ndarray) -> np.ndarray:
     """
-    The drawn lines. A difference of Gaussians over the painting's tone, which is what an inker does by
-    hand: follow where the light changes fastest and lay the stroke down the dark side of it. A gradient
-    term goes in alongside it so a flat silhouette against the sky still gets an edge, and the blown-out
-    middle of the shot is left clean, because nobody inks fog.
+    The drawn lines, at the two scales an inker works at.
+
+    The heavy one comes first and matters most: a gradient over a heavily softened frame, which finds
+    where one building ends and the next begins rather than the windows on its face. That is the
+    architecture's outline, and it is what makes the city read as built rather than photographed.
+
+    Over the top of it go the fine ones: a difference of Gaussians over the painting's own tone, which
+    is what a hand does, follow where the light changes fastest and lay the stroke down the dark side of
+    it, plus a detail gradient for the smaller edges. The blown-out middle of the shot is left clean,
+    because nobody inks fog.
     """
     smooth = soften(value, 1.1)                       # photographic grain is not linework
+    # The heavy pen: big forms only.
+    structure = smoothstep(0.006, 0.055, gradient(soften(value, 3.6)))
+
     edge_of = soften(smooth, 1.0) - soften(smooth, 2.6)
     line = smoothstep(0.0015, 0.022, -edge_of)        # the dark side of the edge takes the stroke
+    detail = smoothstep(0.018, 0.11, gradient(smooth))
 
-    gx = np.zeros_like(smooth)
-    gy = np.zeros_like(smooth)
-    gx[:, 1:-1] = smooth[:, 2:] - smooth[:, :-2]
-    gy[1:-1, :] = smooth[2:, :] - smooth[:-2, :]
-    silhouette = smoothstep(0.018, 0.11, np.sqrt(gx * gx + gy * gy))
-
-    ink = np.clip(line * 0.95 + silhouette * 0.85, 0.0, 1.0)
+    ink = np.clip(structure * 1.05 + line * 0.5 + detail * 0.45, 0.0, 1.0)
     # A stroke thinner than a pixel disappears the moment the plane is scaled, so each one is spread to
     # its neighbours: the pen has a nib, it is not a sampling of where an edge was.
     nib = ink.copy()
