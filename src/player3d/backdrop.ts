@@ -125,6 +125,7 @@ export class ComicCity {
         uCar: { value: Array.from({ length: MAX_CAR }, () => new Vector4()) },
         uWalker: { value: Array.from({ length: MAX_WALKER }, () => new Vector4()) },
         uHaze: { value: this.motion > 0 ? 1 : 0.7 },
+        uInk: { value: 1 },
       },
       depthWrite: false,
       depthTest: false,
