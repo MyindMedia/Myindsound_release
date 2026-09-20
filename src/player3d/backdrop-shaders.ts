@@ -1,8 +1,7 @@
 /**
- * GLSL for the city backdrop: depth-map parallax, pulsing neon (mask R), beam shimmer (mask G), inked
- * linework over stepped-down flats (mask B) so the painting reads as drawn rather than photographed,
- * flying craft in the far sky, people shifting along the pavements, and a smoky haze over all of it so
- * the city sits behind the deck.
+ * GLSL for the city backdrop: depth-map parallax, pulsing neon (mask R), beam shimmer (mask G), flying
+ * craft in the far sky, people shifting along the pavements, and a smoky haze over all of it so the
+ * painting sits behind the deck.
  */
 
 export const MAX_CRAFT = 6;
@@ -29,7 +28,6 @@ export const COMIC_CITY = {
     uniform vec3 uCraftColor[${MAX_CRAFT}];
     uniform vec4 uWalker[${MAX_WALKER}];
     uniform float uHaze;
-    uniform float uInk;
     varying vec2 vUv;
 
     float hash12(vec2 p) {
@@ -72,11 +70,6 @@ export const COMIC_CITY = {
       float shimmer = 0.9 + 0.1 * sin(uv.y * 46.0 - uTime * 5.0 * uMotion) + 0.06 * uBass;
       col *= mix(1.0, shimmer, mask.g);
 
-      // The drawn frame. A painting holds more tones than a drawing does, so the midtones are stepped
-      // down to a few flats first, giving the linework something flat to sit on rather than a gradient.
-      float levels = 14.0;
-      col = mix(col, floor(col * levels + 0.5) / levels, uInk * 0.35);
-
       // Smoke drifting through the street: two layers of slow noise, thickest through the middle of the
       // frame, so the painting reads as atmosphere behind the deck rather than a picture beside it.
       // It is a veil, not a wash: keep it under the painting's own tone or it flattens the whole city
@@ -89,15 +82,6 @@ export const COMIC_CITY = {
       col = mix(col, mix(vec3(0.05, 0.045, 0.085), vec3(0.15, 0.13, 0.21), smoke), haze * 0.16);
       // Lights still punch through it, just not all the way.
       float through = 1.0 - haze * 0.22;
-
-      // The linework goes on last, the way an inker works over a finished wash. The pen presses harder
-      // up close and lifts a little towards the vanishing point, and the fog takes a touch of it back,
-      // but never much: a line buried under the haze is a line nobody drew.
-      float ink = mask.b * uInk * mix(0.8, 1.35, smoothstep(0.0, 0.55, depth)) * (0.8 + 0.2 * through);
-      // Only the hottest neon bleeds: there the pen picks up the sign's own glow instead of going
-      // black. Everywhere else, including the lit faces around a sign, it stays a dark line.
-      vec3 pen = mix(vec3(0.014, 0.016, 0.036), col * 1.7 + vec3(0.09, 0.02, 0.15), smoothstep(0.5, 0.92, mask.r));
-      col = mix(col, pen, clamp(ink, 0.0, 1.0));
 
       // The roadway: the bottom half of the frame, up to where the street meets the vanishing point.
       // (uv.y is 0 at the bottom of the painting, so this is the ground, not the sky.)

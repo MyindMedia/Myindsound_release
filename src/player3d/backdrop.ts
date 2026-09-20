@@ -20,9 +20,8 @@ import { COMIC_CITY, EMBERS, MAX_CRAFT, MAX_WALKER } from './backdrop-shaders';
 import { PALETTE, RAIN } from './shaders';
 
 /**
- * The city the player is set in: the LIT street painting, made 3D with a depth map and inked in the
- * shader off lines traced from the painting itself (`npm run city`), plus neon pulse, beam shimmer,
- * flying craft, people on the pavements, embers and rain.
+ * The city the player is set in: the LIT street painting, made 3D with a depth map (`npm run city`),
+ * plus neon pulse, beam shimmer, flying craft, people on the pavements, embers and rain.
  */
 
 const BASE = '/assets/images/minidisc/';
@@ -117,7 +116,6 @@ export class ComicCity {
         uCraftColor: { value: Array.from({ length: MAX_CRAFT }, () => new Color()) },
         uWalker: { value: Array.from({ length: MAX_WALKER }, () => new Vector4()) },
         uHaze: { value: this.motion > 0 ? 1 : 0.7 },
-        uInk: { value: 1 },
       },
       depthWrite: false,
       depthTest: false,

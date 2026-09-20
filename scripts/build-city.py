@@ -3,14 +3,13 @@
 The city the player is set in, and the two maps the backdrop shader reads with it.
 
   npm run city                                  # uses the painting below
-  npm run city -- --source "~/Downloads/Wide BG.png"
+  npm run city -- --source "~/Downloads/New BG.png" --dim 0.6
 
 Writes public/assets/images/minidisc/:
   city-comic.webp   the painting, fitted to 21:9 so there is room to parallax into
   city-depth.webp   red channel: white is near, black is far. The shader shifts near and far apart, and
                     treats anything under 0.16-0.3 as sky the flying craft pass through
-  city-mask.webp    red: the neon that pulses. green: the beam that shimmers. blue: the drawn lines,
-                    inked off the painting's own edges and laid back over it in the shader
+  city-mask.webp    red: the neon that pulses. green: the beam that shimmers
 
 The maps used to come from an image model. They are derived from the painting itself now, so a new
 backdrop is one command rather than three round trips: the neon is found by how saturated and bright a
@@ -28,9 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "public/assets/images/minidisc"
 DEFAULT_SOURCE = "~/Downloads/New BG.png"
 WIDE = (3360, 1440)   # 21:9, the plane the backdrop is drawn on
-# The depth is sampled smoothly and could be tiny, but the mask carries the inked linework in its blue
-# channel, and a pen stroke is the one thing in here that shows its resolution. Sized for the lines.
-MAPS = (2240, 960)
+MAPS = (1493, 640)    # the maps are sampled smoothly, so they cost less
 
 
 def smoothstep(edge0: float, edge1: float, x: np.ndarray) -> np.ndarray:
@@ -117,52 +114,8 @@ def blurred(a: np.ndarray, sigma: float) -> Image.Image:
     return grey(a).filter(ImageFilter.GaussianBlur(sigma))
 
 
-def soften(a: np.ndarray, sigma: float) -> np.ndarray:
-    return np.asarray(blurred(a, sigma), dtype=np.float32) / 255.0
-
-
-def gradient(a: np.ndarray) -> np.ndarray:
-    gx = np.zeros_like(a)
-    gy = np.zeros_like(a)
-    gx[:, 1:-1] = a[:, 2:] - a[:, :-2]
-    gy[1:-1, :] = a[2:, :] - a[:-2, :]
-    return np.sqrt(gx * gx + gy * gy)
-
-
-def build_ink(value: np.ndarray, saturation: np.ndarray) -> np.ndarray:
-    """
-    The drawn lines, at the two scales an inker works at.
-
-    The heavy one comes first and matters most: a gradient over a heavily softened frame, which finds
-    where one building ends and the next begins rather than the windows on its face. That is the
-    architecture's outline, and it is what makes the city read as built rather than photographed.
-
-    Over the top of it go the fine ones: a difference of Gaussians over the painting's own tone, which
-    is what a hand does, follow where the light changes fastest and lay the stroke down the dark side of
-    it, plus a detail gradient for the smaller edges. The blown-out middle of the shot is left clean,
-    because nobody inks fog.
-    """
-    smooth = soften(value, 1.1)                       # photographic grain is not linework
-    # The heavy pen: big forms only.
-    structure = smoothstep(0.006, 0.055, gradient(soften(value, 3.6)))
-
-    edge_of = soften(smooth, 1.0) - soften(smooth, 2.6)
-    line = smoothstep(0.0015, 0.022, -edge_of)        # the dark side of the edge takes the stroke
-    detail = smoothstep(0.018, 0.11, gradient(smooth))
-
-    ink = np.clip(structure * 1.05 + line * 0.5 + detail * 0.45, 0.0, 1.0)
-    # A stroke thinner than a pixel disappears the moment the plane is scaled, so each one is spread to
-    # its neighbours: the pen has a nib, it is not a sampling of where an edge was.
-    nib = ink.copy()
-    nib[:, 1:] = np.maximum(nib[:, 1:], ink[:, :-1])
-    nib[1:, :] = np.maximum(nib[1:, :], ink[:-1, :])
-    ink = np.maximum(ink, nib * 0.85)
-    # Anything bright and colourless is haze or the beam: a pen stroke across it reads as dirt.
-    return ink * (1.0 - smoothstep(0.55, 0.92, smooth) * (1.0 - smoothstep(0.25, 0.6, saturation)))
-
-
 def build_mask(image: Image.Image) -> Image.Image:
-    """Red: the neon that pulses. Green: the beam that shimmers. Blue: the drawn lines."""
+    """Red: the neon that pulses. Green: the beam that shimmers."""
     width, height = MAPS
     small = image.resize((width, height), Image.LANCZOS)
     value, saturation = channels(small)
@@ -179,9 +132,7 @@ def build_mask(image: Image.Image) -> Image.Image:
     column = np.exp(-(((u - centre) / 0.035) ** 2))
     beam = np.clip(lit * column * (1.0 - smoothstep(0.62, 1.0, v)), 0.0, 1.0)
 
-    # Neon and beam are read as soft fields and are blurred to match. The ink is not: blur a line enough
-    # and it stops being a line.
-    return Image.merge("RGB", (blurred(neon, 1.6), blurred(beam, 1.6), blurred(build_ink(value, saturation), 0.4)))
+    return Image.merge("RGB", (blurred(neon, 1.6), blurred(beam, 1.6), grey(np.zeros_like(neon))))
 
 
 def main() -> None:
@@ -199,8 +150,7 @@ def main() -> None:
     # The maps are read off the full-strength painting; only what is drawn is taken down.
     set_back(wide, args.dim).save(OUT_DIR / "city-comic.webp", quality=90, method=6)
     build_depth(wide).convert("RGB").save(OUT_DIR / "city-depth.webp", quality=82, method=6)
-    # The mask carries the linework, and webp softens a thin dark stroke long before it softens a field.
-    build_mask(wide).save(OUT_DIR / "city-mask.webp", quality=94, method=6)
+    build_mask(wide).save(OUT_DIR / "city-mask.webp", quality=82, method=6)
 
     for name in ("city-comic.webp", "city-depth.webp", "city-mask.webp"):
         path = OUT_DIR / name
