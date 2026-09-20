@@ -16,13 +16,13 @@ import {
   type PerspectiveCamera,
   type Texture,
 } from 'three';
-import { COMIC_CITY, EMBERS, MAX_CAR, MAX_CRAFT, MAX_WALKER } from './backdrop-shaders';
+import { COMIC_CITY, EMBERS, MAX_CRAFT, MAX_WALKER } from './backdrop-shaders';
 import { PALETTE, RAIN } from './shaders';
 
 /**
- * Comic-book city backdrop: the LIT cover street redrawn as 90s anime cel art (Nano Banana Pro,
- * aligned to the reference), made slightly 3D with a depth map, plus neon pulse, beam shimmer,
- * flying craft, embers and rain.
+ * The city the player is set in: the LIT street painting, made 3D with a depth map and inked in the
+ * shader off lines traced from the painting itself (`npm run city`), plus neon pulse, beam shimmer,
+ * flying craft, people on the pavements, embers and rain.
  */
 
 const BASE = '/assets/images/minidisc/';
@@ -38,15 +38,10 @@ type Craft = { x: number; y: number; scale: number; dir: number; speed: number }
  * everything about it follows from that.
  */
 type Lane = { nearX: number; nearY: number; farX: number; farY: number };
-type Car = { lane: Lane; t: number; dir: number; speed: number };
 /** Somebody on the pavement, pacing a few steps along it and back. */
 type Walker = { lane: Lane; home: number; span: number; rate: number; phase: number };
 
-/** Where the roadway and its pavements sit in the painting, near edge to vanishing point. */
-const ROAD: Lane[] = [
-  { nearX: 0.36, nearY: 0.02, farX: 0.49, farY: 0.44 },
-  { nearX: 0.64, nearY: 0.02, farX: 0.53, farY: 0.44 },
-];
+/** Where the pavements sit in the painting, near edge to vanishing point. */
 const PAVEMENT: Lane[] = [
   { nearX: 0.1, nearY: 0.05, farX: 0.44, farY: 0.42 },
   { nearX: 0.9, nearY: 0.05, farX: 0.57, farY: 0.42 },
@@ -82,7 +77,6 @@ export class ComicCity {
   private material: ShaderMaterial | null = null;
   private timed: ShaderMaterial[] = [];
   private crafts: Craft[] = [];
-  private cars: Car[] = [];
   private walkers: Walker[] = [];
   private bass = 0;
   private parallax = { x: 0, y: 0 };
@@ -95,7 +89,6 @@ export class ComicCity {
     this.buildEmbers(options.coarsePointer ? 160 : 420);
     if (!options.reducedMotion) this.buildRain(options.coarsePointer ? 360 : 900);
     for (let i = 0; i < (options.coarsePointer ? 3 : 5); i++) this.crafts.push(this.spawnCraft(Math.random()));
-    for (let i = 0; i < (options.coarsePointer ? 2 : MAX_CAR); i++) this.cars.push(this.spawnCar(Math.random()));
     const walkers = options.coarsePointer ? 4 : MAX_WALKER;
     for (let i = 0; i < walkers; i++) this.walkers.push(this.spawnWalker(i, walkers));
   }
@@ -122,7 +115,6 @@ export class ComicCity {
         uAspect: { value: IMAGE_ASPECT },
         uCraft: { value: Array.from({ length: MAX_CRAFT }, () => new Vector4()) },
         uCraftColor: { value: Array.from({ length: MAX_CRAFT }, () => new Color()) },
-        uCar: { value: Array.from({ length: MAX_CAR }, () => new Vector4()) },
         uWalker: { value: Array.from({ length: MAX_WALKER }, () => new Vector4()) },
         uHaze: { value: this.motion > 0 ? 1 : 0.7 },
         uInk: { value: 1 },
@@ -146,17 +138,6 @@ export class ComicCity {
     const viewWidth = viewHeight * camera.aspect;
     const height = Math.max(viewHeight, viewWidth / IMAGE_ASPECT);
     this.plane.scale.set(height * IMAGE_ASPECT, height, 1);
-  }
-
-  /** A car drives up or down one of the two lanes, its lights facing the way it is going. */
-  private spawnCar(start?: number): Car {
-    const dir = Math.random() < 0.5 ? -1 : 1;   // -1 comes towards the camera, +1 drives away
-    return {
-      lane: ROAD[Math.random() < 0.5 ? 0 : 1],
-      t: start ?? (dir > 0 ? 0.02 : 0.98),
-      dir,
-      speed: 0.08 + Math.random() * 0.1,
-    };
   }
 
   /** People are spread along both pavements and pace a little way up and down them. */
@@ -271,17 +252,6 @@ export class ComicCity {
       }
       slots[i].set(craft.x, craft.y + Math.sin(elapsed * 0.6 + i) * 0.004, this.motion > 0 ? craft.scale : 0, craft.dir);
       colors[i].copy(i % 2 === 0 ? PALETTE.ice : PALETTE.pink);
-    });
-
-    const cars = uniforms.uCar.value as Vector4[];
-    this.cars.forEach((car, i) => {
-      if (this.motion > 0) {
-        car.t += car.dir * car.speed * dt;
-        if (car.t < -0.02 || car.t > 1.02) this.cars[i] = car = this.spawnCar();
-      }
-      const at = along(car.lane, Math.max(0, Math.min(1, car.t)));
-      // Driving away shows tail lights, coming towards the camera shows heads (the shader reads the sign).
-      cars[i].set(at.x, at.y, this.motion > 0 ? at.scale : 0, car.dir > 0 ? -1 : 1);
     });
 
     const walkers = uniforms.uWalker.value as Vector4[];

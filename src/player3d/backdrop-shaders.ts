@@ -1,12 +1,11 @@
 /**
  * GLSL for the city backdrop: depth-map parallax, pulsing neon (mask R), beam shimmer (mask G), inked
  * linework over stepped-down flats (mask B) so the painting reads as drawn rather than photographed,
- * flying craft in the far sky, traffic crossing the street with its reflection in the wet road, people
- * shifting along the pavements, and a smoky haze over all of it so the city sits behind the deck.
+ * flying craft in the far sky, people shifting along the pavements, and a smoky haze over all of it so
+ * the city sits behind the deck.
  */
 
 export const MAX_CRAFT = 6;
-export const MAX_CAR = 4;
 export const MAX_WALKER = 8;
 
 export const COMIC_CITY = {
@@ -28,7 +27,6 @@ export const COMIC_CITY = {
     uniform float uAspect;
     uniform vec4 uCraft[${MAX_CRAFT}];
     uniform vec3 uCraftColor[${MAX_CRAFT}];
-    uniform vec4 uCar[${MAX_CAR}];
     uniform vec4 uWalker[${MAX_WALKER}];
     uniform float uHaze;
     uniform float uInk;
@@ -104,20 +102,6 @@ export const COMIC_CITY = {
       // The roadway: the bottom half of the frame, up to where the street meets the vanishing point.
       // (uv.y is 0 at the bottom of the painting, so this is the ground, not the sky.)
       float street = (1.0 - smoothstep(0.30, 0.50, uv.y)) * smoothstep(0.0, 0.06, uv.y);
-      for (int i = 0; i < ${MAX_CAR}; i++) {
-        vec4 car = uCar[i];
-        if (car.z <= 0.0) continue;
-        vec2 p = (vUv - car.xy) * vec2(uAspect, 1.0) / car.z;
-        vec2 q = p * vec2(1.0 / 0.016, 1.0 / 0.0042);
-        float core = exp(-dot(q, q));
-        float behind = -p.x * car.w;
-        float streak = step(0.0, behind) * exp(-behind / 0.055) * exp(-(p.y * p.y) / 0.0000022);
-        vec3 lamp = car.w > 0.0 ? vec3(0.86, 0.94, 1.0) : vec3(1.0, 0.3, 0.26);
-        vec2 r = (vUv - vec2(car.x, car.y - 0.028 * car.z)) * vec2(uAspect, 1.0) / car.z;
-        vec2 rq = r * vec2(1.0 / 0.028, 1.0 / 0.014);
-        float wet = exp(-dot(rq, rq));
-        col += lamp * (core * 1.5 + streak * 0.4 + wet * 0.3) * street * through;
-      }
 
       // People on the pavements: dark against the signs, with a little of the neon caught on them.
       for (int i = 0; i < ${MAX_WALKER}; i++) {
