@@ -159,10 +159,6 @@ export class PlayerScene {
     this.idleThrottle = enabled;
   }
 
-  getTilt(): { yaw: number; pitch: number } {
-    return { yaw: this.deckRoot.rotation.y, pitch: this.deckRoot.rotation.x - REST_PITCH };
-  }
-
   resize(): void {
     const width = window.innerWidth;
     const height = window.innerHeight;

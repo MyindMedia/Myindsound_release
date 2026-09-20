@@ -20,15 +20,17 @@ import { COMIC_CITY, EMBERS, MAX_CRAFT, MAX_WALKER } from './backdrop-shaders';
 import { PALETTE, RAIN } from './shaders';
 
 /**
- * The city the player is set in: the LIT street painting, made 3D with a depth map (`npm run city`),
- * plus neon pulse, beam shimmer, flying craft, people on the pavements, embers and rain.
+ * The city the player is set in: the LIT street painting (`npm run city`), plus neon pulse, beam
+ * shimmer, flying craft, people on the pavements, embers and rain.
+ *
+ * The painting is pinned flat to the camera and stays that way. It neither tilts with the deck nor
+ * bends under a parallax shift: those read as the backdrop wobbling behind the player.
  */
 
 const BASE = '/assets/images/minidisc/';
 const DISTANCE = 30;
 const MARGIN = 1.16;
 const IMAGE_ASPECT = 21 / 9;
-const PARALLAX = 0.032;
 
 type Craft = { x: number; y: number; scale: number; dir: number; speed: number };
 /**
@@ -78,7 +80,6 @@ export class ComicCity {
   private crafts: Craft[] = [];
   private walkers: Walker[] = [];
   private bass = 0;
-  private parallax = { x: 0, y: 0 };
   private readonly motion: number;
   private readonly pixelRatio: number;
 
@@ -107,7 +108,6 @@ export class ComicCity {
         uMap: { value: map },
         uDepth: { value: depth },
         uMask: { value: mask },
-        uParallax: { value: [0, 0] },
         uTime: { value: 0 },
         uMotion: { value: this.motion },
         uBass: { value: 0 },
@@ -225,10 +225,6 @@ export class ComicCity {
     this.bass += (drive.bass - this.bass) * 0.25;
   }
 
-  setParallax(yaw: number, pitch: number): void {
-    this.parallax = { x: -yaw, y: pitch };
-  }
-
   update(dt: number, elapsed: number): void {
     const time = elapsed * this.motion;
     for (const material of this.timed) material.uniforms.uTime.value = time;
@@ -236,11 +232,6 @@ export class ComicCity {
     const uniforms = this.material.uniforms;
     uniforms.uTime.value = time;
     uniforms.uBass.value = this.bass;
-    // A slow idle drift keeps the depth alive when nobody is moving the pointer.
-    const driftX = Math.sin(elapsed * 0.13) * 0.08 * this.motion;
-    const driftY = Math.sin(elapsed * 0.09 + 1.3) * 0.05 * this.motion;
-    uniforms.uParallax.value = [(this.parallax.x + driftX) * PARALLAX, (this.parallax.y + driftY) * PARALLAX];
-
     const slots = uniforms.uCraft.value as Vector4[];
     const colors = uniforms.uCraftColor.value as Color[];
     this.crafts.forEach((craft, i) => {

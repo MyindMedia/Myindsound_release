@@ -1,7 +1,11 @@
 /**
- * GLSL for the city backdrop: depth-map parallax, pulsing neon (mask R), beam shimmer (mask G), flying
- * craft in the far sky, people shifting along the pavements, and a smoky haze over all of it so the
- * painting sits behind the deck.
+ * GLSL for the city backdrop: pulsing neon (mask R), beam shimmer (mask G), flying craft in the far
+ * sky, people shifting along the pavements, and a smoky haze over all of it so the painting sits
+ * behind the deck.
+ *
+ * The painting itself is never moved or bent. It used to be shifted per pixel by the depth map as the
+ * deck tilted, which gave it depth but warped it, so the depth map now only says where the far sky is,
+ * for the craft to fly against.
  */
 
 export const MAX_CRAFT = 6;
@@ -19,7 +23,6 @@ export const COMIC_CITY = {
     uniform sampler2D uMap;
     uniform sampler2D uDepth;
     uniform sampler2D uMask;
-    uniform vec2 uParallax;
     uniform float uTime;
     uniform float uMotion;
     uniform float uBass;
@@ -48,12 +51,9 @@ export const COMIC_CITY = {
     }
 
     void main() {
-      // Two-step depth parallax: near (white) shifts one way, far (black) the other.
-      float focus = 0.35;
-      float d0 = texture2D(uDepth, vUv).r;
-      vec2 uv = vUv + uParallax * (d0 - focus);
+      // The painting is sampled straight: one pixel of art to one pixel of plane, no shifting.
+      vec2 uv = vUv;
       float depth = texture2D(uDepth, uv).r;
-      uv = clamp(vUv + uParallax * (depth - focus), 0.001, 0.999);
 
       vec3 col = texture2D(uMap, uv).rgb;
       vec4 mask = texture2D(uMask, uv);

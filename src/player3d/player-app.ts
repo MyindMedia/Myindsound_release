@@ -448,11 +448,7 @@ export class PlayerApp {
     const centre = scene.project(disc.centre);
     const edge = scene.project(disc.edge);
     this.hud.anchor({ x: centre.x, y: centre.y, r: Math.hypot(edge.x - centre.x, edge.y - centre.y) });
-    // The HUD panels stay flat; only the city follows the deck's tilt.
-    if (!this.reducedMotion) {
-      const tilt = scene.getTilt();
-      this.city?.setParallax(tilt.yaw, tilt.pitch);
-    }
+    // The HUD panels and the city both stay flat: only the deck itself tilts.
     scene.setIdleThrottle(this.state.status === 'ejected' && performance.now() - this.lastInput > IDLE_THROTTLE_MS);
     this.renderHud(dt);
   }
