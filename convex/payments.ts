@@ -79,6 +79,8 @@ async function fulfilSession(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
   event?: { id: string; type: string },
+  /** False only for the rebuild: an email with no account is skipped (`no_account`), never given a new one. */
+  createAccount = true,
 ): Promise<RebuildOutcome> {
   if (!isPaidSession(session)) return 'unpaid';
   const email = sessionEmail(session);
@@ -102,10 +104,16 @@ async function fulfilSession(
     return 'revoked';
   }
 
-  const clerkId =
-    holder.status === 'held'
-      ? holder.clerkId
-      : await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined, session.id);
+  let clerkId: string;
+  if (holder.status === 'held') {
+    clerkId = holder.clerkId;
+  } else if (createAccount) {
+    clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined, session.id);
+  } else {
+    const existing = await findClerkAccount(email);
+    if (!existing) return 'no_account';
+    clerkId = existing.id;
+  }
   const input = toFulfilmentInput({ session, lineItems, clerkId, email, eventId: event?.id, eventType: event?.type });
   const result = await ctx.runMutation(internal.fulfilment.record, input);
   if (result.alreadyProcessed) return 'already';
@@ -368,9 +376,12 @@ export const claimAccountForCheckoutSession = action({
 // Refunded sessions are never granted (`revoked`). A paid session with no licence or ref of its own (a buyer
 // who paid twice before refs existed) is recorded as an extra payment on the licence they own, so ED-0 runs
 // this first (docs/app-v1/RUNBOOK-ED0.md).
+// It never creates an account unless `createAccounts: true`: before the app, deleting an account deleted its
+// licence, so a deleted buyer's paid session looks unfulfilled, and recreating their Clerk account, profile and
+// CRM contact would undo the deletion. Those sessions are counted as `no_account` for a person to check.
 export const rebuildFromStripe = internalAction({
-  args: { dryRun: v.boolean(), createdAfterSec: v.optional(v.number()) },
-  handler: async (ctx, { dryRun, createdAfterSec }) => {
+  args: { dryRun: v.boolean(), createdAfterSec: v.optional(v.number()), createAccounts: v.optional(v.boolean()) },
+  handler: async (ctx, { dryRun, createdAfterSec, createAccounts = false }) => {
     const stripe = stripeClient();
     const outcomes: RebuildOutcome[] = [];
     const params: Stripe.Checkout.SessionListParams = { status: 'complete', limit: 100 };
@@ -392,7 +403,7 @@ export const rebuildFromStripe = internalAction({
           continue;
         }
         if (!dryRun) {
-          outcomes.push(await fulfilSession(ctx, stripe, session));
+          outcomes.push(await fulfilSession(ctx, stripe, session, undefined, createAccounts));
           continue;
         }
         if (session.metadata?.order_type === 'physical') {
@@ -406,7 +417,12 @@ export const rebuildFromStripe = internalAction({
         const lineItems = await listLineItems(stripe, session.id);
         const stripeProductIds = lineItems.map(lineItemProductId).filter((id): id is string => Boolean(id));
         const products = await ctx.runQuery(internal.fulfilment.productsByStripeIds, { stripeProductIds });
-        outcomes.push(products.length > 0 ? 'granted' : 'unmatched');
+        if (products.length === 0) {
+          outcomes.push('unmatched');
+          continue;
+        }
+        const email = sessionEmail(session)!;
+        outcomes.push(createAccounts || (await findClerkAccount(email)) ? 'granted' : 'no_account');
       } catch (err) {
         // Counts only, no customer data: the message says which step failed.
         console.error('rebuildFromStripe: session failed:', errorMessage(err));

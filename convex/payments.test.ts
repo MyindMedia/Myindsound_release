@@ -444,6 +444,41 @@ describe('payments.rebuildFromStripe', () => {
     expect(await rowsFor(t, litId)).toEqual([]);
   });
 
+  test('never recreates an account for a buyer with no Clerk account (a deleted account), unless told to', async () => {
+    const t = newTest();
+    const { litId } = await seedProducts(t);
+    // Before this deploy, deleting an account deleted its licence, so its paid session looks never fulfilled.
+    addSession('gone', [LIT], 'deleted@example.test');
+
+    expect(await t.action(internal.payments.rebuildFromStripe, { dryRun: true })).toMatchObject({
+      no_account: 1,
+      granted: 0,
+    });
+    expect(await t.action(internal.payments.rebuildFromStripe, { dryRun: false })).toMatchObject({
+      no_account: 1,
+      granted: 0,
+    });
+    expect(fake.created).toEqual([]);
+    expect(await rowsFor(t, litId)).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.query('users').collect())).toEqual([]);
+
+    // A session the operator has confirmed was simply never fulfilled.
+    expect(
+      await t.action(internal.payments.rebuildFromStripe, { dryRun: false, createAccounts: true }),
+    ).toMatchObject({ no_account: 0, granted: 1 });
+    expect(fake.created).toEqual(['deleted@example.test']);
+    expect(await rowsFor(t, litId)).toHaveLength(1);
+  });
+
+  test('the webhook and the claim link still create the account for a new buyer', async () => {
+    const t = newTest();
+    const { litId } = await seedProducts(t);
+    const session = addSession('new');
+    expect((await completed(t, session)).status).toBe(200);
+    expect(fake.created).toEqual([session.email]);
+    expect(await rowsFor(t, litId)).toHaveLength(1);
+  });
+
   test('a legacy double payer: the second payment becomes a ref, so refunding the first keeps the licence', async () => {
     const t = newTest();
     const { litId } = await seedProducts(t);

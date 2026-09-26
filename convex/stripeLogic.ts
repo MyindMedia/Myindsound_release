@@ -152,6 +152,7 @@ export type RebuildOutcome =
   | 'revoked' // the session's licence was refunded or charged back: not granted again
   | 'retired' // the session's licence belongs to a deleted account
   | 'taken' // the session's licence is held by a different account
+  | 'no_account' // the rebuild found no account for the email and was not told to create one (see rebuildFromStripe)
   | 'unmatched'
   | 'unpaid'
   | 'no_email'
@@ -185,6 +186,7 @@ export function summariseRebuild(outcomes: RebuildOutcome[]) {
     revoked: 0,
     retired: 0,
     taken: 0,
+    no_account: 0,
     unmatched: 0,
     unpaid: 0,
     no_email: 0,

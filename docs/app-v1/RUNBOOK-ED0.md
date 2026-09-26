@@ -32,9 +32,13 @@ only (no emails, names or ids). Stop and investigate if any step reports `error`
    npx convex run payments:rebuildFromStripe '{"dryRun":true}' --prod
    ```
 
-   Expect mostly `already`. `granted` is paid sessions with no record of their own: sessions that were never
-   fulfilled, and a buyer's second payment for something they already owned. `revoked` is refunded sessions,
-   which are never granted.
+   Expect mostly `already`. `granted` is paid sessions with no record of their own whose email still has an
+   account: a buyer's second payment for something they already owned, or a session that was never fulfilled.
+   `revoked` is refunded sessions, which are never granted. `no_account` is a paid session whose email has no
+   account: before this deploy, deleting an account deleted its licence, so these can be people who deleted
+   their data. The rebuild never recreates them (that would undo the deletion in Convex, Clerk and GHL). Check
+   each one in the Stripe dashboard; only if it was genuinely never fulfilled, run it with accounts on, scoped
+   to its time: `npx convex run payments:rebuildFromStripe '{"dryRun":false,"createAccounts":true,"createdAfterSec":<created>}' --prod`.
 
 5. **Rebuild from Stripe, for real.** This must run before the migration: it records every paid session as a
    payment ref, including a legacy second payment (added to the licence the buyer already owns), so a later

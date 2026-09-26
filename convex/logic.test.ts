@@ -100,6 +100,7 @@ describe('stripeLogic', () => {
       revoked: 0,
       retired: 0,
       taken: 0,
+      no_account: 0,
       unmatched: 0,
       unpaid: 0,
       no_email: 0,
