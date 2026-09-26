@@ -4,6 +4,7 @@ import { leadTags, purchaseTags } from './ghlLogic';
 import {
   buildDigitalLineItems,
   isPaidSession,
+  mayIssueCheckoutTicket,
   summariseRebuild,
   toFulfilmentInput,
   validateCheckoutInput,
@@ -133,5 +134,39 @@ describe('downloadLogic', () => {
     expect(isCheckoutSessionId('cs_test_a1B2c3')).toBe(true);
     expect(isCheckoutSessionId('pi_123')).toBe(false);
     expect(isCheckoutSessionId('cs_live_../../x')).toBe(false);
+  });
+});
+
+describe('mayIssueCheckoutTicket', () => {
+  const fresh = { matches: 1, lastSignInAt: null, createdByCheckout: 'cs_test_mine' };
+  const decide = (account: typeof fresh | Record<string, unknown>, isAdminEmail = false) =>
+    mayIssueCheckoutTicket({ account: account as typeof fresh, sessionId: 'cs_test_mine', isAdminEmail });
+
+  test('the account this checkout created, never used, gets a ticket', () => {
+    expect(decide(fresh)).toBe(true);
+  });
+
+  test('an account another checkout created gets no ticket (a checkout opened early can\'t claim a later buyer)', () => {
+    expect(decide({ ...fresh, createdByCheckout: 'cs_test_someone_else' })).toBe(false);
+  });
+
+  test('an account made any other way (older buyers, migrations, sign-ups) gets no ticket', () => {
+    expect(decide({ ...fresh, createdByCheckout: null })).toBe(false);
+  });
+
+  test('an account that has been signed into gets no ticket', () => {
+    expect(decide({ ...fresh, lastSignInAt: 1_700_000_000_000 })).toBe(false);
+  });
+
+  test('a missing sign-in time counts as signed in', () => {
+    expect(decide({ ...fresh, lastSignInAt: undefined })).toBe(false);
+  });
+
+  test('an ambiguous lookup gets no ticket', () => {
+    expect(decide({ ...fresh, matches: 2 })).toBe(false);
+  });
+
+  test('an admin address never gets a ticket', () => {
+    expect(decide(fresh, true)).toBe(false);
   });
 });

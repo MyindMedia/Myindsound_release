@@ -3,7 +3,8 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action, internalAction, type ActionCtx } from './_generated/server';
 import { isCheckoutSessionId, withinDownloadWindow } from './downloadLogic';
-import { createSignInTicket, findOrCreateClerkUser } from './lib/clerkApi';
+import { isAdminEmail } from './lib/auth';
+import { createSignInTicket, findOrCreateClerkAccount, findOrCreateClerkUser } from './lib/clerkApi';
 import { fail } from './lib/errors';
 import { fileUrl } from './lib/storage';
 import { playerTracks, type PlayerTrack } from './tracks';
@@ -12,6 +13,7 @@ import {
   FULFIL_EVENT_TYPES,
   isPaidSession,
   lineItemProductId,
+  mayIssueCheckoutTicket,
   sessionEmail,
   summariseRebuild,
   toFulfilmentInput,
@@ -52,7 +54,7 @@ async function fulfilSession(
   if (!email) return 'no_email';
 
   const lineItems = await listLineItems(stripe, session.id);
-  const clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined);
+  const clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined, session.id);
   const input = toFulfilmentInput({ session, lineItems, clerkId, email, eventId: event?.id, eventType: event?.type });
   const result = await ctx.runMutation(internal.fulfilment.record, input);
   if (result.alreadyProcessed) return 'already';
@@ -216,7 +218,7 @@ export const streamForCheckoutSession = action({
  */
 export const claimAccountForCheckoutSession = action({
   args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }): Promise<{ ticket: string; email: string }> => {
+  handler: async (ctx, { sessionId }): Promise<{ ticket: string | null; email: string }> => {
     if (!isCheckoutSessionId(sessionId)) fail('INVALID_INPUT', 'That checkout link is not valid.');
     const stripe = stripeClient();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -229,8 +231,14 @@ export const claimAccountForCheckoutSession = action({
 
     // Idempotent: if the webhook has already run this is a no-op, and if it hasn't the buyer doesn't wait.
     await fulfilSession(ctx, stripe, session);
-    const clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined);
-    return { ticket: await createSignInTicket(clerkId), email };
+    const account = await findOrCreateClerkAccount(email, session.customer_details?.name ?? undefined, session.id);
+    // A paid checkout proves payment, not ownership of the email: only the account this checkout created, never
+    // yet signed into and not an admin address, may be signed into from it. Everyone else gets no ticket and
+    // goes through the normal email-checked sign-in.
+    if (!mayIssueCheckoutTicket({ account, sessionId: session.id, isAdminEmail: isAdminEmail(email) })) {
+      return { ticket: null, email };
+    }
+    return { ticket: await createSignInTicket(account.id), email };
   },
 });
 

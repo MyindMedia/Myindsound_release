@@ -53,6 +53,11 @@ export async function claimAccountFromCheckout(sessionId: string): Promise<boole
     countTry(sessionId, attempts + 1);
 
     const { ticket } = await getConvex().action(api.payments.claimAccountForCheckoutSession, { sessionId });
+    if (!ticket) {
+      // An account that already existed (or was already used) signs in the ordinary way.
+      done(sessionId);
+      return false;
+    }
     const attempt = await clerk.client!.signIn.create({ strategy: 'ticket', ticket });
     if (attempt.status !== 'complete' || !attempt.createdSessionId) return false;
     await clerk.setActive({ session: attempt.createdSessionId });

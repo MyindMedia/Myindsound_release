@@ -43,6 +43,24 @@ export function isPaidSession(session: SessionLike): boolean {
   return session.payment_status === 'paid' || session.payment_status === 'no_payment_required';
 }
 
+/**
+ * Whether paying may sign the buyer straight in. Stripe never proves the buyer owns the email they typed, so a
+ * ticket is only safe for the account this very checkout created, before anyone has signed into it. Everyone
+ * else (a returning buyer, an account made any other way, someone typing another person's email, or any admin
+ * address) signs in the ordinary way, where Clerk checks the inbox.
+ */
+export function mayIssueCheckoutTicket(args: {
+  account: { matches: number; lastSignInAt: number | null | undefined; createdByCheckout: string | null };
+  sessionId: string;
+  isAdminEmail: boolean;
+}): boolean {
+  const { account, sessionId, isAdminEmail } = args;
+  if (isAdminEmail) return false;
+  if (account.matches !== 1) return false;
+  if (account.lastSignInAt !== null) return false; // `undefined` (Clerk didn't say) is treated as signed in
+  return account.createdByCheckout === sessionId;
+}
+
 export function sessionEmail(session: SessionLike): string | null {
   return session.customer_details?.email ?? session.customer_email ?? null;
 }

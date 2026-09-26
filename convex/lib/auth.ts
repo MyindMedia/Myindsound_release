@@ -45,12 +45,17 @@ export async function ensureViewer(ctx: MutationCtx): Promise<Doc<'users'>> {
 /** Admin = users.isAdmin, or the verified Clerk email listed in the ADMIN_EMAILS env var. */
 export function isAdminUser(user: Doc<'users'>, identityEmail?: string): boolean {
   if (user.isAdmin) return true;
+  return isAdminEmail(identityEmail);
+}
+
+/** Whether an email is in ADMIN_EMAILS (case-insensitive). */
+export function isAdminEmail(email?: string | null): boolean {
   const allowed = (process.env.ADMIN_EMAILS ?? '')
     .split(',')
-    .map((email) => email.trim().toLowerCase())
+    .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
-  const email = (identityEmail ?? '').toLowerCase();
-  return email !== '' && allowed.includes(email);
+  const normalised = (email ?? '').trim().toLowerCase();
+  return normalised !== '' && allowed.includes(normalised);
 }
 
 export async function requireAdmin(ctx: QueryCtx): Promise<Doc<'users'>> {
