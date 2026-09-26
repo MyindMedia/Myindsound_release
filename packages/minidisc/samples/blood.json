@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "slug": "blood",
+  "title": "BLOOD",
+  "artist": "Tha Myind",
+  "year": 2026,
+  "tracks": [
+    { "n": 1, "title": "Blood", "durationSec": 201 },
+    { "n": 2, "title": "Vein", "durationSec": 184 },
+    { "n": 3, "title": "Pressure", "durationSec": 213 },
+    { "n": 4, "title": "Red Light", "durationSec": 168 },
+    { "n": 5, "title": "Pulse", "durationSec": 192 },
+    { "n": 6, "title": "Iron", "durationSec": 176 },
+    { "n": 7, "title": "Bleed Out", "durationSec": 224 },
+    { "n": 8, "title": "Family", "durationSec": 205 }
+  ],
+  "coverArt": "blood/cover.png",
+  "shell": "red",
+  "labelStyle": "sticker",
+  "labelText": "BLOOD\nTHA MYIND\nMD 08 · 2026",
+  "accent": "#F2E9E1",
+  "accent2": "#E63024",
+  "stickers": [{ "kind": "advisory", "x": 0.74, "y": 0.8, "w": 0.2, "rotation": -3 }],
+  "theme": { "accent": "#E63024", "accent2": "#F2E9E1", "backdrop": { "blurPx": 12, "scrim": 0.62 } }
+}

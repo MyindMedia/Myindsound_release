@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "slug": "reflections",
+  "title": "REFLECTIONS",
+  "artist": "Tha Myind",
+  "year": 2026,
+  "tracks": [
+    { "n": 1, "title": "Mirror", "durationSec": 194 },
+    { "n": 2, "title": "Still Water", "durationSec": 227 },
+    { "n": 3, "title": "Glass", "durationSec": 181 },
+    { "n": 4, "title": "Chrome", "durationSec": 208 },
+    { "n": 5, "title": "Echo", "durationSec": 173 },
+    { "n": 6, "title": "Silver Lining", "durationSec": 236 },
+    { "n": 7, "title": "Reflections", "durationSec": 259 }
+  ],
+  "coverArt": "reflections/cover.png",
+  "shell": "smoke-black",
+  "labelStyle": "metal",
+  "accent": "#FDB913",
+  "accent2": "#F5F1E6",
+  "stickers": [{ "kind": "badge", "text": "MYIND", "x": 0.8, "y": 0.78, "w": 0.13 }],
+  "theme": { "accent": "#FDB913", "accent2": "#9FD8FF", "backdrop": { "blurPx": 14, "scrim": 0.66 } }
+}

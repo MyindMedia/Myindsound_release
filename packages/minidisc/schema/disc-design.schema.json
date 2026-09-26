@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myindsound.com/schemas/disc-design-v1.json",
+  "title": "DiscDesign v1",
+  "description": "One release's generated MiniDisc: shell preset, art, label, sleeve text and theme. Mirrors packages/minidisc/src/design.ts (validateDesign).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "slug", "title", "artist", "year", "tracks", "coverArt", "shell", "labelStyle"],
+  "properties": {
+    "v": { "const": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "artist": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "title", "durationSec"],
+        "properties": {
+          "n": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "durationSec": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "coverArt": { "type": "string", "minLength": 1, "description": "Relative to the design file, or absolute. Square, 1024 px or more." },
+    "discArt": { "type": "string", "minLength": 1, "description": "Defaults to coverArt." },
+    "shell": { "type": "string", "enum": ["smoke-black", "clear", "clear-pink", "purple", "blue", "red", "smoke-gold"] },
+    "shellTint": { "$ref": "#/$defs/colour" },
+    "shellWindow": {
+      "type": "string",
+      "enum": ["auto", "clear", "tinted", "opaque"],
+      "default": "auto",
+      "description": "auto: a clear window over the disc whenever the disc carries art (every generated release), the rest of the shell tinted; clear: the same, explicitly; tinted: the preset's plastic over the disc too; opaque: a solid shell hiding the disc (a blank disc)."
+    },
+    "labelStyle": { "type": "string", "enum": ["metal", "sticker", "none"] },
+    "labelText": { "type": "string", "maxLength": 160, "description": "Newline-separated lines; defaults to title and artist." },
+    "accent": { "$ref": "#/$defs/colour" },
+    "accent2": { "$ref": "#/$defs/colour" },
+    "discFinish": { "type": "string", "enum": ["print", "gold", "silver"] },
+    "stickers": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "x", "y", "w"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["text", "advisory", "badge"] },
+          "text": { "type": "string", "maxLength": 40 },
+          "x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "y": { "type": "number", "minimum": 0, "maximum": 1 },
+          "w": { "type": "number", "minimum": 0.04, "maximum": 1 },
+          "rotation": { "type": "number", "minimum": -45, "maximum": 45 },
+          "fill": { "$ref": "#/$defs/colour" },
+          "ink": { "$ref": "#/$defs/colour" }
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "accent": { "$ref": "#/$defs/colour" },
+        "accent2": { "$ref": "#/$defs/colour" },
+        "lcdTint": { "$ref": "#/$defs/colour" },
+        "backdropImage": { "type": "string", "minLength": 1, "description": "products.theme.backdropImage (PRD 4A.8); backdrop.image wins when both are set." },
+        "backdrop": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "image": { "type": "string", "minLength": 1, "description": "Defaults to coverArt." },
+            "blurPx": { "type": "number", "minimum": 0, "maximum": 64, "default": 12 },
+            "scrim": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.62 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "colour": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+  }
+}

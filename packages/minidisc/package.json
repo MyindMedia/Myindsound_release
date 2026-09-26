@@ -1,0 +1,22 @@
+{
+  "name": "@myind/minidisc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Parameterised three.js MiniDisc: DiscDesign (JSON) → cartridge with preset shell, printed disc, label plate, edition stamp and card sleeve; renderSpinLoop sprite sheets; suggestShell from cover art.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema/disc-design.schema.json": "./schema/disc-design.schema.json"
+  },
+  "files": ["src", "schema", "samples", "README.md"],
+  "peerDependencies": {
+    "three": "^0.186.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "preview": "vite -c vite.config.ts"
+  }
+}

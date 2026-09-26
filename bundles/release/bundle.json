@@ -1,0 +1,10 @@
+{
+  "slug": "release",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "minAppVersion": "1.0.0",
+  "wearSafeZones": [
+    { "surface": "label", "x": 0.58, "y": 0.64, "w": 0.42, "h": 0.34, "note": "edition stamp on the label plate (packages/minidisc STAMP_UV, padded)" },
+    { "surface": "shell", "x": 0.64, "y": 0.83, "w": 0.34, "h": 0.14, "note": "edition stamp on the shell when labelStyle is none" }
+  ]
+}

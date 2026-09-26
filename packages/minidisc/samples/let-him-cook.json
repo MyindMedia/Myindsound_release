@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "slug": "let-him-cook",
+  "title": "LET HIM COOK",
+  "artist": "Tha Myind",
+  "year": 2026,
+  "tracks": [
+    { "n": 1, "title": "Let Him Cook", "durationSec": 139 },
+    { "n": 2, "title": "Heat", "durationSec": 162 },
+    { "n": 3, "title": "Simmer", "durationSec": 171 },
+    { "n": 4, "title": "Plated", "durationSec": 148 },
+    { "n": 5, "title": "Seconds", "durationSec": 155 },
+    { "n": 6, "title": "Kitchen Talk", "durationSec": 187 }
+  ],
+  "coverArt": "let-him-cook/cover.png",
+  "shell": "clear-pink",
+  "labelStyle": "sticker",
+  "labelText": "LET HIM COOK\nTHA MYIND",
+  "accent": "#FF3DA8",
+  "accent2": "#FFE36E",
+  "stickers": [
+    { "kind": "text", "text": "HOT", "x": 0.72, "y": 0.1, "w": 0.16, "rotation": 8, "fill": "#FFE36E", "ink": "#07070C" },
+    { "kind": "advisory", "x": 0.06, "y": 0.83, "w": 0.18 }
+  ],
+  "theme": { "accent": "#FF3DA8", "accent2": "#FFE36E", "backdrop": { "blurPx": 10, "scrim": 0.6 } }
+}

@@ -1,0 +1,9 @@
+/* The HUD's fonts, from packages/tokens (OFL), inside the bundle: the site takes them from Google Fonts, the app
+   has no network to rely on. Vite hashes and copies each file. */
+@font-face { font-family: 'Inter'; font-weight: 400; font-display: block; src: url('../../packages/tokens/fonts/inter/Inter-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-weight: 500; font-display: block; src: url('../../packages/tokens/fonts/inter/Inter-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-weight: 600; font-display: block; src: url('../../packages/tokens/fonts/inter/Inter-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-weight: 800; font-display: block; src: url('../../packages/tokens/fonts/inter/Inter-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 500; font-display: block; src: url('../../packages/tokens/fonts/jetbrains-mono/JetBrainsMono-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 600; font-display: block; src: url('../../packages/tokens/fonts/jetbrains-mono/JetBrainsMono-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 700; font-display: block; src: url('../../packages/tokens/fonts/jetbrains-mono/JetBrainsMono-Bold.ttf') format('truetype'); }

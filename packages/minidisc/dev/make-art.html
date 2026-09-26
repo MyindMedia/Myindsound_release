@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="data:," />
+  <title>Sample art</title>
+  <link rel="stylesheet" href="./fonts.css" />
+  <style>
+    body { margin: 0; background: #07070C; color: #F5F1E6; font: 500 12px/1.6 'JetBrains Mono', monospace; padding: 16px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; }
+    canvas { width: 320px; height: 320px; border: 1px solid rgba(253,185,19,0.22); }
+  </style>
+  <!-- Draws the three samples' ORIGINAL placeholder covers (gradients, noise and type only) and POSTs them to
+       samples/<slug>/cover.png through the dev server. Open it once; `?nosave` only shows them. -->
+  <script type="module" src="./make-art.ts"></script>
+</head>
+<body>
+  <div class="row" id="row"></div>
+  <p id="status">DRAWING</p>
+</body>
+</html>

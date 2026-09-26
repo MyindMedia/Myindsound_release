@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client"]
+  },
+  "include": ["src", "test", "dev", "vite.config.ts", "../../src/player3d", "../../packages/bridge/src", "../../packages/wear/src"]
+}

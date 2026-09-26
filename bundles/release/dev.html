@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#07070C" />
+  <link rel="icon" href="data:," />
+  <title>Release · bundle harness</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #07070C; overscroll-behavior: none; }
+  </style>
+  <!-- Desktop harness: the MockBridge plays native over the real wire format (loopbackTransport). Not in the zip.
+       Query: ?design=blood|reflections|let-him-cook (a sample from packages/minidisc/samples)
+              &ownership=owned|lent|preview|locked  &unwrapped  &plays=N (lent)  &edition=N  &wear=0..1 (__wear(L) updates it live)
+              &mode=sleeve with &unwrapped: the rack's sleeve mode (the card sleeve without film; tap to load)
+              &load: skip the intro and open on the loaded cartridge -->
+  <script type="module" src="./dev.ts"></script>
+</head>
+<body>
+  <main id="player-root" aria-label="Myind Sound MiniDisc player"></main>
+</body>
+</html>
