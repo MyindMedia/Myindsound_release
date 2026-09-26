@@ -29,20 +29,20 @@ import { SHELL } from './shaders';
 import type { KeyId } from './state';
 import type { DeckTextures } from './textures';
 
-type Rect = { x0: number; y0: number; x1: number; y1: number };
+export type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 export const BODY_DEPTH = 0.16;
 /** Cartridge thickness (about 5.7% of its width; a real MiniDisc is about 7%). */
 export const CART_DEPTH = 0.048;
 export const CART_SEATED_Z = -BODY_DEPTH / 2;
 /** The disc's top face (the art) and thickness, inside the shell. */
-const DISC_TOP_Z = 0.011;
-const DISC_THICKNESS = 0.008;
+export const DISC_TOP_Z = 0.011;
+export const DISC_THICKNESS = 0.008;
 /** The separate hub plate: from just under the disc to just proud of its art. */
-const HUB_BASE_Z = DISC_TOP_Z - DISC_THICKNESS - 0.001;
-const HUB_TOP_Z = DISC_TOP_Z + 0.003;
+export const HUB_BASE_Z = DISC_TOP_Z - DISC_THICKNESS - 0.001;
+export const HUB_TOP_Z = DISC_TOP_Z + 0.003;
 /** Rounded shell edges that catch highlights. */
-const CART_BEVEL = 0.004;
+export const CART_BEVEL = 0.004;
 const KEY_DEPTH = 0.09;
 const KEY_TRAVEL = 0.05;
 const KEY_FRONT_Z = -0.006;
@@ -71,7 +71,7 @@ function rectUv(rect: Rect): UVGenerator {
  * Caps as `rectUv`; side walls sample the cap texture just inside the outline, so the edge carries the
  * shell's own rim colour all the way round instead of a flat or see-through strip.
  */
-function rimUv(rect: Rect, inset: number): UVGenerator {
+export function rimUv(rect: Rect, inset: number): UVGenerator {
   const cx = (rect.x0 + rect.x1) / 2;
   const cy = (rect.y0 + rect.y1) / 2;
   const toUv = (vertices: number[], i: number, pull: number) => {
@@ -85,7 +85,7 @@ function rimUv(rect: Rect, inset: number): UVGenerator {
   };
 }
 
-function roundedRect(rect: Rect, radius: number): Shape {
+export function roundedRect(rect: Rect, radius: number): Shape {
   const shape = new Shape();
   const { x0, y0, x1, y1 } = rect;
   const r = Math.min(radius, width(rect) / 2, height(rect) / 2);
@@ -105,7 +105,7 @@ function roundedRect(rect: Rect, radius: number): Shape {
  * ExtrudeGeometry puts both caps in group 0: the back cap (z = 0) first, then the front cap.
  * Gives the back cap its own material index.
  */
-function splitCaps(geometry: ExtrudeGeometry, backMaterialIndex: number): void {
+export function splitCaps(geometry: ExtrudeGeometry, backMaterialIndex: number): void {
   const [caps, sides] = geometry.groups;
   const half = caps.count / 2;
   geometry.clearGroups();
@@ -130,6 +130,42 @@ export interface KeyMesh {
   target: number;
 }
 
+/**
+ * What a replacement cartridge gets from the deck (off by default; the site and LIT never set it). A generated
+ * release (packages/minidisc) builds its own shell, disc and label into `cartridge`, in the same space and at
+ * the same disc position as LIT's, so the spindle, the window and the insert timelines fit it unchanged.
+ */
+export interface CartridgeBuilderInput {
+  /** The cartridge group: build into it. Its origin is the shell centre, +z the front face. */
+  cartridge: Group;
+  /** The shell rectangle in the cartridge's own space. */
+  rect: Rect;
+  /** The disc centre in that space, its radius, and the z layout the deck's spindle is built to. */
+  disc: {
+    x: number;
+    y: number;
+    radius: number;
+    topZ: number;
+    thickness: number;
+    hub: { hole: number; plate: number; ring: number[]; spindle: number };
+    hubBaseZ: number;
+    hubTopZ: number;
+  };
+  depth: number;
+  bevel: number;
+  environment: Texture | null;
+  quality: DetailQuality;
+}
+
+export interface CartridgeBuild {
+  /** Objects that turn with the disc. */
+  spinning: Object3D[];
+  /** The mesh the pointer picks up to drag and turn the cartridge. */
+  hitTarget: Object3D;
+}
+
+export type CartridgeBuilder = (input: CartridgeBuilderInput) => CartridgeBuild;
+
 export class Deck {
   readonly group = new Group();
   readonly cartridge = new Group();
@@ -151,14 +187,16 @@ export class Deck {
   private readonly spinScale: number;
   private readonly environment: Texture | null;
   private readonly quality: DetailQuality;
+  private readonly cartridgeBuilder: CartridgeBuilder | null;
 
   constructor(
     textures: DeckTextures,
-    options: { reducedMotion: boolean; environment?: Texture | null; quality?: DetailQuality },
+    options: { reducedMotion: boolean; environment?: Texture | null; quality?: DetailQuality; cartridge?: CartridgeBuilder },
   ) {
     this.spinScale = options.reducedMotion ? 0.2 : 1;
     this.environment = options.environment ?? null;
     this.quality = options.quality ?? 'high';
+    this.cartridgeBuilder = options.cartridge ?? null;
     const bodyRect = geometry.body.rect as Rect;
     this.bodyTop = bodyRect.y1;
     const plastic = new MeshStandardMaterial({ color: '#1A1A1A', roughness: 0.55, metalness: 0.15 });
@@ -260,6 +298,33 @@ export class Deck {
       x1: cartRect.x1 - c.x,
       y1: cartRect.y1 - c.y,
     };
+    if (this.cartridgeBuilder) {
+      // A generated release's cartridge, in LIT's space (CartridgeBuilderInput).
+      const built = this.cartridgeBuilder({
+        cartridge: this.cartridge,
+        rect: local,
+        disc: {
+          x: geometry.disc.center[0] - c.x,
+          y: geometry.disc.center[1] - c.y,
+          radius: geometry.disc.radius,
+          topZ: DISC_TOP_Z,
+          thickness: DISC_THICKNESS,
+          hub: geometry.disc.hub,
+          hubBaseZ: HUB_BASE_Z,
+          hubTopZ: HUB_TOP_Z,
+        },
+        depth: CART_DEPTH,
+        bevel: CART_BEVEL,
+        environment: this.environment,
+        quality: this.quality,
+      });
+      this.discs.push(...built.spinning);
+      this.cartridge.position.set(c.x, c.y, CART_SEATED_Z);
+      this.cartridge.userData.seated = new Vector3(c.x, c.y, CART_SEATED_Z);
+      this.group.add(this.cartridge);
+      this.hitTargets.push(built.hitTarget);
+      return;
+    }
     const disc = geometry.cartridge.discUv;
     const shellMaterial = new ShaderMaterial({
       vertexShader: SHELL.vertexShader,

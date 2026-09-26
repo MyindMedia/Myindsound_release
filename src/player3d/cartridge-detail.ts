@@ -20,10 +20,10 @@ import {
   Vector2,
   Vector3,
   type BufferGeometry,
+  type IUniform,
   type Material,
   type Object3D,
   type MeshStandardMaterialParameters,
-  type ShaderMaterial,
   type Texture,
   type WebGLRenderer,
 } from 'three';
@@ -272,13 +272,19 @@ function ring(inner: number, outer: number, height: number, facing: 1 | -1): Lat
   );
 }
 
+/**
+ * The front cap's material: the SHELL `ShaderMaterial` (deck.ts), or any material carrying `uWells` and
+ * `uWellAspect` uniforms it binds itself (packages/minidisc's physical shell does, through `onBeforeCompile`).
+ */
+export type ShellMaterial = Material & { uniforms: { [name: string]: IUniform } };
+
 export interface CartridgeDetailInput {
   cartridge: Group;
   /** The shell slab (caps: group 0 front, group 2 back; sides: group 1) and its z offset. */
   slabGeometry: BufferGeometry;
   /** Front cap (SHELL shader, `uWells`) and back cap materials; the screw openings are cut into both. */
-  shellMaterial: ShaderMaterial;
-  backMaterial: MeshBasicMaterial;
+  shellMaterial: ShellMaterial;
+  backMaterial: MeshBasicMaterial | MeshStandardMaterial;
   slabZ: number;
   /** Outer faces of the shell, in cartridge space. */
   frontZ: number;
@@ -302,6 +308,20 @@ export interface CartridgeDetailInput {
   normals: { front: Texture; back: Texture };
   environment: Texture | null;
   quality: DetailQuality;
+}
+
+/**
+ * Optional extra layers on the cartridge, added once the realism layer is built. Off by default (the site never
+ * sets it); the app bundle uses it for the copy's wear (PRD §11.4, `wear-render.ts`). Gets the build input and the
+ * clear-plastic coat; returns any objects that should spin with the disc.
+ */
+export type CartridgeDetailHook = (input: CartridgeDetailInput, parts: { coat: Mesh }) => Object3D[] | void;
+
+let detailHook: CartridgeDetailHook | null = null;
+
+/** Set before the deck is built (or `null` to clear). */
+export function setCartridgeDetailHook(hook: CartridgeDetailHook | null): void {
+  detailHook = hook;
 }
 
 /** Builds the realism layer into the cartridge. Returns the parts that spin with the disc. */
@@ -487,5 +507,6 @@ export function addCartridgeDetail(input: CartridgeDetailInput): { spinning: Obj
   coat.renderOrder = 6;
   input.cartridge.add(coat);
 
-  return { spinning: [discHub] };
+  const extra = detailHook?.(input, { coat }) ?? [];
+  return { spinning: [discHub, ...extra] };
 }

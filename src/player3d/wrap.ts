@@ -311,15 +311,31 @@ function addPeel(material: Material, uniforms: PeelUniforms): void {
   material.needsUpdate = true;
 }
 
+/** Extra printed faces of a sleeve; anything missing is derived from the poster, as LIT's is. */
+export interface SleevePrints {
+  /** The back of the sleeve (LIT's is the aged tracklist drawn here). */
+  back?: Texture;
+  /** The two spines (LIT's sample the cover's edges). */
+  spineLeft?: Texture;
+  spineRight?: Texture;
+}
+
 export interface WrapOptions {
   cartridge: Object3D;
   width: number;
   height: number;
   depth: number;
   poster: Texture;
+  /** Off by default: a generated release's own back cover and spines (packages/minidisc). */
+  prints?: SleevePrints;
   /** The shrink film itself: white with the crinkle in its alpha, and its relief as a normal map. */
-  film: Texture;
-  filmNormal: Texture;
+  film: Texture | null;
+  filmNormal: Texture | null;
+  /**
+   * App only (off by default): the printed card sleeve with no shrink film round it, for a copy that has already
+   * been unwrapped once (RACK-3). `pullSleeve()` then slides the sleeve off without the peel.
+   */
+  sleeveOnly?: boolean;
   environment: Texture | null;
   /** The plastic is off and the sleeve is about to slide: time to square the disc up to the camera. */
   onSleeveStart(): void;
@@ -331,8 +347,7 @@ export class DiscWrap {
   readonly group = new Group();
   private readonly peelGroup = new Group();
   private readonly sleeve = new Group();
-  private readonly filmMaterial: MeshPhysicalMaterial;
-  private readonly sheetMaterial: MeshPhysicalMaterial;
+  private readonly filmMaterial: MeshPhysicalMaterial | null = null;
   private readonly sleeveMaterials: MeshStandardMaterial[] = [];
   private readonly skins: MeshPhysicalMaterial[] = [];
   private readonly textures: Texture[] = [];
@@ -425,7 +440,8 @@ export class DiscWrap {
       return mesh;
     };
     const cover = printed(options.poster, sd / 2 + 0.0004, false);
-    const backArt = weathered('back');
+    const prints = options.prints ?? {};
+    const backArt = prints.back ?? weathered('back');
     this.textures.push(backArt);
     const backPrint = printed(backArt, -sd / 2 - 0.0004, true);
 
@@ -440,56 +456,14 @@ export class DiscWrap {
       return slice;
     };
     const rim = 0.05;
-    const spineLeft = new Mesh(new PlaneGeometry(sd, sh), card(edge(rim, 1, 0, 0)));
+    const spineLeft = new Mesh(new PlaneGeometry(sd, sh), card(prints.spineLeft ?? edge(rim, 1, 0, 0)));
     spineLeft.rotation.y = -Math.PI / 2;
     spineLeft.position.x = -sw / 2 - 0.0003;
-    const spineRight = new Mesh(new PlaneGeometry(sd, sh), card(edge(rim, 1, 1 - rim, 0)));
+    const spineRight = new Mesh(new PlaneGeometry(sd, sh), card(prints.spineRight ?? edge(rim, 1, 1 - rim, 0)));
     spineRight.rotation.y = Math.PI / 2;
     spineRight.position.x = sw / 2 + 0.0003;
     this.sleeve.add(body, foot, cover, backPrint, spineLeft, spineRight);
     this.sleeve.position.y = this.sleeveRest;
-
-    // Plastic over every face of the sleeve, from the supplied sheet: its crinkle is the alpha, its relief
-    // the normal map. One layer per face, front-side only, so you never see the far side through the near one.
-    this.filmMaterial = new MeshPhysicalMaterial({
-      map: options.film,
-      // No alpha map: the sheet's crinkle is in its normal map. Used as alpha it punched holes through the
-      // wrap, so the package looked half unwrapped before anyone touched it.
-      color: '#c8ced8',
-      transparent: true,
-      opacity: 0.46,
-      roughness: 0.1,
-      metalness: 0,
-      clearcoat: 0.9,
-      clearcoatRoughness: 0.06,
-      iridescence: 0.16,
-      iridescenceIOR: 1.2,
-      normalMap: options.filmNormal,
-      normalScale: new Vector2(0.75, 0.75),
-      envMap: options.environment,
-      envMapIntensity: 0.45,
-      side: DoubleSide, // You see the inside of the sheet once it rolls back.
-      depthWrite: false,
-    });
-    this.sheetMaterial = this.filmMaterial;
-
-    /** The same film on another face, with its own slice of the sheet so the crinkle carries round. */
-    const skin = (repeatX: number, repeatY: number, offsetX: number, offsetY: number): MeshPhysicalMaterial => {
-      const material = this.filmMaterial.clone();
-      material.side = FrontSide;
-      // Seen edge-on, a sheet at the face's opacity disappears; these carry the wrap round the package.
-      material.opacity = 0.6;
-      material.clearcoat = 1;
-      material.envMapIntensity = 0.7;
-      const slice = options.film.clone();
-      slice.repeat.set(repeatX, repeatY);
-      slice.offset.set(offsetX, offsetY);
-      slice.needsUpdate = true;
-      material.map = slice;
-      this.textures.push(slice);
-      this.skins.push(material);
-      return material;
-    };
 
     // Peel direction: from the top-right corner down across the face.
     const direction = new Vector2(Math.cos(BASE_ANGLE), Math.sin(BASE_ANGLE));
@@ -502,47 +476,92 @@ export class DiscWrap {
     };
     // Just enough to lift the coil clear of the sleeve; the wrapper's exit does the travelling.
     this.dragBy = width * 0.14;
-    addPeel(this.sheetMaterial, this.uniforms);
+    const { film, filmNormal } = options;
+    if (!options.sleeveOnly && film && filmNormal) {
+      // Plastic over every face of the sleeve, from the supplied sheet: its crinkle is the alpha, its relief
+      // the normal map. One layer per face, front-side only, so you never see the far side through the near one.
+      const filmMaterial = new MeshPhysicalMaterial({
+        map: film,
+        // No alpha map: the sheet's crinkle is in its normal map. Used as alpha it punched holes through the
+        // wrap, so the package looked half unwrapped before anyone touched it.
+        color: '#c8ced8',
+        transparent: true,
+        opacity: 0.46,
+        roughness: 0.1,
+        metalness: 0,
+        clearcoat: 0.9,
+        clearcoatRoughness: 0.06,
+        iridescence: 0.16,
+        iridescenceIOR: 1.2,
+        normalMap: filmNormal,
+        normalScale: new Vector2(0.75, 0.75),
+        envMap: options.environment,
+        envMapIntensity: 0.45,
+        side: DoubleSide, // You see the inside of the sheet once it rolls back.
+        depthWrite: false,
+      });
+      this.filmMaterial = filmMaterial;
 
-    // Front of the film: the sheet that peels. Segmented, because the curl is per-vertex. Double-sided,
-    // because you see the inside of it once it rolls back.
-    this.sheetMaterial.side = DoubleSide;
-    const sheet = new Mesh(new PlaneGeometry(w, h, 64, 64), this.sheetMaterial);
-    sheet.position.z = front;
-    this.peelGroup.add(sheet);
+      /** The same film on another face, with its own slice of the sheet so the crinkle carries round. */
+      const skin = (repeatX: number, repeatY: number, offsetX: number, offsetY: number): MeshPhysicalMaterial => {
+        const material = filmMaterial.clone();
+        material.side = FrontSide;
+        // Seen edge-on, a sheet at the face's opacity disappears; these carry the wrap round the package.
+        material.opacity = 0.6;
+        material.clearcoat = 1;
+        material.envMapIntensity = 0.7;
+        const slice = film.clone();
+        slice.repeat.set(repeatX, repeatY);
+        slice.offset.set(offsetX, offsetY);
+        slice.needsUpdate = true;
+        material.map = slice;
+        this.textures.push(slice);
+        this.skins.push(material);
+        return material;
+      };
 
-    // The rest of the skin: back and four sides, as one piece that shrivels off.
-    // The back and the four sides, so the whole package is wrapped. They are part of the same wrapper, so
-    // they travel with the sheet that peels. The rims take a wide slice of the sheet rather than a sliver,
-    // or the edges of the package read as bare card next to the filmed face.
-    const filmRim = 0.34;
-    const filmBack = new Mesh(new PlaneGeometry(w, h), skin(1, 1, 0, 0));
-    filmBack.position.z = -front;
-    filmBack.rotation.y = Math.PI;
-    // A little proud of the sleeve on every face, so the wrap has a lip to catch the light.
-    const lip = 1.02;
-    const filmTop = new Mesh(new PlaneGeometry(w * lip, d * lip), skin(1, filmRim, 0, 1 - filmRim));
-    filmTop.rotation.x = -Math.PI / 2;
-    filmTop.position.y = h / 2;
-    const filmBottom = new Mesh(new PlaneGeometry(w * lip, d * lip), skin(1, filmRim, 0, 0));
-    filmBottom.rotation.x = Math.PI / 2;
-    filmBottom.position.y = -h / 2;
-    const filmLeft = new Mesh(new PlaneGeometry(d * lip, h * lip), skin(filmRim, 1, 0, 0));
-    filmLeft.rotation.y = -Math.PI / 2;
-    filmLeft.position.x = -w / 2;
-    const filmRight = new Mesh(new PlaneGeometry(d * lip, h * lip), skin(filmRim, 1, 1 - filmRim, 0));
-    filmRight.rotation.y = Math.PI / 2;
-    filmRight.position.x = w / 2;
-    for (const piece of [filmBack, filmTop, filmBottom, filmLeft, filmRight]) {
-      piece.renderOrder = 59;
-      this.peelGroup.add(piece);
+      addPeel(filmMaterial, this.uniforms);
+
+      // Front of the film: the sheet that peels. Segmented, because the curl is per-vertex. Double-sided,
+      // because you see the inside of it once it rolls back.
+      filmMaterial.side = DoubleSide;
+      const sheet = new Mesh(new PlaneGeometry(w, h, 64, 64), filmMaterial);
+      sheet.position.z = front;
+      this.peelGroup.add(sheet);
+
+      // The rest of the skin: back and four sides, as one piece that shrivels off.
+      // The back and the four sides, so the whole package is wrapped. They are part of the same wrapper, so
+      // they travel with the sheet that peels. The rims take a wide slice of the sheet rather than a sliver,
+      // or the edges of the package read as bare card next to the filmed face.
+      const filmRim = 0.34;
+      const filmBack = new Mesh(new PlaneGeometry(w, h), skin(1, 1, 0, 0));
+      filmBack.position.z = -front;
+      filmBack.rotation.y = Math.PI;
+      // A little proud of the sleeve on every face, so the wrap has a lip to catch the light.
+      const lip = 1.02;
+      const filmTop = new Mesh(new PlaneGeometry(w * lip, d * lip), skin(1, filmRim, 0, 1 - filmRim));
+      filmTop.rotation.x = -Math.PI / 2;
+      filmTop.position.y = h / 2;
+      const filmBottom = new Mesh(new PlaneGeometry(w * lip, d * lip), skin(1, filmRim, 0, 0));
+      filmBottom.rotation.x = Math.PI / 2;
+      filmBottom.position.y = -h / 2;
+      const filmLeft = new Mesh(new PlaneGeometry(d * lip, h * lip), skin(filmRim, 1, 0, 0));
+      filmLeft.rotation.y = -Math.PI / 2;
+      filmLeft.position.x = -w / 2;
+      const filmRight = new Mesh(new PlaneGeometry(d * lip, h * lip), skin(filmRim, 1, 1 - filmRim, 0));
+      filmRight.rotation.y = Math.PI / 2;
+      filmRight.position.x = w / 2;
+      for (const piece of [filmBack, filmTop, filmBottom, filmLeft, filmRight]) {
+        piece.renderOrder = 59;
+        this.peelGroup.add(piece);
+      }
+      // renderOrder isn't inherited from a group: the film sorts itself after the sleeve.
+      // After the sleeve and the inspector's dim plane (50), but still depth-tested, so the sleeve is never
+      // see-through and the peeled plastic hangs clear of it on its own (see uDrag).
+      sheet.renderOrder = 60;
     }
 
     this.group.add(this.sleeve, this.peelGroup);
-    // renderOrder isn't inherited from a group: the film sorts itself after the sleeve.
-    // After the sleeve and the inspector's dim plane (50), but still depth-tested, so the sleeve is never
-    // see-through and the peeled plastic hangs clear of it on its own (see uDrag).
-    sheet.renderOrder = 60;
     options.cartridge.add(this.group);
   }
 
@@ -554,6 +573,16 @@ export class DiscWrap {
   start(): void {
     if (this.unwrapping) return;
     this.elapsed = 0;
+  }
+
+  /**
+   * The sleeve beat alone (`sleeveOnly`): no film to peel, so the sleeve is tugged loose and pulled straight
+   * down off the disc, as the second half of `start()` does. `onSleeveStart` fires at once.
+   */
+  pullSleeve(): void {
+    if (this.unwrapping) return;
+    this.peelGroup.visible = false;
+    this.elapsed = UNWRAP.slide.at - 0.35;
   }
 
   /** Straight to bare disc, for reduced motion. */
@@ -626,7 +655,7 @@ export class DiscWrap {
     });
     // The canvases and the sleeve art only ever belonged to the packaging.
     for (const texture of this.textures) texture.dispose();
-    this.filmMaterial.dispose();
+    this.filmMaterial?.dispose();
     for (const material of this.skins) material.dispose();
     for (const material of this.sleeveMaterials) material.dispose();
   }

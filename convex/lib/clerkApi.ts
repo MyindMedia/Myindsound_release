@@ -8,16 +8,55 @@ function clerkHeaders() {
   return { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
-type ClerkUser = { id: string };
+type ClerkUser = {
+  id: string;
+  created_at?: number;
+  last_sign_in_at?: number | null;
+  private_metadata?: { createdByCheckout?: unknown };
+};
+
+/**
+ * What the checkout claim needs to know about an account: whether this lookup was unambiguous, whether anyone
+ * has ever signed into it (`undefined` when Clerk didn't say, which the claim treats as "yes"), and which
+ * checkout made it.
+ */
+export type ClerkAccount = {
+  id: string;
+  matches: number;
+  lastSignInAt: number | null | undefined;
+  createdByCheckout: string | null;
+};
+
+function toAccount(user: ClerkUser, matches: number): ClerkAccount {
+  const madeBy = user.private_metadata?.createdByCheckout;
+  return {
+    id: user.id,
+    matches,
+    lastSignInAt: user.last_sign_in_at,
+    createdByCheckout: typeof madeBy === 'string' ? madeBy : null,
+  };
+}
 
 // Buyers get a passwordless Clerk account keyed by the checkout email,
 // matching what the Netlify webhook did before.
-export async function findOrCreateClerkUser(email: string, fullName?: string): Promise<string> {
+export async function findOrCreateClerkUser(email: string, fullName?: string, checkoutSessionId?: string): Promise<string> {
+  return (await findOrCreateClerkAccount(email, fullName, checkoutSessionId)).id;
+}
+
+/**
+ * The same lookup, keeping what the checkout claim needs. An account made here is stamped (privately) with the
+ * checkout that made it, so only that checkout can ever sign straight into it.
+ */
+export async function findOrCreateClerkAccount(
+  email: string,
+  fullName?: string,
+  checkoutSessionId?: string,
+): Promise<ClerkAccount> {
   const headers = clerkHeaders();
   const search = await fetch(`${CLERK_API}/users?email_address=${encodeURIComponent(email)}`, { headers });
   if (!search.ok) throw new Error(`Clerk user lookup failed (${search.status})`);
   const found = (await search.json()) as ClerkUser[];
-  if (found.length > 0) return found[0].id;
+  if (found.length > 0) return toAccount(found[0], found.length);
 
   const [firstName, ...rest] = (fullName ?? '').trim().split(/\s+/);
   const create = await fetch(`${CLERK_API}/users`, {
@@ -28,10 +67,29 @@ export async function findOrCreateClerkUser(email: string, fullName?: string): P
       first_name: firstName || undefined,
       last_name: rest.join(' ') || undefined,
       skip_password_requirement: true,
+      ...(checkoutSessionId ? { private_metadata: { createdByCheckout: checkoutSessionId } } : {}),
     }),
   });
   if (!create.ok) throw new Error(`Clerk user creation failed (${create.status})`);
-  return ((await create.json()) as ClerkUser).id;
+  return toAccount((await create.json()) as ClerkUser, 1);
+}
+
+/** The account an email finds, without ever creating one, or null. */
+export async function findClerkAccount(email: string): Promise<ClerkAccount | null> {
+  const search = await fetch(`${CLERK_API}/users?email_address=${encodeURIComponent(email)}`, {
+    headers: clerkHeaders(),
+  });
+  if (!search.ok) throw new Error(`Clerk user lookup failed (${search.status})`);
+  const found = (await search.json()) as ClerkUser[];
+  return found.length > 0 ? toAccount(found[0], found.length) : null;
+}
+
+/** The same account details for a known Clerk id (the account a checkout session's licence is on), or null. */
+export async function getClerkAccount(clerkId: string): Promise<ClerkAccount | null> {
+  const response = await fetch(`${CLERK_API}/users/${encodeURIComponent(clerkId)}`, { headers: clerkHeaders() });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Clerk user lookup failed (${response.status})`);
+  return toAccount((await response.json()) as ClerkUser, 1);
 }
 
 /**

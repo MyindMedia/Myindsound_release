@@ -9,12 +9,14 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "tokens": "node packages/tokens/scripts/build.mjs",
     "textures": "python3 scripts/build-player-assets.py",
     "city": "python3 scripts/build-city.py",
     "upload:audio": "tsx scripts/upload-lit-audio.ts",
     "previews": "python3 scripts/build-lit-previews.py",
     "wrap-sounds": "python3 scripts/build-wrap-sounds.py",
-    "disc-sounds": "python3 scripts/build-disc-sounds.py"
+    "disc-sounds": "python3 scripts/build-disc-sounds.py",
+    "bundle:lit": "tsc -p bundles && vite build -c vite.bundles.config.ts && node scripts/build-bundle.mjs lit"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

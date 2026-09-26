@@ -100,6 +100,7 @@ export class Hud {
   private bootPercent: HTMLElement;
   private errorBox: HTMLElement;
   private list: HTMLOListElement;
+  private listTitle: HTMLElement;
   private trackButtons: HTMLButtonElement[] = [];
   private stripStatus: HTMLElement;
   private stripTime: HTMLElement;
@@ -124,6 +125,11 @@ export class Hud {
   private lastRepeatText = '';
   private lastIndex = -1;
   private errorActive = false;
+
+  /** The tracklist panel's title (`LIT · TRACKLIST` by default; a generated release passes its own name). */
+  setTitle(title: string): void {
+    this.listTitle.textContent = `${title.toUpperCase()} · TRACKLIST`;
+  }
 
   constructor(root: HTMLElement, handlers: HudHandlers) {
     this.root = root;
@@ -150,7 +156,8 @@ export class Hud {
     tracklist.setAttribute('aria-label', 'Tracklist');
     const header = el('header', 'p3d-panel__header');
     this.listMeta = el('span', 'p3d-panel__meta p3d-mono', 'SIDE A');
-    header.append(el('span', 'p3d-panel__title', 'LIT · TRACKLIST'), this.listMeta);
+    this.listTitle = el('span', 'p3d-panel__title', 'LIT · TRACKLIST');
+    header.append(this.listTitle, this.listMeta);
     this.list = el('ol', 'p3d-tracks');
     this.repeatButton = el('button', 'p3d-repeat p3d-mono');
     this.repeatButton.type = 'button';

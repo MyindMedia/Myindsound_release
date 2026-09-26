@@ -73,6 +73,221 @@
             justify-content: space-between;
             align-items: center;
         }
+
+        /* ── Tools (ADM-2..7): the same HUD panels and readouts as the stats above ── */
+        .admin-tools {
+            margin-top: 3rem;
+        }
+
+        .admin-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .admin-tabs .secondary-btn {
+            padding: 0.6rem 1rem;
+            font-size: 0.7rem;
+        }
+
+        .admin-tabs .secondary-btn[aria-selected='true'] {
+            border-color: var(--gold);
+            color: var(--gold);
+            background: rgba(253, 185, 19, 0.12);
+        }
+
+        .admin-panel[hidden] {
+            display: none;
+        }
+
+        .admin-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+            gap: 1rem 1.25rem;
+            align-items: end;
+        }
+
+        .admin-form .wide {
+            grid-column: 1 / -1;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            min-width: 0;
+        }
+
+        .field span,
+        .readout dt,
+        .admin-sub {
+            font-family: var(--font-mono);
+            font-size: 0.66rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 0.7rem 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        .field textarea {
+            min-height: 4.5rem;
+            resize: vertical;
+        }
+
+        .admin-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .admin-actions .primary-btn,
+        .admin-actions .secondary-btn {
+            width: auto;
+            padding: 0.75rem 1.4rem;
+            font-size: 0.72rem;
+        }
+
+        .confirm-strip {
+            grid-column: 1 / -1;
+            border: 1px solid var(--line);
+            border-left: 3px solid var(--gold);
+            background: rgba(253, 185, 19, 0.06);
+            padding: 1rem 1.1rem;
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .confirm-strip.danger {
+            border-color: rgba(255, 61, 168, 0.55);
+            border-left-color: var(--pink);
+            background: rgba(255, 61, 168, 0.06);
+        }
+
+        .confirm-strip[hidden] {
+            display: none;
+        }
+
+        .confirm-strip ul {
+            margin: 0;
+            padding-left: 1.1rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            overflow-wrap: anywhere;
+        }
+
+        .admin-status {
+            grid-column: 1 / -1;
+            min-height: 1.2rem;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            overflow-wrap: anywhere;
+        }
+
+        .admin-status.ok {
+            color: var(--gold);
+        }
+
+        .admin-status.error {
+            color: var(--pink);
+        }
+
+        .readout {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+            gap: 0.9rem 1.25rem;
+            margin: 0 0 1rem;
+        }
+
+        .readout dd {
+            margin: 0.25rem 0 0;
+            font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
+            font-size: 0.88rem;
+            overflow-wrap: anywhere;
+        }
+
+        .readout dd.big {
+            font-size: 1.4rem;
+            color: var(--gold);
+        }
+
+        .copy-card {
+            border-top: 1px solid var(--line-dim);
+            padding-top: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .copy-card h3 {
+            font-size: 0.95rem;
+            margin: 0 0 1rem;
+        }
+
+        .mono-list {
+            margin: 0 0 1rem;
+            padding: 0;
+            list-style: none;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .mono-list li {
+            padding: 0.35rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem 0.9rem;
+            align-items: center;
+            overflow-wrap: anywhere;
+        }
+
+        .mini-btn {
+            font-family: var(--font-mono);
+            font-size: 0.62rem;
+            letter-spacing: 0.14em;
+            padding: 0.35rem 0.6rem;
+            width: auto;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        .table-scroll td {
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+
+        .table-scroll details pre {
+            white-space: pre-wrap;
+            font-size: 0.72rem;
+            max-width: 60ch;
+            color: var(--muted);
+        }
+
+        @media (max-width: 640px) {
+            .admin-container {
+                padding: 1rem;
+                margin-top: 5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .stats-card {
+                padding: 1.25rem 1rem;
+            }
+        }
     </style>
 </head>
 
@@ -136,6 +351,136 @@
                 </table>
             </div>
         </div>
+
+        <section class="admin-tools" aria-label="Admin tools">
+            <div class="admin-tabs" role="tablist" aria-label="Admin tools">
+                <button class="secondary-btn" role="tab" id="tab-lookup" aria-controls="panel-lookup" aria-selected="true">LOOKUP</button>
+                <button class="secondary-btn" role="tab" id="tab-grant" aria-controls="panel-grant" aria-selected="false" tabindex="-1">GRANT</button>
+                <button class="secondary-btn" role="tab" id="tab-transfer" aria-controls="panel-transfer" aria-selected="false" tabindex="-1">TRANSFER</button>
+                <button class="secondary-btn" role="tab" id="tab-revoke" aria-controls="panel-revoke" aria-selected="false" tabindex="-1">REVOKE</button>
+                <button class="secondary-btn" role="tab" id="tab-release" aria-controls="panel-release" aria-selected="false" tabindex="-1">RELEASE</button>
+                <button class="secondary-btn" role="tab" id="tab-audit" aria-controls="panel-audit" aria-selected="false" tabindex="-1">AUDIT LOG</button>
+            </div>
+
+            <!-- ADM-2 -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-lookup" aria-labelledby="tab-lookup">
+                <h2>LOOK UP A FAN</h2>
+                <form class="admin-form" id="lookup-email-form">
+                    <label class="field"><span>Email</span><input type="email" name="email" autocomplete="off" required></label>
+                    <div class="admin-actions"><button class="primary-btn" type="submit">LOOK UP</button></div>
+                </form>
+                <form class="admin-form" id="lookup-edition-form" style="margin-top: 1rem;">
+                    <label class="field"><span>Release</span><select name="slug" data-releases required></select></label>
+                    <label class="field"><span>Edition #</span><input type="number" name="edition" min="1" step="1" required></label>
+                    <div class="admin-actions"><button class="primary-btn" type="submit">LOOK UP</button></div>
+                </form>
+                <p class="admin-status" id="lookup-status" role="status" aria-live="polite"></p>
+                <div id="lookup-result"></div>
+            </div>
+
+            <!-- ADM-3 -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-grant" aria-labelledby="tab-grant" hidden>
+                <h2>GRANT A RELEASE</h2>
+                <form class="admin-form" id="grant-form" data-action="grant">
+                    <label class="field"><span>Email</span><input type="email" name="email" autocomplete="off" required></label>
+                    <label class="field"><span>Release</span><select name="slug" data-releases required></select></label>
+                    <label class="field wide"><span>Reason (required)</span><textarea name="reason" maxlength="500" required></textarea></label>
+                    <div class="admin-actions"><button class="primary-btn" type="submit">REVIEW GRANT</button></div>
+                    <div class="confirm-strip" hidden></div>
+                    <p class="admin-status" role="status" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <!-- ADM-4 -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-transfer" aria-labelledby="tab-transfer" hidden>
+                <h2>TRANSFER A COPY</h2>
+                <form class="admin-form" id="transfer-form" data-action="transfer">
+                    <label class="field"><span>Entitlement ID</span><input type="text" name="entitlementId" autocomplete="off" required></label>
+                    <label class="field"><span>To (email or account ID)</span><input type="text" name="to" autocomplete="off" required></label>
+                    <label class="field wide"><span>Reason (required)</span><textarea name="reason" maxlength="500" required></textarea></label>
+                    <div class="admin-actions"><button class="primary-btn" type="submit">REVIEW TRANSFER</button></div>
+                    <div class="confirm-strip danger" hidden></div>
+                    <p class="admin-status" role="status" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <!-- ADM-5 -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-revoke" aria-labelledby="tab-revoke" hidden>
+                <h2>REVOKE AND RESET</h2>
+                <form class="admin-form" id="revoke-form" data-action="revoke">
+                    <label class="field"><span>Action</span>
+                        <select name="kind">
+                            <option value="revokeEntitlement">Revoke entitlement</option>
+                            <option value="revokeLend">Revoke lend</option>
+                            <option value="resetUnwrap">Reset unwrap</option>
+                            <option value="resetWear">Reset wear</option>
+                            <option value="disableNfcTag">Disable NFC tag</option>
+                        </select>
+                    </label>
+                    <label class="field"><span id="revoke-target-label">Entitlement ID</span><input type="text" name="target" autocomplete="off" required aria-labelledby="revoke-target-label"></label>
+                    <label class="field wide"><span>Reason (required)</span><textarea name="reason" maxlength="500" required></textarea></label>
+                    <div class="admin-actions"><button class="primary-btn" type="submit">REVIEW</button></div>
+                    <div class="confirm-strip danger" hidden></div>
+                    <p class="admin-status" role="status" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <!-- ADM-7 -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-release" aria-labelledby="tab-release" hidden>
+                <h2>RELEASE SETTINGS</h2>
+                <form class="admin-form" id="release-form" data-action="release">
+                    <label class="field"><span>Release</span><select name="slug" data-releases required></select></label>
+                    <label class="field"><span>Status</span>
+                        <select name="status">
+                            <option value="">(unset)</option>
+                            <option value="draft">draft</option>
+                            <option value="scheduled">scheduled</option>
+                            <option value="live">live</option>
+                        </select>
+                    </label>
+                    <label class="field"><span>Drop at (your local time)</span><input type="datetime-local" name="dropAt" step="1"></label>
+                    <label class="field"><span>Leaderboard size</span><input type="number" name="leaderboardSize" min="1" max="10000" step="1"></label>
+                    <label class="field"><span>Bundle version</span><input type="text" name="bundleVersion" placeholder="1.3.0" autocomplete="off"></label>
+                    <label class="field"><span>Bundle URL (https)</span><input type="url" name="bundleUrl" autocomplete="off"></label>
+                    <label class="field wide"><span>Bundle SHA-256</span><input type="text" name="bundleSha256" autocomplete="off" spellcheck="false"></label>
+                    <label class="field wide"><span>App Store product IDs (comma separated)</span><input type="text" name="appStoreProductIds" autocomplete="off"></label>
+                    <label class="field"><span>Theme accent</span><input type="text" name="accent" placeholder="pink or #ff3da8" autocomplete="off"></label>
+                    <label class="field"><span>Theme accent 2</span><input type="text" name="accent2" placeholder="ice or #9fd8ff" autocomplete="off"></label>
+                    <label class="field"><span>Backdrop image</span><input type="text" name="backdropImage" autocomplete="off"></label>
+                    <label class="field"><span>LCD tint (optional)</span><input type="text" name="lcdTint" autocomplete="off"></label>
+                    <label class="field wide"><span>Reason (required)</span><textarea name="reason" maxlength="500" required></textarea></label>
+                    <div class="admin-actions"><button class="primary-btn" type="submit">REVIEW CHANGES</button></div>
+                    <div class="confirm-strip" hidden></div>
+                    <p class="admin-status" role="status" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <!-- ADM-6 -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-audit" aria-labelledby="tab-audit" hidden>
+                <h2>AUDIT LOG (READ ONLY)</h2>
+                <form class="admin-form" id="audit-form">
+                    <label class="field"><span>Filter by target</span><input type="text" name="target" placeholder="entitlement:…" autocomplete="off"></label>
+                    <div class="admin-actions"><button class="secondary-btn" type="submit">LOAD</button></div>
+                </form>
+                <div class="table-scroll" style="margin-top: 1rem;">
+                    <table id="audit-table">
+                        <thead>
+                            <tr>
+                                <th>TIME</th>
+                                <th>ACTION</th>
+                                <th>TARGET</th>
+                                <th>ADMIN</th>
+                                <th>REASON</th>
+                                <th>BEFORE / AFTER</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <p class="admin-status" id="audit-status" role="status" aria-live="polite"></p>
+                <div class="admin-actions"><button class="secondary-btn" id="audit-more" type="button" hidden>LOAD MORE</button></div>
+            </div>
+        </section>
     </div>
 
     <div id="unauthorized"

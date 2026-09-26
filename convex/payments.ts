@@ -3,19 +3,36 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action, internalAction, type ActionCtx } from './_generated/server';
 import { isCheckoutSessionId, withinDownloadWindow } from './downloadLogic';
-import { createSignInTicket, findOrCreateClerkUser } from './lib/clerkApi';
+import { isAdminEmail } from './lib/auth';
+import {
+  createSignInTicket,
+  findClerkAccount,
+  findOrCreateClerkAccount,
+  findOrCreateClerkUser,
+  getClerkAccount,
+  type ClerkAccount,
+} from './lib/clerkApi';
 import { fail } from './lib/errors';
 import { fileUrl } from './lib/storage';
 import { playerTracks, type PlayerTrack } from './tracks';
 import {
   buildDigitalLineItems,
+  chargeRevokes,
   FULFIL_EVENT_TYPES,
   isPaidSession,
   lineItemProductId,
+  mayIssueCheckoutTicket,
+  PAYMENT_EVENT_TYPES,
+  paymentEventPlan,
+  paymentIntentId,
   sessionEmail,
+  sessionOutcome,
   summariseRebuild,
   toFulfilmentInput,
   validateCheckoutInput,
+  type ChargeLike,
+  type DisputeLike,
+  type PaymentEventOutcome,
   type RebuildOutcome,
 } from './stripeLogic';
 
@@ -41,6 +58,22 @@ async function listLineItems(stripe: Stripe, sessionId: string) {
   return items;
 }
 
+/** Our product ids for a session's line items (for refund tombstones). */
+async function productIdsFor(ctx: ActionCtx, lineItems: Stripe.LineItem[]) {
+  const stripeProductIds = lineItems.map(lineItemProductId).filter((id): id is string => Boolean(id));
+  const products = await ctx.runQuery(internal.fulfilment.productsByStripeIds, { stripeProductIds });
+  return products.map((product) => product._id);
+}
+
+/** Whether the session's payment has since been refunded (per `chargeRevokes`), checked with Stripe. */
+async function paymentRevoked(stripe: Stripe, session: Stripe.Checkout.Session): Promise<boolean> {
+  const intent = paymentIntentId(session.payment_intent);
+  if (!intent) return false;
+  const paymentIntent = await stripe.paymentIntents.retrieve(intent, { expand: ['latest_charge'] });
+  const charge = paymentIntent.latest_charge;
+  return typeof charge === 'object' && charge !== null && chargeRevokes(charge);
+}
+
 async function fulfilSession(
   ctx: ActionCtx,
   stripe: Stripe,
@@ -51,8 +84,28 @@ async function fulfilSession(
   const email = sessionEmail(session);
   if (!email) return 'no_email';
 
+  // A session already bound to an account stays with it; only an unbound one is matched by email. One whose
+  // licence belongs to a deleted account never recreates that account or its profile.
+  const holder = await ctx.runQuery(internal.fulfilment.sessionHolder, { sessionId: session.id });
+  if (holder.status === 'retired') return 'retired';
+
   const lineItems = await listLineItems(stripe, session.id);
-  const clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined);
+  // A payment refunded before (or after) it was fulfilled is never granted: record the refund against the
+  // session, which also revokes anything it already granted.
+  if (session.metadata?.order_type !== 'physical' && (await paymentRevoked(stripe, session))) {
+    await ctx.runMutation(internal.fulfilment.revokeEntitlement, {
+      source: 'stripe',
+      sourceRef: session.id,
+      reason: 'refunded',
+      productIds: await productIdsFor(ctx, lineItems),
+    });
+    return 'revoked';
+  }
+
+  const clerkId =
+    holder.status === 'held'
+      ? holder.clerkId
+      : await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined, session.id);
   const input = toFulfilmentInput({ session, lineItems, clerkId, email, eventId: event?.id, eventType: event?.type });
   const result = await ctx.runMutation(internal.fulfilment.record, input);
   if (result.alreadyProcessed) return 'already';
@@ -67,7 +120,35 @@ async function fulfilSession(
     });
   }
   if (physical) return 'physical';
-  return result.grantedSlugs.length > 0 ? 'granted' : 'unmatched';
+  return sessionOutcome(result.grants);
+}
+
+/** The Checkout session behind a payment intent, or null when the payment did not come through Checkout. */
+async function sessionForPaymentIntent(stripe: Stripe, paymentIntent: string): Promise<string | null> {
+  const page = await stripe.checkout.sessions.list({ payment_intent: paymentIntent, limit: 1 });
+  return page.data[0]?.id ?? null;
+}
+
+/** Refunds and disputes (PAY-3): revoke or reinstate the licence the payment bought. */
+async function applyPaymentEvent(ctx: ActionCtx, stripe: Stripe, event: Stripe.Event): Promise<PaymentEventOutcome> {
+  const plan = paymentEventPlan(event.type, event.data.object as ChargeLike & DisputeLike);
+  if (plan.action === 'ignore') return plan.outcome;
+  const sessionId = await sessionForPaymentIntent(stripe, plan.paymentIntentId);
+  if (!sessionId) return 'no_session';
+  const common = { source: 'stripe' as const, sourceRef: sessionId, eventId: event.id, eventType: event.type };
+  if (plan.action === 'reinstate') {
+    const result = await ctx.runMutation(internal.fulfilment.reinstateEntitlement, common);
+    return result.matched === 0 ? 'no_match' : plan.outcome;
+  }
+  // The products are passed so a refund that beats fulfilment leaves a tombstone the grant will respect.
+  const productIds = await productIdsFor(ctx, await listLineItems(stripe, sessionId));
+  const result = await ctx.runMutation(internal.fulfilment.revokeEntitlement, {
+    ...common,
+    reason: plan.reason,
+    productIds,
+  });
+  if (result.matched > 0) return plan.outcome;
+  return result.tombstones > 0 ? 'revoked_before_fulfilment' : 'no_match';
 }
 
 export const handleWebhook = internalAction({
@@ -93,8 +174,20 @@ export const handleWebhook = internalAction({
       return { status: 400 };
     }
 
-    if (!(FULFIL_EVENT_TYPES as readonly string[]).includes(event.type)) return { status: 200 };
+    const isPaymentEvent = (PAYMENT_EVENT_TYPES as readonly string[]).includes(event.type);
+    if (!isPaymentEvent && !(FULFIL_EVENT_TYPES as readonly string[]).includes(event.type)) return { status: 200 };
     if (await ctx.runQuery(internal.fulfilment.eventSeen, { eventId: event.id })) return { status: 200 };
+
+    if (isPaymentEvent) {
+      try {
+        const outcome = await applyPaymentEvent(ctx, stripe, event);
+        console.log(`stripe webhook: ${event.id} ${event.type} -> ${outcome}`);
+        return { status: 200 };
+      } catch (err) {
+        console.error(`stripe webhook: ${event.id} ${event.type} failed: ${errorMessage(err)}`);
+        return { status: 500 };
+      }
+    }
 
     const session = event.data.object as Stripe.Checkout.Session;
     try {
@@ -116,19 +209,34 @@ export const createDigitalSession = action({
     email: v.string(),
     marketingConsent: v.boolean(),
   },
-  handler: async (_ctx, args): Promise<{ url: string }> => {
+  handler: async (ctx, args): Promise<{ url: string }> => {
     const problem = validateCheckoutInput(args);
     if (problem) fail('INVALID_INPUT', problem);
+    const lineItems = buildDigitalLineItems({
+      amountCents: args.amountCents,
+      withUpsell: args.withUpsell,
+      litProductId: process.env.STRIPE_PRODUCT_ID_LIT ?? 'prod_TsqOvYycMrdhnl',
+      sourceProductId: process.env.STRIPE_PRODUCT_ID_SOURCE ?? 'prod_TsqUkQtzNQ5Y3z',
+    });
+
+    // ED-3 and ENT-5, before any money moves. Ownership is only checked for a signed-in buyer paying with
+    // their own verified email, so the answer never reveals what another address owns.
+    const identity = await ctx.auth.getUserIdentity();
+    const typedEmail = args.email.trim().toLowerCase();
+    const check = await ctx.runQuery(internal.fulfilment.checkoutCheck, {
+      stripeProductIds: lineItems.map((item) => item.price_data.product),
+      now: Date.now(),
+      clerkId: identity?.subject,
+      ownEmail: Boolean(identity?.email) && identity!.email!.trim().toLowerCase() === typedEmail,
+    });
+    if (check.notYetLive) fail('NOT_YET_LIVE', 'This release is not out yet.');
+    if (check.alreadyOwned) fail('ALREADY_OWNED', 'You already own this. It is in your dashboard.');
+
     const stripe = stripeClient();
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       customer_email: args.email.trim(),
-      line_items: buildDigitalLineItems({
-        amountCents: args.amountCents,
-        withUpsell: args.withUpsell,
-        litProductId: process.env.STRIPE_PRODUCT_ID_LIT ?? 'prod_TsqOvYycMrdhnl',
-        sourceProductId: process.env.STRIPE_PRODUCT_ID_SOURCE ?? 'prod_TsqUkQtzNQ5Y3z',
-      }),
+      line_items: lineItems,
       payment_intent_data: {
         // What the buyer's receipt and the Stripe dashboard call this payment. The name at the top of the
         // checkout page itself is the account's public business name, which only the Stripe dashboard sets.
@@ -216,7 +324,7 @@ export const streamForCheckoutSession = action({
  */
 export const claimAccountForCheckoutSession = action({
   args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }): Promise<{ ticket: string; email: string }> => {
+  handler: async (ctx, { sessionId }): Promise<{ ticket: string | null; email: string }> => {
     if (!isCheckoutSessionId(sessionId)) fail('INVALID_INPUT', 'That checkout link is not valid.');
     const stripe = stripeClient();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -228,14 +336,38 @@ export const claimAccountForCheckoutSession = action({
     if (!email) fail('INVALID_INPUT', 'That checkout has no email on it.');
 
     // Idempotent: if the webhook has already run this is a no-op, and if it hasn't the buyer doesn't wait.
-    await fulfilSession(ctx, stripe, session);
-    const clerkId = await findOrCreateClerkUser(email, session.customer_details?.name ?? undefined);
-    return { ticket: await createSignInTicket(clerkId), email };
+    // A retired (deleted account) or refunded session is not claimed, and nothing is recreated for it.
+    const outcome = await fulfilSession(ctx, stripe, session);
+    if (outcome === 'retired' || outcome === 'revoked') return { ticket: null, email };
+
+    // The account that holds this session's licence, which is not always the account the email finds today
+    // (the buyer may have changed their email since). Unbound sessions fall back to the email.
+    const holder = await ctx.runQuery(internal.fulfilment.sessionHolder, { sessionId: session.id });
+    if (holder.status === 'retired') return { ticket: null, email };
+    let account: ClerkAccount | null;
+    if (holder.status === 'held') {
+      // Usually the email still finds the holder (and says whether the lookup was unambiguous); if it now finds
+      // someone else, read the holder directly. Never creates an account for a session that already has one.
+      const byEmail = await findClerkAccount(email);
+      account = byEmail?.id === holder.clerkId ? byEmail : await getClerkAccount(holder.clerkId);
+    } else {
+      account = await findOrCreateClerkAccount(email, session.customer_details?.name ?? undefined, session.id);
+    }
+    // A paid checkout proves payment, not ownership of the email: only the account this checkout created, never
+    // yet signed into and not an admin address, may be signed into from it. Everyone else gets no ticket and
+    // goes through the normal email-checked sign-in. The holder account is held to the same rule.
+    if (!account || !mayIssueCheckoutTicket({ account, sessionId: session.id, isAdminEmail: isAdminEmail(email) })) {
+      return { ticket: null, email };
+    }
+    return { ticket: await createSignInTicket(account.id), email };
   },
 });
 
 // Run with: npx convex run payments:rebuildFromStripe '{"dryRun":true}'
 // Output is counts only. Never add customer identifiers to the return value or logs.
+// Refunded sessions are never granted (`revoked`). A paid session with no licence or ref of its own (a buyer
+// who paid twice before refs existed) is recorded as an extra payment on the licence they own, so ED-0 runs
+// this first (docs/app-v1/RUNBOOK-ED0.md).
 export const rebuildFromStripe = internalAction({
   args: { dryRun: v.boolean(), createdAfterSec: v.optional(v.number()) },
   handler: async (ctx, { dryRun, createdAfterSec }) => {
@@ -265,6 +397,10 @@ export const rebuildFromStripe = internalAction({
         }
         if (session.metadata?.order_type === 'physical') {
           outcomes.push('physical');
+          continue;
+        }
+        if (await paymentRevoked(stripe, session)) {
+          outcomes.push('revoked');
           continue;
         }
         const lineItems = await listLineItems(stripe, session.id);

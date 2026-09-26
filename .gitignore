@@ -34,3 +34,13 @@ dist-ssr
 
 # React Bits Pro originals: licensed source, kept locally for reference only (this repo is public)
 src/vendor/reactbits/
+
+# Built release bundles (npm run bundle:lit)
+dist-bundles/
+
+# Internal look-dev references: other people's artwork, never published (repo is public)
+docs/design-catalogue/
+# Generated screenshots (regenerate with the scripts)
+apps/ios/screens/
+bundles/lit/wear-shots/
+packages/minidisc/shots/

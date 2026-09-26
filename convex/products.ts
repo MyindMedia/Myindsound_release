@@ -1,5 +1,6 @@
 import { query } from './_generated/server';
 import { getViewer } from './lib/auth';
+import { isActiveEntitlement } from './lib/editions';
 
 export const list = query({
   args: {},
@@ -22,7 +23,7 @@ export const owned = query({
       .withIndex('by_user_product', (q) => q.eq('userId', user._id))
       .collect();
     const products = [];
-    for (const entitlement of entitlements) {
+    for (const entitlement of entitlements.filter(isActiveEntitlement)) {
       const product = await ctx.db.get(entitlement.productId);
       if (product?.active) {
         products.push({

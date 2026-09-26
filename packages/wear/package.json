@@ -1,0 +1,18 @@
+{
+  "name": "@myind/wear",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deterministic wear model (PRD section 11): computeWear + frozen test vectors shared with the Swift port.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./wear-vectors.json": "./wear-vectors.json"
+  },
+  "files": ["src", "wear-vectors.json", "README.md"],
+  "scripts": {
+    "gen-vectors": "tsx scripts/gen-vectors.ts",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

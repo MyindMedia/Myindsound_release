@@ -1,6 +1,6 @@
 import { bandLevel, logBins, rmsLevel } from './audio-math';
 
-type EngineEvents = {
+export type EngineEvents = {
   onTime?: (seconds: number) => void;
   onEnded?: () => void;
   onError?: () => void;
@@ -136,6 +136,11 @@ export class AudioEngine {
     this.element.currentTime = 0;
   }
 
+  /** Moves the loaded track to `seconds`, keeping the play state. */
+  seek(seconds: number): void {
+    this.element.currentTime = Math.max(0, seconds);
+  }
+
   setVolume(value: number): void {
     this.volume = Math.min(1, Math.max(0, value));
     this.applyLevel(this.volume, 0.08);
@@ -230,3 +235,9 @@ export class AudioEngine {
     return this.isPlaying ? 0.3 + 0.1 * Math.sin(performance.now() / 180) : 0;
   }
 }
+
+/**
+ * What `player-app.ts` drives: every public member of `AudioEngine` except the raw element. The app bundle
+ * supplies `BridgeAudioEngine` (packages/bridge), which plays natively (BUN-0, ARCH-2).
+ */
+export type PlayerEngine = Omit<AudioEngine, 'element'>;

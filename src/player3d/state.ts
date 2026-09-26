@@ -42,7 +42,15 @@ export type DeckEvent =
   | { type: 'select'; index: number }
   | { type: 'toggleRepeat' }
   | { type: 'trackEnded' }
-  | { type: 'tick'; positionSec: number };
+  | { type: 'tick'; positionSec: number }
+  /**
+   * The audio moved without the deck asking (the app's lock screen or Control Center, an interruption, native
+   * starting the next track, a lend ending): follow it at once, with no calibration or spin-up. Never fired on the
+   * site, whose audio only does what the deck tells it.
+   */
+  | { type: 'sync'; index: number; status: SyncStatus };
+
+export type SyncStatus = 'playing' | 'paused' | 'stopped';
 
 export function initialState(): DeckState {
   return { status: 'booting', trackIndex: 0, trackCount: 0, repeat: false, positionSec: 0 };
@@ -139,6 +147,15 @@ export function reduce(state: DeckState, event: DeckEvent): DeckState {
 
     case 'tick':
       return LOADED.has(state.status) ? { ...state, positionSec: event.positionSec } : state;
+
+    // Only a seated disc follows the audio; ejected, loading or ejecting decks ignore it.
+    case 'sync': {
+      if (!transport || state.trackCount === 0) return state;
+      const index = Math.max(0, Math.min(last, Math.trunc(event.index)));
+      if (index === state.trackIndex && event.status === state.status) return state;
+      const moved = index === state.trackIndex ? state : atTrack(state, index);
+      return { ...moved, status: event.status, positionSec: event.status === 'stopped' ? 0 : moved.positionSec };
+    }
   }
 }
 

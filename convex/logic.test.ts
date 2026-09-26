@@ -4,6 +4,9 @@ import { leadTags, purchaseTags } from './ghlLogic';
 import {
   buildDigitalLineItems,
   isPaidSession,
+  mayIssueCheckoutTicket,
+  paymentEventPlan,
+  sessionOutcome,
   summariseRebuild,
   toFulfilmentInput,
   validateCheckoutInput,
@@ -91,14 +94,79 @@ describe('stripeLogic', () => {
     expect(summary).toEqual({
       sessionsSeen: 5,
       granted: 2,
+      early_paid: 0,
       physical: 1,
       already: 1,
+      revoked: 0,
+      retired: 0,
+      taken: 0,
       unmatched: 0,
       unpaid: 0,
       no_email: 0,
       error: 1,
     });
     expect(JSON.stringify(summary)).not.toMatch(/@/);
+  });
+
+  test('sessionOutcome gives each refused or unusual session its own code', () => {
+    const o = (...outcomes: string[]) => sessionOutcome(outcomes.map((outcome) => ({ outcome })));
+    expect(o('created')).toBe('granted');
+    expect(o('replayed', 'owned')).toBe('granted');
+    expect(o('created', 'early_paid')).toBe('early_paid');
+    expect(o('taken')).toBe('taken');
+    expect(o('revoked')).toBe('revoked');
+    expect(o('retired')).toBe('retired');
+    expect(o()).toBe('unmatched');
+  });
+
+  test('paymentEventPlan: full refunds and disputes revoke, partial refunds do not, won disputes reinstate', () => {
+    expect(paymentEventPlan('charge.refunded', { refunded: true, payment_intent: 'pi_1' })).toEqual({
+      action: 'revoke',
+      reason: 'refunded',
+      paymentIntentId: 'pi_1',
+      outcome: 'refund_revoked',
+    });
+    expect(paymentEventPlan('charge.refunded', { refunded: false, payment_intent: 'pi_1' })).toEqual({
+      action: 'ignore',
+      outcome: 'partial_refund',
+    });
+    expect(
+      paymentEventPlan(
+        'charge.refunded',
+        { refunded: false, amount_refunded: 100, payment_intent: 'pi_1' },
+        { revokeOnPartialRefund: true, reinstateOnDisputeWon: true },
+      ).action,
+    ).toBe('revoke');
+    expect(paymentEventPlan('charge.dispute.created', { payment_intent: { id: 'pi_2' } })).toMatchObject({
+      action: 'revoke',
+      reason: 'disputed',
+      paymentIntentId: 'pi_2',
+    });
+    expect(paymentEventPlan('charge.dispute.closed', { status: 'won', payment_intent: 'pi_2' })).toMatchObject({
+      action: 'reinstate',
+      paymentIntentId: 'pi_2',
+    });
+    expect(paymentEventPlan('charge.dispute.closed', { status: 'lost', payment_intent: 'pi_2' })).toEqual({
+      action: 'ignore',
+      outcome: 'dispute_closed',
+    });
+    expect(
+      paymentEventPlan(
+        'charge.dispute.closed',
+        { status: 'won', payment_intent: 'pi_2' },
+        { revokeOnPartialRefund: false, reinstateOnDisputeWon: false },
+      ).action,
+    ).toBe('ignore');
+    expect(paymentEventPlan('charge.refunded', { refunded: true, payment_intent: null }).outcome).toBe('no_payment_intent');
+    for (const status of ['warning_needs_response', 'warning_under_review']) {
+      expect(paymentEventPlan('charge.dispute.created', { status, payment_intent: 'pi_3' })).toEqual({
+        action: 'ignore',
+        outcome: 'dispute_inquiry',
+      });
+    }
+    expect(paymentEventPlan('charge.dispute.closed', { status: 'warning_closed', payment_intent: 'pi_3' }).action).toBe(
+      'reinstate',
+    );
   });
 });
 
@@ -133,5 +201,39 @@ describe('downloadLogic', () => {
     expect(isCheckoutSessionId('cs_test_a1B2c3')).toBe(true);
     expect(isCheckoutSessionId('pi_123')).toBe(false);
     expect(isCheckoutSessionId('cs_live_../../x')).toBe(false);
+  });
+});
+
+describe('mayIssueCheckoutTicket', () => {
+  const fresh = { matches: 1, lastSignInAt: null, createdByCheckout: 'cs_test_mine' };
+  const decide = (account: typeof fresh | Record<string, unknown>, isAdminEmail = false) =>
+    mayIssueCheckoutTicket({ account: account as typeof fresh, sessionId: 'cs_test_mine', isAdminEmail });
+
+  test('the account this checkout created, never used, gets a ticket', () => {
+    expect(decide(fresh)).toBe(true);
+  });
+
+  test('an account another checkout created gets no ticket (a checkout opened early can\'t claim a later buyer)', () => {
+    expect(decide({ ...fresh, createdByCheckout: 'cs_test_someone_else' })).toBe(false);
+  });
+
+  test('an account made any other way (older buyers, migrations, sign-ups) gets no ticket', () => {
+    expect(decide({ ...fresh, createdByCheckout: null })).toBe(false);
+  });
+
+  test('an account that has been signed into gets no ticket', () => {
+    expect(decide({ ...fresh, lastSignInAt: 1_700_000_000_000 })).toBe(false);
+  });
+
+  test('a missing sign-in time counts as signed in', () => {
+    expect(decide({ ...fresh, lastSignInAt: undefined })).toBe(false);
+  });
+
+  test('an ambiguous lookup gets no ticket', () => {
+    expect(decide({ ...fresh, matches: 2 })).toBe(false);
+  });
+
+  test('an admin address never gets a ticket', () => {
+    expect(decide(fresh, true)).toBe(false);
   });
 });

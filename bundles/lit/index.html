@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Native writes <meta name="myind-bridge" ...> as the first element of <head> (CONTRACT.md §2). -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#07070C" />
+  <!-- No icon to fetch: WKWebView never shows one, and a desktop browser would 404 on /favicon.ico. -->
+  <link rel="icon" href="data:," />
+  <title>LIT</title>
+  <style>
+    /* Matches the native splash and WKWebView background, so there is never a white flash (NAT-3). */
+    html, body { margin: 0; height: 100%; background: #07070C; overscroll-behavior: none; }
+    body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  </style>
+  <!-- The bridge client is the first script to run (main.ts); the player, and GSAP, load after it. -->
+  <script type="module" src="./main.ts"></script>
+</head>
+<body>
+  <main id="player-root" aria-label="LIT MiniDisc player"></main>
+</body>
+</html>

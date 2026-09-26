@@ -2,13 +2,12 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { internalQuery, query, type QueryCtx } from './_generated/server';
 import { getViewer } from './lib/auth';
+import { activeEntitlement, isActiveEntitlement } from './lib/editions';
 
+// Revoked (refunded, charged back) licences are not owned; rows from before the migration have no status
+// and still count (ENT-4).
 export async function hasEntitlement(ctx: QueryCtx, userId: Id<'users'>, productId: Id<'products'>) {
-  const row = await ctx.db
-    .query('entitlements')
-    .withIndex('by_user_product', (q) => q.eq('userId', userId).eq('productId', productId))
-    .first();
-  return row !== null;
+  return (await activeEntitlement(ctx, userId, productId)) !== null;
 }
 
 export const mine = query({
@@ -21,7 +20,7 @@ export const mine = query({
       .withIndex('by_user_product', (q) => q.eq('userId', user._id))
       .collect();
     const slugs = new Set<string>();
-    for (const row of rows) {
+    for (const row of rows.filter(isActiveEntitlement)) {
       const product = await ctx.db.get(row.productId);
       if (product) slugs.add(product.slug);
     }

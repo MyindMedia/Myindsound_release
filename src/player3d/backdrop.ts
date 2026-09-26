@@ -72,7 +72,20 @@ function load(loader: TextureLoader, file: string, srgb: boolean): Promise<Textu
   });
 }
 
-export class ComicCity {
+/**
+ * What the player needs from its backdrop. `ComicCity` is the site's (and LIT's); a generated release bundle
+ * passes its own through `PlayerOptions.createBackdrop` (packages/minidisc `ArtBackdrop`: the cover art, blurred).
+ */
+export interface Backdrop {
+  readonly group: Group;
+  attach(camera: PerspectiveCamera): Promise<void>;
+  fit(camera: PerspectiveCamera): void;
+  setVisible(visible: boolean): void;
+  setAudio(drive: { bass: number; level: number }): void;
+  update(dt: number, elapsed: number): void;
+}
+
+export class ComicCity implements Backdrop {
   readonly group = new Group();
   private plane: Mesh | null = null;
   private material: ShaderMaterial | null = null;

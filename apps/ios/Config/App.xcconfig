@@ -1,0 +1,13 @@
+// Build settings the app reads at runtime through Info.plist (AppConfig.swift).
+// Committed defaults; the gitignored Dev.xcconfig next to this file overrides them.
+// Make it with `apps/ios/scripts/make-dev-xcconfig.sh <path to the release repo's .env.local>`,
+// or copy Dev.xcconfig.example and fill it in.
+//
+// `//` starts a comment in an xcconfig, so URLs are written `https:/$()/host`.
+
+// The Convex DEV deployment (decisive-iguana-954). Production is loyal-tortoise-999.
+CONVEX_URL = https:/$()/decisive-iguana-954.convex.cloud
+// The Clerk publishable key (pk_test_… for dev). Empty means sign in is unavailable; -mock still works.
+CLERK_PUBLISHABLE_KEY =
+
+#include? "Dev.xcconfig"

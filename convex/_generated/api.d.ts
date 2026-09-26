@@ -9,6 +9,8 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as adminActions from "../adminActions.js";
+import type * as app from "../app.js";
 import type * as clerkMigration from "../clerkMigration.js";
 import type * as crons from "../crons.js";
 import type * as diagnostics from "../diagnostics.js";
@@ -19,21 +21,32 @@ import type * as fulfilment from "../fulfilment.js";
 import type * as ghl from "../ghl.js";
 import type * as ghlLogic from "../ghlLogic.js";
 import type * as http from "../http.js";
+import type * as leaderboard from "../leaderboard.js";
 import type * as leads from "../leads.js";
+import type * as lendLogic from "../lendLogic.js";
+import type * as lends from "../lends.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_clerkApi from "../lib/clerkApi.js";
+import type * as lib_editions from "../lib/editions.js";
+import type * as lib_entitlementRefs from "../lib/entitlementRefs.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_ghlApi from "../lib/ghlApi.js";
 import type * as lib_storage from "../lib/storage.js";
+import type * as media from "../media.js";
+import type * as migrations from "../migrations.js";
 import type * as orders from "../orders.js";
 import type * as payments from "../payments.js";
 import type * as plays from "../plays.js";
 import type * as privacy from "../privacy.js";
 import type * as products from "../products.js";
+import type * as push from "../push.js";
 import type * as seed from "../seed.js";
+import type * as storekit from "../storekit.js";
+import type * as storekitLogic from "../storekitLogic.js";
 import type * as stripeLogic from "../stripeLogic.js";
 import type * as tracks from "../tracks.js";
 import type * as users from "../users.js";
+import type * as wear from "../wear.js";
 
 import type {
   ApiFromModules,
@@ -43,6 +56,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  adminActions: typeof adminActions;
+  app: typeof app;
   clerkMigration: typeof clerkMigration;
   crons: typeof crons;
   diagnostics: typeof diagnostics;
@@ -53,21 +68,32 @@ declare const fullApi: ApiFromModules<{
   ghl: typeof ghl;
   ghlLogic: typeof ghlLogic;
   http: typeof http;
+  leaderboard: typeof leaderboard;
   leads: typeof leads;
+  lendLogic: typeof lendLogic;
+  lends: typeof lends;
   "lib/auth": typeof lib_auth;
   "lib/clerkApi": typeof lib_clerkApi;
+  "lib/editions": typeof lib_editions;
+  "lib/entitlementRefs": typeof lib_entitlementRefs;
   "lib/errors": typeof lib_errors;
   "lib/ghlApi": typeof lib_ghlApi;
   "lib/storage": typeof lib_storage;
+  media: typeof media;
+  migrations: typeof migrations;
   orders: typeof orders;
   payments: typeof payments;
   plays: typeof plays;
   privacy: typeof privacy;
   products: typeof products;
+  push: typeof push;
   seed: typeof seed;
+  storekit: typeof storekit;
+  storekitLogic: typeof storekitLogic;
   stripeLogic: typeof stripeLogic;
   tracks: typeof tracks;
   users: typeof users;
+  wear: typeof wear;
 }>;
 
 /**

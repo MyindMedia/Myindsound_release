@@ -1,0 +1,10 @@
+# The .xcodeproj is generated from project.yml (xcodegen generate) but committed so `xcodebuild` works
+# without XcodeGen; only per-user state is ignored.
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+# Package.resolved is committed (pins Clerk + Convex); only the SwiftPM config dir is ignored.
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/configuration/
+DerivedData/
+.DS_Store
+# Local build config with the Clerk key (Config/Dev.xcconfig.example is the committed template).
+Config/Dev.xcconfig

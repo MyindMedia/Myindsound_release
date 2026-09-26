@@ -1,21 +1,22 @@
 import { DirectionalLight, HemisphereLight, PointLight, SRGBColorSpace, TextureLoader, type Texture } from 'three';
-import { convexErrorCode } from '../convex';
+// convex/values only (no client): importing '../convex' would pull the Convex and Clerk clients into the app bundle.
+import { ConvexError } from 'convex/values';
 import { markOpened, writeHandoff } from '../playback-handoff';
 import { refreshDelayMs, timeToReach } from './audio-math';
-import { AudioEngine } from './audio-engine';
+import { AudioEngine, type EngineEvents, type PlayerEngine } from './audio-engine';
 import { createStudioEnvironment } from './cartridge-detail';
-import { ComicCity } from './backdrop';
-import { CART_DEPTH, Deck } from './deck';
+import { ComicCity, type Backdrop } from './backdrop';
+import { CART_DEPTH, Deck, type CartridgeBuilder } from './deck';
 import { DISC_SOUNDS, DiscMechanics, SPIN_LEAD_SECONDS, SPIN_UP_MOTOR_AT } from './disc-sounds';
 import { Hud } from './hud';
 import { PLAY_RPM, runEjectSequence, runFloatInSequence, runInsertSequence } from './insert-sequence';
 import { CartridgeInspector } from './inspect';
-import { DiscWrap } from './wrap';
+import { DiscWrap, type SleevePrints } from './wrap';
 import { loadUnwrapSounds, playUnwrap, prefetchUnwrapSounds } from './wrap-sound';
 import { KeyController, type KeyCommand } from './keys';
 import { buttonFlash, lcdContent } from './lcd-text';
 import { PlayerScene } from './scene';
-import { initialState, keyLatches, reduce, type DeckEvent, type DeckState } from './state';
+import { initialState, keyLatches, reduce, type DeckEvent, type DeckState, type SyncStatus } from './state';
 import { loadDeckTextures } from './textures';
 import type { PlayerTrack, TrackSource } from './track-source';
 
@@ -38,6 +39,8 @@ const WRAP_FILM_NORMAL = '/assets/images/minidisc/wrap-film-normal.webp';
 const BLOOM_STRENGTH = 0.5;
 const INTRO_BLOOM = 0.18;
 const VOLUME_KEY = 'myind:player-volume';
+/** Sleeve mode: a tap waits this long for a second one (a double-tap resets the view instead of loading). */
+const SLEEVE_DOUBLE_TAP_MS = 320;
 
 function hasWebGL(): boolean {
   try {
@@ -46,6 +49,19 @@ function hasWebGL(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * The error's code: a Convex `{ code }` error (the site), or a bridge error's `code` (the app bundle, whose
+ * `BridgeError` is named so; see packages/bridge). Same answer as `convexErrorCode` for Convex errors.
+ */
+function errorCode(err: unknown): string | null {
+  if (err instanceof ConvexError && typeof err.data === 'object' && err.data && 'code' in err.data) {
+    return String((err.data as { code: unknown }).code);
+  }
+  const code = err instanceof Error && err.name === 'BridgeError' ? (err as Error & { code?: unknown }).code : null;
+  if (typeof code === 'string') return code;
+  return null;
 }
 
 function storedVolume(): number {
@@ -67,7 +83,55 @@ export interface PlayerOptions {
    * mini player left off, and start playing again if it was (`playback-handoff.ts`).
    */
   resume?: { index: number; positionSec: number; playing: boolean };
+  /**
+   * The audio engine. Defaults to the site's `AudioEngine` (an <audio> element through Web Audio). The app bundle
+   * passes `BridgeAudioEngine`, which plays natively (BUN-0, ARCH-2) and reports changes it didn't ask for through
+   * `onNativeChange`, which the deck follows with a `sync` (lock screen, auto-advance, a lend ending).
+   */
+  createEngine?(events: PlayerEngineEvents): PlayerEngine;
+  /**
+   * Carry the music to the site's other pages (`playback-handoff.ts`). Default true. The app bundle turns it off:
+   * there are no other pages, and the handoff stores stream URLs.
+   */
+  handoff?: boolean;
+  /** Mechanical and ceremony beats, for the app's haptics (DS-32) and wear events (§11.2). */
+  onMoment?(moment: PlayerMoment): void;
+  /** The 3D deck is built (not called on the no-WebGL fallback): the bundle adds its own touches, e.g. the edition. */
+  onSceneReady?(parts: { deck: Deck; scene: PlayerScene }): void;
+  /**
+   * App only, off by default (the site never sets it): open on the printed card sleeve with no shrink film, for a
+   * copy that has been unwrapped before (RACK-3). The fan turns and zooms it as in the sealed opening; a tap (or
+   * Enter, or `loadFromSleeve()`) slides the sleeve off and inserts the disc. Ignored when `wrapped` is set.
+   */
+  sleeved?: boolean;
+  /** Sleeve mode: whether the disc may be loaded now (false: a copy that is out on loan). Default true. */
+  canLoadFromSleeve?(): boolean;
+  /**
+   * A generated release (packages/minidisc, `bundles/release`), all off by default so the site and LIT are
+   * unchanged: the release's name for the HUD, its own cartridge in place of LIT's Canva one, its printed sleeve
+   * in place of the LIT poster, and its own backdrop in place of the comic city.
+   */
+  title?: string;
+  cartridge?: CartridgeBuilder;
+  sleeve?(): Promise<{ poster: Texture; prints?: SleevePrints } | null>;
+  createBackdrop?(options: { reducedMotion: boolean; coarsePointer: boolean; pixelRatio: number }): Backdrop;
 }
+
+/** What the audio tells the deck when it moved on its own. `PlaybackFrame` from the bridge satisfies it. */
+export interface NativeChange {
+  trackId: string | null;
+  status: string;
+}
+
+export type PlayerEngineEvents = EngineEvents & { onNativeChange?: (change: NativeChange) => void };
+
+/**
+ * - `unwrapStart`: the film starts to peel. `unwrapped`: the packaging has left the frame.
+ * - `sleevePull`: sleeve mode only, the sleeve starts to slide off (no `unwrapStart` or `unwrapped` follow).
+ * - `insertStart`: the cartridge heads for the deck. `seated`: it's in (the deck's `inserted`).
+ * - `ejected`: the cartridge is out, in front of the deck. `key`: a transport key or HUD control was pressed.
+ */
+export type PlayerMoment = 'unwrapStart' | 'unwrapped' | 'sleevePull' | 'insertStart' | 'seated' | 'ejected' | 'key';
 
 /** Composition root: state machine → audio, 3D deck, keys and HUD. */
 export class PlayerApp {
@@ -76,7 +140,7 @@ export class PlayerApp {
   private readonly options: PlayerOptions;
   private state: DeckState = initialState();
   private hud!: Hud;
-  private engine!: AudioEngine;
+  private engine!: PlayerEngine;
   /** Drive sounds: spin-up, spinning loop, spin-down (fetched now, decoded once audio unlocks). */
   private readonly mechanics = new DiscMechanics();
   private keys!: KeyController;
@@ -86,7 +150,7 @@ export class PlayerApp {
   private wrap: DiscWrap | null = null;
   private readonly introInput = new AbortController();
   private environment: Texture | null = null;
-  private city: ComicCity | null = null;
+  private city: Backdrop | null = null;
   private accentLights: { light: PointLight; intensity: number }[] = [];
   private tracks: PlayerTrack[] = [];
   private expiresAt = 0;
@@ -97,6 +161,8 @@ export class PlayerApp {
   private seekTimer = 0;
   private resumeTimer = 0;
   private lcdFlash: { text: string; until: number } | null = null;
+  /** Shown on the LCD in place of NO DISC while the cartridge is out (the app's `PLAYS 03` for a lend, DS-22). */
+  private lcdNote: string | null = null;
   private lastInput = performance.now();
   private started = false;
   /** Consumed by the next `engine.load`: where the track was when it was handed over. */
@@ -114,10 +180,14 @@ export class PlayerApp {
     this.options = options;
   }
 
+  private get sleeved(): boolean {
+    return Boolean(this.options.sleeved && !this.options.wrapped);
+  }
+
   /** The wrapping is off: bring the deck, the city and the HUD up behind the disc. */
   private reveal(): void {
     this.introInput.abort();
-    markOpened();
+    if (this.handoff) markOpened();
     this.keys?.setEnabled(true);
     this.scene?.setBloomStrength(BLOOM_STRENGTH);
     window.setTimeout(() => {
@@ -130,6 +200,27 @@ export class PlayerApp {
     this.inspector?.activate();
     this.hud.setIntro(false);
     this.keys?.setInspecting(true);
+    if (this.sleeved) {
+      // Sleeve mode: the disc is out of its sleeve, so it heads straight for the deck (in the same beat, so the
+      // inspector's INSERT DISC key never shows).
+      this.dispatch({ type: 'insert' });
+      return;
+    }
+    this.options.onMoment?.('unwrapped');
+  }
+
+  private get handoff(): boolean {
+    return this.options.handoff ?? true;
+  }
+
+  /** The LCD's line while the cartridge is out, in place of NO DISC; null puts NO DISC back. */
+  setLcdNote(text: string | null): void {
+    this.lcdNote = text;
+  }
+
+  /** Shows `text` on the LCD for a moment, like a button press does. */
+  flashLcd(text: string, ms = LCD_FLASH_MS): void {
+    this.lcdFlash = { text, until: performance.now() + ms };
   }
 
   /** Takes the wrapping off without waiting for a double-click (used straight after a purchase). */
@@ -146,16 +237,19 @@ export class PlayerApp {
       onRetry: () => void this.loadTracks(),
       onGetLit: () => this.options.onGetLit?.(),
     });
-    this.engine = new AudioEngine({
+    if (this.options.title) this.hud.setTitle(this.options.title);
+    const events: PlayerEngineEvents = {
       onTime: (seconds) => this.dispatch({ type: 'tick', positionSec: seconds }),
       onEnded: () => {
         this.logPlayOnce();
         this.dispatch({ type: 'trackEnded' });
       },
       onError: () => void this.recoverFromMediaError(),
-    });
+      onNativeChange: (change) => this.followAudio(change),
+    };
+    this.engine = this.options.createEngine ? this.options.createEngine(events) : new AudioEngine(events);
     // Wrapped: the page opens black, with nothing on it but the package once it's ready.
-    if (this.options.wrapped) this.hud.hideBoot();
+    if (this.options.wrapped || this.sleeved) this.hud.hideBoot();
     const volume = storedVolume();
     this.engine.setVolume(volume);
     this.mechanics.setVolume(volume);
@@ -185,15 +279,20 @@ export class PlayerApp {
       (window as unknown as Record<string, unknown>).__p3d = { app: this, scene: this.scene, deck: this.deck };
     }
     // Coming back mid-song there is nothing to float in: the disc goes straight back into the deck.
-    if (this.state.status === 'ejected') this.presentFloating(this.options.wrapped || Boolean(this.options.resume));
+    if (this.state.status === 'ejected') {
+      this.presentFloating(this.options.wrapped || this.sleeved || Boolean(this.options.resume));
+    }
     if (this.options.wrapped) await this.startWrapped();
+    else if (this.sleeved) await this.startSleeved();
     else this.startResume();
     // The music carries on to the rest of the site, so the state goes with whoever leaves the page.
-    window.addEventListener('pagehide', () => this.saveHandoff(true));
-    document.addEventListener(
-      'visibilitychange',
-      () => document.visibilityState === 'hidden' && this.saveHandoff(true),
-    );
+    if (this.handoff) {
+      window.addEventListener('pagehide', () => this.saveHandoff(true));
+      document.addEventListener(
+        'visibilitychange',
+        () => document.visibilityState === 'hidden' && this.saveHandoff(true),
+      );
+    }
   }
 
   /**
@@ -222,6 +321,7 @@ export class PlayerApp {
    * was running. Written while a disc is in, thrown away when there isn't one.
    */
   private saveHandoff(force = false): void {
+    if (!this.handoff) return;
     if (!force && performance.now() - this.lastHandoffSave < HANDOFF_SAVE_MS) return;
     this.lastHandoffSave = performance.now();
     const seated = !['booting', 'ejected', 'ejecting', 'inserting'].includes(this.state.status);
@@ -262,16 +362,18 @@ export class PlayerApp {
       reducedMotion: this.reducedMotion,
       environment: this.environment,
       quality: scene.coarsePointer ? 'low' : 'high',
+      cartridge: this.options.cartridge,
     });
     deck.setCartridgeVisible(false);
     scene.deckRoot.add(deck.group);
     scene.setDeckBounds(deck.bounds);
 
-    const city = new ComicCity({
+    const backdropOptions = {
       reducedMotion: this.reducedMotion,
       coarsePointer: scene.coarsePointer,
       pixelRatio: scene.renderer.getPixelRatio(),
-    });
+    };
+    const city = this.options.createBackdrop ? this.options.createBackdrop(backdropOptions) : new ComicCity(backdropOptions);
     scene.scene.add(city.group);
     await city.attach(scene.camera);
     scene.onResize(() => city.fit(scene.camera));
@@ -298,6 +400,7 @@ export class PlayerApp {
     this.deck = deck;
     this.city = city;
     scene.onFrame((dt, elapsed) => this.onFrame(dt, elapsed));
+    this.options.onSceneReady?.({ deck, scene });
   }
 
   /**
@@ -320,16 +423,17 @@ export class PlayerApp {
     this.scene.setBloomStrength(INTRO_BLOOM);
 
     const loader = new TextureLoader();
-    const [poster, film, filmNormal] = await Promise.all([
-      loader.loadAsync(WRAP_POSTER).catch(() => null),
+    const [sleeve, film, filmNormal] = await Promise.all([
+      this.loadSleeve(),
       loader.loadAsync(WRAP_FILM).catch(() => null),
       loader.loadAsync(WRAP_FILM_NORMAL).catch(() => null),
     ]);
-    if (!poster || !film || !filmNormal) {
+    if (!sleeve || !film || !filmNormal) {
       this.deck.setCartridgeVisible(true);
       this.reveal();
       return;
     }
+    const { poster } = sleeve;
     const anisotropy = this.scene.renderer.capabilities.getMaxAnisotropy();
     poster.colorSpace = SRGBColorSpace;
     for (const texture of [poster, film, filmNormal]) texture.anisotropy = anisotropy;
@@ -340,6 +444,7 @@ export class PlayerApp {
       height: this.deck.cartridgeHeight,
       depth: CART_DEPTH,
       poster,
+      prints: sleeve.prints,
       film,
       filmNormal,
       environment: this.environment,
@@ -382,6 +487,127 @@ export class PlayerApp {
     this.hud.onOpen(unwrap);
   }
 
+  /**
+   * Sleeve mode (app only): the cartridge in its printed card sleeve, no film, alone on black, for the fan to turn
+   * and zoom. A tap loads it, a double-tap squares it up again (the inspector's own reset is off in the intro).
+   */
+  private async startSleeved(): Promise<void> {
+    if (!this.deck || !this.scene || !this.inspector) {
+      this.hud.setIntro(false);
+      return;
+    }
+    this.city?.setVisible(false);
+    this.deck.group.visible = false;
+    this.deck.setCartridgeVisible(false);
+    this.inspector.setIntro(true);
+    this.hud.setIntro(true, this.scene.coarsePointer);
+    // The app draws its own hint and LOAD key under the sleeve; the sealed package's UNWRAP hint doesn't apply.
+    this.hud.hideOpenHint();
+    this.keys?.setEnabled(false);
+    this.scene.setBloomStrength(INTRO_BLOOM);
+
+    const sleeve = await this.loadSleeve();
+    if (!sleeve) {
+      this.deck.setCartridgeVisible(true);
+      this.reveal();
+      return;
+    }
+    const { poster } = sleeve;
+    poster.colorSpace = SRGBColorSpace;
+    poster.anisotropy = this.scene.renderer.capabilities.getMaxAnisotropy();
+    this.wrap = new DiscWrap({
+      cartridge: this.deck.cartridge,
+      width: this.deck.cartridgeWidth,
+      height: this.deck.cartridgeHeight,
+      depth: CART_DEPTH,
+      poster,
+      prints: sleeve.prints,
+      film: null,
+      filmNormal: null,
+      sleeveOnly: true,
+      environment: this.environment,
+      onSleeveStart: () => this.inspector?.settleFront(),
+      onReveal: () => this.reveal(),
+    });
+    this.deck.setCartridgeVisible(true);
+
+    const canvas = this.hud.canvas;
+    const signal = this.introInput.signal;
+    // One finger down and up again, quickly and in place: a tap. A turn, or any second finger (a pinch), isn't.
+    let down: { id: number; x: number; y: number; at: number } | null = null;
+    let fingers = 0;
+    let pending = 0;
+    let lastTap = 0;
+    canvas.addEventListener(
+      'pointerdown',
+      (event) => {
+        fingers++;
+        down = fingers === 1 ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: performance.now() } : null;
+      },
+      { signal },
+    );
+    canvas.addEventListener(
+      'pointercancel',
+      () => {
+        fingers = Math.max(0, fingers - 1);
+        down = null;
+      },
+      { signal },
+    );
+    canvas.addEventListener(
+      'pointerup',
+      (event) => {
+        fingers = Math.max(0, fingers - 1);
+        const start = down?.id === event.pointerId ? down : null;
+        down = null;
+        const now = performance.now();
+        if (!start || now - start.at > 260 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) return;
+        window.clearTimeout(pending);
+        if (now - lastTap < SLEEVE_DOUBLE_TAP_MS) {
+          lastTap = 0;
+          this.inspector?.reset();
+          return;
+        }
+        lastTap = now;
+        pending = window.setTimeout(() => this.loadFromSleeve(), SLEEVE_DOUBLE_TAP_MS);
+      },
+      { signal },
+    );
+    window.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        this.loadFromSleeve();
+      },
+      { signal },
+    );
+    signal.addEventListener('abort', () => window.clearTimeout(pending));
+  }
+
+  /** The sleeve's printed faces: the release's own (`options.sleeve`), else the LIT poster. */
+  private async loadSleeve(): Promise<{ poster: Texture; prints?: SleevePrints } | null> {
+    if (this.options.sleeve) return this.options.sleeve().catch(() => null);
+    const poster = await new TextureLoader().loadAsync(WRAP_POSTER).catch(() => null);
+    return poster ? { poster } : null;
+  }
+
+  /**
+   * Sleeve mode: the sleeve slides down and off (the unwrap's second beat, without the film), the deck, the city
+   * and the HUD come up, and the bare cartridge floats into the deck. Reduced motion: the sleeve is simply gone.
+   * Also called by the app's own LOAD key.
+   */
+  loadFromSleeve(): void {
+    if (!this.sleeved || !this.wrap || this.wrap.unwrapping) return;
+    if (this.options.canLoadFromSleeve && !this.options.canLoadFromSleeve()) return;
+    this.introInput.abort();
+    this.engine.unlock();
+    this.mechanics.attach(this.engine.context);
+    this.options.onMoment?.('sleevePull');
+    if (this.reducedMotion) this.wrap.finish();
+    else this.wrap.pullSleeve();
+  }
+
   /** Takes the wrapping off: the sound rides on the same gesture, which is what unlocks audio. */
   private unwrap(): void {
     if (!this.wrap || this.wrap.unwrapping) return;
@@ -394,6 +620,7 @@ export class PlayerApp {
     this.inspector?.settleFront();
     window.setTimeout(() => {
       this.wrap?.start();
+      this.options.onMoment?.('unwrapStart');
       // Without a gesture behind it the context stays suspended, and the sound would replay later.
       if (context && context.state === 'running') {
         void loadUnwrapSounds(context).then(() => playUnwrap(context, this.engine.getVolume()));
@@ -437,7 +664,8 @@ export class PlayerApp {
     this.wrap?.update(dt);
     deck.update(dt);
     if (this.lcdFlash && performance.now() > this.lcdFlash.until) this.lcdFlash = null;
-    deck.setLcd(lcdContent(this.state, this.lcdFlash?.text ?? null));
+    const note = this.state.status === 'ejected' ? this.lcdNote : null;
+    deck.setLcd(lcdContent(this.state, this.lcdFlash?.text ?? note));
     this.mechanics.setSpeed(deck.getDiscRpm() / PLAY_RPM);
     this.inspector?.update(dt, elapsed);
     // The neon accents sit near the floating cartridge and would blow out its edges.
@@ -491,13 +719,17 @@ export class PlayerApp {
       this.dispatch({ type: 'loaded', trackCount: list.tracks.length });
       this.scheduleRefresh();
     } catch (err) {
-      const code = convexErrorCode(err);
+      const code = errorCode(err);
       if (code === 'UNAUTHENTICATED') {
         window.location.href = `/login.html?redirect=${encodeURIComponent('/')}`;
         return;
       }
       if (code === 'NOT_ENTITLED') this.hud.showError('NO LICENSE FOUND FOR LIT', { label: 'GET LIT', href: '/' });
       else if (code === 'NOT_CONFIGURED') this.hud.showError('AUDIO OFFLINE · TRY AGAIN SOON', { label: 'RETRY' });
+      // Bridge errors (the app bundle, CONTRACT.md §8); the site never produces these codes.
+      else if (code === 'E_LEND_ENDED') this.hud.showError('THIS LEND HAS ENDED');
+      else if (code === 'E_NOT_ALLOWED') this.hud.showError('NOT PLAYABLE ON THIS COPY YET');
+      else if (code === 'E_OFFLINE') this.hud.showError('OFFLINE · CONNECT TO PLAY', { label: 'RETRY' });
       else this.hud.showError('SIGNAL LOST · CHECK YOUR CONNECTION', { label: 'RETRY' });
       console.error('Track list failed:', code ?? err);
     }
@@ -518,7 +750,7 @@ export class PlayerApp {
       this.scheduleRefresh();
       return true;
     } catch (err) {
-      console.error('Link refresh failed:', convexErrorCode(err) ?? err);
+      console.error('Link refresh failed:', errorCode(err) ?? err);
       this.refreshTimer = window.setTimeout(() => void this.refreshLinks(), 30_000);
       return false;
     }
@@ -552,6 +784,7 @@ export class PlayerApp {
 
   private command(command: KeyCommand): void {
     this.lastInput = performance.now();
+    this.options.onMoment?.('key');
     this.runCommand(command);
     const flash = buttonFlash(command, this.state);
     if (flash) this.lcdFlash = { text: flash, until: performance.now() + LCD_FLASH_MS };
@@ -613,6 +846,20 @@ export class PlayerApp {
     this.mechanics.setDucked(next.status === 'playing');
     if (next.status !== 'resuming') window.clearTimeout(this.resumeTimer);
 
+    // The audio moved on its own (app only): the deck follows at once, and nothing is sent back to the audio.
+    if (event.type === 'sync') {
+      window.clearTimeout(this.seekTimer);
+      if (next.trackIndex !== prev.trackIndex && track) {
+        this.resetListen();
+        this.mediaRetries = 0;
+        // BridgeAudioEngine takes this load as "follow native there", without restarting the music.
+        this.engine.load(track.streamUrl);
+      }
+      if (next.status === 'playing') this.deck?.setDiscRpm(PLAY_RPM);
+      else if (prev.status !== 'paused' && prev.status !== 'stopped') this.spinDownDisc();
+      return;
+    }
+
     // Red key: fade out, spin down, unload, and hand the cartridge to the inspector.
     if (next.status === 'ejecting' && prev.status !== 'ejecting') {
       window.clearTimeout(this.seekTimer);
@@ -633,12 +880,16 @@ export class PlayerApp {
       return;
     }
     if (next.status === 'ejected') {
-      if (prev.status === 'ejecting') this.inspector?.activate();
+      if (prev.status === 'ejecting') {
+        this.inspector?.activate();
+        this.options.onMoment?.('ejected');
+      }
       else if (this.started) this.presentFloating();
       return;
     }
 
     if (prev.status === 'ejected' && next.status === 'inserting') {
+      this.options.onMoment?.('insertStart');
       const instant = this.instantInsert;
       this.instantInsert = false;
       // The float-in animates the cartridge's own position, so it has to stop before the deck seats it:
@@ -657,7 +908,7 @@ export class PlayerApp {
           this.deck,
           this.scene,
           {
-            onInserted: () => this.dispatch({ type: 'inserted' }),
+            onInserted: () => this.seat(),
             onSpinUp: () => this.mechanics.spinUp(),
             onReady: () => this.dispatch({ type: 'ready' }),
           },
@@ -665,7 +916,7 @@ export class PlayerApp {
         );
       } else {
         this.mechanics.spinUp();
-        this.dispatch({ type: 'inserted' });
+        this.seat();
         this.dispatch({ type: 'ready' });
       }
       return;
@@ -717,7 +968,7 @@ export class PlayerApp {
       this.resetListen();
       this.mediaRetries = 0;
       if (trackChanged) this.engine.load(track.streamUrl);
-      else this.engine.element.currentTime = 0;
+      else this.engine.seek(0);
     }
 
     if (next.status === 'playing' && (prev.status !== 'playing' || trackChanged || restarted)) {
@@ -740,6 +991,28 @@ export class PlayerApp {
       this.engine.stop();
       this.spinDownDisc();
     }
+  }
+
+  /** The cartridge has seated in the deck. */
+  private seat(): void {
+    const before = this.state.status;
+    this.dispatch({ type: 'inserted' });
+    if (before === 'inserting' && this.state.status === 'reading') this.options.onMoment?.('seated');
+  }
+
+  /** The audio changed track or play state by itself: the deck follows (a `sync`), without the calibration. */
+  private followAudio(change: NativeChange): void {
+    const index = this.tracks.findIndex((t) => t.id === change.trackId);
+    if (index < 0) return;
+    const status: SyncStatus | null =
+      change.status === 'playing' || change.status === 'loading'
+        ? 'playing'
+        : change.status === 'paused'
+          ? 'paused'
+          : change.status === 'stopped' || change.status === 'ended'
+            ? 'stopped'
+            : null;
+    if (status) this.dispatch({ type: 'sync', index, status });
   }
 
   /** Pause, stop or the end of the album: the disc winds down with the spin-down sound. */
@@ -781,6 +1054,6 @@ export class PlayerApp {
     const track = this.currentTrack();
     if (this.playLogged || !track) return;
     this.playLogged = true;
-    this.source.logPlay(track.id).catch((err) => console.warn('Play log failed:', convexErrorCode(err) ?? err));
+    this.source.logPlay(track.id).catch((err) => console.warn('Play log failed:', errorCode(err) ?? err));
   }
 }

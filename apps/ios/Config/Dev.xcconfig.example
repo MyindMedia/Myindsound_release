@@ -1,0 +1,4 @@
+// Copy to Dev.xcconfig (gitignored) and fill in. Never commit the real file.
+// `//` starts a comment in an xcconfig, so URLs are written `https:/$()/host`.
+CONVEX_URL = https:/$()/decisive-iguana-954.convex.cloud
+CLERK_PUBLISHABLE_KEY = pk_test_REPLACE_ME

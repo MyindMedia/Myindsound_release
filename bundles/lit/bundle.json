@@ -1,0 +1,10 @@
+{
+  "slug": "lit",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "minAppVersion": "1.0.0",
+  "wearSafeZones": [
+    { "surface": "label", "x": 0.7, "y": 0.8, "w": 0.28, "h": 0.18, "note": "edition stamp (edition-stamp.ts STAMP_UV, padded)" },
+    { "surface": "disc", "x": 0.19, "y": 0.16, "w": 0.35, "h": 0.19, "note": "LIT / LIVING IN TRUTH title on the disc art" }
+  ]
+}
