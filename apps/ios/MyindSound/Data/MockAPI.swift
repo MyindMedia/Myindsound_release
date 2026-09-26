@@ -74,31 +74,41 @@ final class MockAPI: MyindAPI {
         trackCount: nil
     )
 
-    /// Sample copies for the other rack states. Titles other than LIT, C-WALK and The Source are samples.
+    /// Sample copies for the other rack states. Titles other than LIT, C-WALK and The Source are samples. The
+    /// generated ones carry the sample designs and spin loops from packages/minidisc (Debug builds, DevDiscs).
     static func sample(
-        _ slug: String, _ title: String, edition: Int?, ownership: Ownership, lend: LendInfo? = nil, accent: String
+        _ slug: String, _ title: String, edition: Int?, ownership: Ownership, lend: LendInfo? = nil, accent: String,
+        design: DiscDesign? = nil, rack: RackRender? = nil, bundle: BundleInfo? = nil
     ) -> LibraryRelease {
         LibraryRelease(
-            releaseId: "mock-release-\(slug)", slug: slug, title: title, artist: LITSample.artist, year: nil, coverURL: nil,
+            releaseId: "mock-release-\(slug)", slug: slug, title: title, artist: design?.artist ?? LITSample.artist,
+            year: design?.year.map(String.init), coverURL: nil,
             editionNumber: edition, unwrapped: true, dropAt: nil, ownership: ownership,
-            theme: ReleaseTheme(accent: accent, accent2: nil, backdropImage: nil, lcdTint: nil),
-            bundle: nil, lend: lend, grantedAt: Date(timeIntervalSince1970: 1_758_000_000), trackCount: nil
+            theme: ReleaseTheme(accent: design?.theme?.accent ?? accent, accent2: design?.theme?.accent2, backdropImage: nil, lcdTint: nil),
+            bundle: bundle, lend: lend, grantedAt: Date(timeIntervalSince1970: 1_758_000_000), trackCount: design?.tracks.count,
+            design: design, rack: rack
         )
     }
 
     static let cWalk = sample("c-walk", "C-WALK", edition: 64, ownership: .owned, accent: "#FF8C00")
-    static let reflections = sample("reflections", "Reflections", edition: 212, ownership: .owned, accent: "#9FD8FF")
-    static let blood = sample(
-        "blood", "Blood", edition: 19, ownership: .owned,
+    /// Out on loan, so its tile shows the loan tag over the render.
+    static let reflections = sample(
+        "reflections", "Reflections", edition: 212, ownership: .owned,
         lend: LendInfo(lendId: "mock-lend-out", playsAllowed: 10, playsUsed: 4, expiresAt: Date().addingTimeInterval(4 * 86_400),
                        status: "active", endReason: nil, role: .lender),
-        accent: "#FF3DA8"
+        accent: "#9FD8FF", design: DevDiscs.design("reflections"), rack: DevDiscs.rack("reflections")
+    )
+    /// A generated disc with its own bundle (dist-bundles/blood-1.0.0.zip, embedded in Debug), so a tap opens its
+    /// 3D sleeve and the deck plays it over its album art.
+    static let blood = sample(
+        "blood", "BLOOD", edition: 19, ownership: .owned, accent: "#E63024",
+        design: DevDiscs.design("blood"), rack: DevDiscs.rack("blood"), bundle: BundleStore.devZip(slug: "blood")
     )
     static let cook = sample(
         "cook", "Let Him Cook", edition: 3, ownership: .lent,
         lend: LendInfo(lendId: "mock-lend-in", playsAllowed: 10, playsUsed: 6, expiresAt: Date().addingTimeInterval(5 * 86_400),
                        status: "active", endReason: nil, role: .borrower),
-        accent: "#FDB913"
+        accent: "#FDB913", design: DevDiscs.design("let-him-cook"), rack: DevDiscs.rack(anyOf: ["let-him-cook", "blood"])
     )
 
     /// Different play time per copy, so the rack's scuffs differ (seconds heard, seed).
@@ -171,20 +181,27 @@ final class MockAPI: MyindAPI {
             dropAt: release.dropAt,
             status: release.status,
             serverNow: Date(),
-            lend: release.lend
+            lend: release.lend,
+            design: release.design,
+            rack: release.rack
         )
     }
 
     func tracks(slug: String) async throws -> [Track] {
-        slug == Self.lit.slug ? Self.litTracks : []
+        if slug == Self.lit.slug { return Self.litTracks }
+        // Generated discs: the design's tracklist (sample titles), streaming LIT's public previews.
+        let design = allReleases.first { $0.slug == slug }?.design
+        return (design?.tracks ?? []).map {
+            Track(id: "mock-\(slug)-\($0.n)", position: $0.n, title: $0.title, durationSeconds: $0.durationSec)
+        }
     }
 
     func streamURL(trackId: String, lendId: String?) async throws -> StreamURL {
-        guard let index = Self.litTracks.firstIndex(where: { $0.id == trackId }) else {
+        guard trackId.hasPrefix("mock-"), let n = trackId.split(separator: "-").last.flatMap({ Int($0) }), n > 0 else {
             throw APIError(code: "NOT_FOUND", message: "That track isn't available.")
         }
         return StreamURL(
-            url: Self.previewBase.appendingPathComponent(Self.previewFiles[index]),
+            url: Self.previewBase.appendingPathComponent(Self.previewFiles[(n - 1) % Self.previewFiles.count]),
             expiresAt: Date().addingTimeInterval(5 * 60)
         )
     }

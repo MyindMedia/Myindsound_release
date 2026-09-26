@@ -17,7 +17,7 @@ struct ReleaseScreen: View {
     private var isInDeck: Bool { app.audio.loaded?.release.slug == slug }
 
     var body: some View {
-        HUDPage(title: release?.title ?? context?.title ?? slug.uppercased(), subtitle: subtitle, showsBack: showsBack) {
+        HUDPage(title: release?.title ?? context?.title ?? slug.uppercased(), subtitle: subtitle, showsBack: showsBack, backdropSlug: slug) {
             HUDSection {
                 VStack(spacing: MSSpace.space20) {
                     ReleaseSleeve(slug: slug, size: 232)

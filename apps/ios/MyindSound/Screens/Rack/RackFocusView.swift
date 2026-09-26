@@ -76,10 +76,15 @@ struct RackFocusView: View {
 
     /// The printed sleeve: the shared element, and the splash until the page is ready (NAT-3).
     private func printedSleeve(layout: FocusLayout, size: CGSize) -> some View {
-        RackSleeve(release: release, state: state)
+        // A rendered disc's box is taller (the cartridge stands out of the sleeve); its foot stays where the
+        // printed sleeve's is, so the crossfade into the 3D sleeve lands in the same place.
+        let aspect = app.rackRender(slug: release.slug) == nil ? RackArt.aspect : RackArt.renderAspect
+        let height = layout.sleeveWidth / aspect
+        let lift = (height - layout.sleeveWidth / RackArt.aspect) / 2
+        return RackSleeve(release: release, state: state)
             .modifier(SharedSleeve(id: release.slug, namespace: namespace, enabled: !reduceMotion))
-            .frame(width: layout.sleeveWidth, height: layout.sleeveWidth / RackArt.aspect)
-            .position(x: size.width / 2, y: layout.sleeveCentreY)
+            .frame(width: layout.sleeveWidth, height: height)
+            .position(x: size.width / 2, y: layout.sleeveCentreY - lift)
             .opacity(showHost ? 0 : 1)
             .allowsHitTesting(false)
             .accessibilityHidden(true)

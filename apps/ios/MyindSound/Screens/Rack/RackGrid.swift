@@ -17,10 +17,15 @@ struct RackGrid: View {
         return Array(repeating: GridItem(.flexible(), spacing: MSSpace.space16, alignment: .top), count: count)
     }
 
+    /// Taller boxes once any copy on the rack is a rendered disc, so every row lines up.
+    private var boxAspect: CGFloat {
+        releases.contains { app.rackRender(slug: $0.slug) != nil } ? RackArt.renderAspect : RackArt.aspect
+    }
+
     var body: some View {
         LazyVGrid(columns: columns, alignment: .center, spacing: MSSpace.space24) {
             ForEach(releases) { release in
-                RackTile(release: release, namespace: namespace, hidden: app.rackFocus?.slug == release.slug) {
+                RackTile(release: release, namespace: namespace, hidden: app.rackFocus?.slug == release.slug, boxAspect: boxAspect) {
                     tap(release)
                 }
             }
@@ -46,6 +51,7 @@ struct RackTile: View {
     let namespace: Namespace.ID
     /// Lifted into the focus view: the sleeve's space stays, empty, until it comes back.
     var hidden: Bool
+    var boxAspect: CGFloat = RackArt.aspect
     let action: () -> Void
 
     @Environment(AppModel.self) private var app
@@ -60,7 +66,7 @@ struct RackTile: View {
             VStack(spacing: MSSpace.space8) {
                 ZStack {
                     // Keeps the tile's size while the sleeve is up in the focus view.
-                    Color.clear.aspectRatio(RackArt.aspect, contentMode: .fit)
+                    Color.clear.aspectRatio(boxAspect, contentMode: .fit)
                     if !hidden {
                         RackSleeve(release: release, state: state)
                             .modifier(SharedSleeve(id: release.slug, namespace: namespace, enabled: !reduceMotion))
@@ -109,23 +115,36 @@ struct RackTile: View {
     }
 }
 
-/// The sleeve for a library row, with its stickers, wear and state.
+/// The sleeve for a library row, with its stickers, wear and state: the release's rendered spin loop when it
+/// has one (`rack`), else the printed sleeve art (LIT and releases made before the portal).
 struct RackSleeve: View {
     let release: LibraryRelease
     let state: RackTileState
 
     @Environment(AppModel.self) private var app
 
+    private var edition: Int? { release.editionNumber ?? app.contexts[release.slug]?.editionNumber }
+    private var stickers: [RackSticker] { state.isLocked ? [] : app.stickers(for: release) }
+    private var accent: Color { release.theme?.accent.flatMap(Color.init(hex:)) ?? MSColor.gold }
+
     var body: some View {
-        SleeveArt(
-            slug: release.slug,
-            title: release.title,
-            edition: release.editionNumber ?? app.contexts[release.slug]?.editionNumber,
-            stickers: state.isLocked ? [] : app.stickers(for: release),
-            state: state,
-            wear: app.wearDescriptor(slug: release.slug),
-            accent: release.theme?.accent.flatMap(Color.init(hex:)) ?? MSColor.gold
-        )
+        if let render = app.rackRender(slug: release.slug) {
+            RenderedSleeve(
+                release: release, render: render, state: state, edition: edition, stickers: stickers,
+                wear: app.wearDescriptor(slug: release.slug), accent: accent
+            )
+        } else {
+            SleeveArt(
+                slug: release.slug,
+                title: release.title,
+                edition: edition,
+                stickers: stickers,
+                state: state,
+                wear: app.wearDescriptor(slug: release.slug),
+                accent: accent
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
     }
 }
 

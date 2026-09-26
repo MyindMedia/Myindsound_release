@@ -366,6 +366,40 @@ final class AppModel {
         audio.loaded?.release ?? ownedReleases.first ?? library.value?.upcoming.first
     }
 
+    /// The release's DiscDesign (library row, else its context). Nil for LIT.
+    func design(slug: String) -> DiscDesign? {
+        release(slug: slug)?.design ?? contexts[slug]?.design
+    }
+
+    /// The rack's spin loop for the release, when the portal rendered one.
+    func rackRender(slug: String) -> RackRender? {
+        release(slug: slug)?.rack ?? contexts[slug]?.rack
+    }
+
+    /// Where the release's backdrop art comes from (BackdropRules picks): the art the design names, then the
+    /// same file inside the installed bundle (`design/<name>`, offline).
+    func backdropChoice(slug: String?) -> BackdropChoice {
+        guard let slug else { return .city }
+        let design = design(slug: slug)
+        return BackdropRules.choice(
+            coverURL: release(slug: slug)?.coverURL, design: design, bundledArt: bundledDesignFile(slug: slug, design?.backdropArt)
+        )
+    }
+
+    /// The release's cover for the sleeve on its pages (generated discs; LIT uses its bundled art).
+    func coverArtURL(slug: String) -> URL? {
+        guard let design = design(slug: slug) else { return release(slug: slug)?.coverURL }
+        return release(slug: slug)?.coverURL ?? design.resolve(design.coverArt) ?? bundledDesignFile(slug: slug, design.coverArt)
+    }
+
+    /// `design/<file name>` inside the release's installed bundle, when it's there.
+    private func bundledDesignFile(slug: String, _ reference: String?) -> URL? {
+        guard let name = reference.map({ ($0 as NSString).lastPathComponent }), !name.isEmpty,
+              let root = bundles.installed(slug: slug)?.root else { return nil }
+        let file = root.appendingPathComponent("design/\(name)")
+        return FileManager.default.fileExists(atPath: file.path) ? file : nil
+    }
+
     func release(slug: String) -> LibraryRelease? {
         (library.value?.releases ?? []).first { $0.slug == slug } ?? library.value?.upcoming.first { $0.slug == slug }
     }

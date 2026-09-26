@@ -12,6 +12,7 @@
 		124ABB64CF8CE4FB758175BA /* ReleaseHostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE3B90C4A6414EA8EF5CA94F /* ReleaseHostTests.swift */; };
 		146D9A82D03FA2C443CB8D38 /* HUDBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF49DAE152235CD62BFD6C0 /* HUDBackdrop.swift */; };
 		1601A426E82A754E442CD3CE /* KeyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 765D2C56D9976BB4A3EC9ED3 /* KeyButton.swift */; };
+		1CD4F67DD701C2CF3986E702 /* DiscDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D65BE2BEF2BAF3FE54383 /* DiscDesign.swift */; };
 		1D1F1CEC9BC1A372D6E0871A /* HUDStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7223835FB49392F7690FA419 /* HUDStates.swift */; };
 		1D9EF9AA5FDDAD3F401587BE /* HUDIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4D74FED7EF3381437B292B /* HUDIcons.swift */; };
 		1ED25F2F73E988A569DC9895 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60598FB8434AC57EECDBB4AC /* RootView.swift */; };
@@ -28,6 +29,7 @@
 		42629C4065A167D75A7A33CC /* RackFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF3FAFDB591A50A9EBAAC5 /* RackFocusView.swift */; };
 		45924FC6D8E052A97352BEDA /* APIDecoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 023F95EA460A7F2FC7327AC5 /* APIDecoding.swift */; };
 		4707C72DCCFB6EB7E444D6A9 /* HUDList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5E1BA31F2C234B9A56EF82 /* HUDList.swift */; };
+		49EC277D24920F43C1C57787 /* ArtCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656918508310CE7BED2891D8 /* ArtCache.swift */; };
 		4C004E2435712AF6DD8B500D /* SignInScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28736B22E105471C884E072A /* SignInScreen.swift */; };
 		557AAFA051029065C1A25DA2 /* GlitchText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763C8B7E1D8BE048846EA899 /* GlitchText.swift */; };
 		571CC7E979EAB91EFDED6AD6 /* KitGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7142D2033AA8F7BF9EC10FF8 /* KitGallery.swift */; };
@@ -48,16 +50,19 @@
 		7AC8E5CE37A9BC57D2C518BB /* MyindSoundApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B1290D127AABC34B7729AED /* MyindSoundApp.swift */; };
 		7BAD8F655C1630A4DD2B849F /* FloatingTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 700E876AA093FB6F79C9B1B0 /* FloatingTile.swift */; };
 		7BB008DF263B18206A524364 /* HUDTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA21FAEB40C86415C40CE378 /* HUDTabBar.swift */; };
+		7E556580F214F31F4665B69A /* DevDiscs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DB0C51E03EC4CAA4BB03551 /* DevDiscs.swift */; };
 		85CF114D6C59964E53ED4686 /* BridgeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9C23CD0E30F37EFD045F42 /* BridgeProtocol.swift */; };
 		8832581DB527831AE4FB0B40 /* LITSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB3DD4D5C4EB70096B108B3 /* LITSample.swift */; };
 		8B4E04B85273877E4661EF3B /* AudioTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2993158BC599C2EFA3F7F6A5 /* AudioTap.swift */; };
 		8DADA224635D5AABDEE99D99 /* ZipArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4CAF000D89D5904E112DCA /* ZipArchive.swift */; };
 		8E60906F1EC724DC2201DBD1 /* LCDGlyphTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6959D0F80F41349596067CB0 /* LCDGlyphTests.swift */; };
+		917B2C4148CA9FD7A7D71562 /* DiscRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF7B40F77F7E9A5B52101AB /* DiscRenderTests.swift */; };
 		94BE4E577332BAC21E6F4DF0 /* LeaderboardScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84C435886669C31ED25158CF /* LeaderboardScreen.swift */; };
 		989F5EF1F1EBFA49E9879571 /* PlayEventQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D27BA42AEC18606F93BE66 /* PlayEventQueueTests.swift */; };
 		9980477238710C841860B291 /* ReadoutRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A511EC14BBD0E33070FC473C /* ReadoutRow.swift */; };
 		9CDF328C4C8054587993BB72 /* HUDPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7306AF97C7AF3F7C8BCE0693 /* HUDPanel.swift */; };
 		9EE786EDC22D281D08C4748E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6323D3DF43A69F44C38F6351 /* Theme.swift */; };
+		A54D430BEB2C088BD8B25867 /* ReleaseBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769F4D7A3AA69C5B117403DC /* ReleaseBackdrop.swift */; };
 		AADB30D969876150B40DAB58 /* HUDStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58AF7D426BDEDD290E9E0A6C /* HUDStyle.swift */; };
 		AB3A1BB29F60EEDCEC0929E0 /* inter in Resources */ = {isa = PBXBuildFile; fileRef = 5B7E9B2DBC0146846D1002C9 /* inter */; };
 		B035517475C277D884E36CD5 /* NativeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82CE16B14635426F8CB5EAC5 /* NativeBridge.swift */; };
@@ -72,6 +77,7 @@
 		D3FDDE244E5985DF5FB5D289 /* BundleSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFE9AD08F7A9A430912C273E /* BundleSchemeHandler.swift */; };
 		D44A779D8C7AAC562726CE28 /* PlayEventQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0976638A66C6F421411B5BB0 /* PlayEventQueue.swift */; };
 		D961D43F122BA3D2A88BB893 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 063C684FB6731195FFBF38F0 /* Models.swift */; };
+		DF23BF76C9C382C252D7B75B /* SpinLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB525DB63F5048C1E42AF842 /* SpinLoop.swift */; };
 		E354FE958ACD7E1076AC13D1 /* DownloadKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F6329BF4E8481D133D9520 /* DownloadKeychain.swift */; };
 		E35AB2EEFC80B2432502DC4E /* demo-bundle.zip in Resources */ = {isa = PBXBuildFile; fileRef = DE5D2E2EA355122888517A51 /* demo-bundle.zip */; };
 		E3F513EE27C94D7D15678792 /* NowPlayingBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DA750C3350855D4AC6A04CD /* NowPlayingBar.swift */; };
@@ -107,6 +113,7 @@
 		28736B22E105471C884E072A /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
 		29394103A0989087FA8E7C49 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
 		2993158BC599C2EFA3F7F6A5 /* AudioTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTap.swift; sourceTree = "<group>"; };
+		2EF7B40F77F7E9A5B52101AB /* DiscRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscRenderTests.swift; sourceTree = "<group>"; };
 		33767FE44F4D97E7BBD8F2B1 /* ReleaseHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseHostView.swift; sourceTree = "<group>"; };
 		3B1290D127AABC34B7729AED /* MyindSoundApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyindSoundApp.swift; sourceTree = "<group>"; };
 		3B5E1BA31F2C234B9A56EF82 /* HUDList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDList.swift; sourceTree = "<group>"; };
@@ -118,6 +125,7 @@
 		5E24A0049F6BFA14034B30C6 /* BootLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootLoader.swift; sourceTree = "<group>"; };
 		60598FB8434AC57EECDBB4AC /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		6323D3DF43A69F44C38F6351 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Theme.swift; path = ../../packages/tokens/dist/Theme.swift; sourceTree = "<group>"; };
+		656918508310CE7BED2891D8 /* ArtCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtCache.swift; sourceTree = "<group>"; };
 		65FE46FA05C019299F5632E8 /* HUDPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDPage.swift; sourceTree = "<group>"; };
 		67ADF8C9C1548857BF98A33E /* PlayerScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerScreen.swift; sourceTree = "<group>"; };
 		6959D0F80F41349596067CB0 /* LCDGlyphTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LCDGlyphTests.swift; sourceTree = "<group>"; };
@@ -127,7 +135,9 @@
 		7306AF97C7AF3F7C8BCE0693 /* HUDPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDPanel.swift; sourceTree = "<group>"; };
 		763C8B7E1D8BE048846EA899 /* GlitchText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlitchText.swift; sourceTree = "<group>"; };
 		765D2C56D9976BB4A3EC9ED3 /* KeyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyButton.swift; sourceTree = "<group>"; };
+		769F4D7A3AA69C5B117403DC /* ReleaseBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseBackdrop.swift; sourceTree = "<group>"; };
 		7A566267A88C6A880A2EC09D /* native-shim.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "native-shim.js"; path = "../../packages/bridge/native-shim.js"; sourceTree = "<group>"; };
+		7DB0C51E03EC4CAA4BB03551 /* DevDiscs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevDiscs.swift; sourceTree = "<group>"; };
 		80A3E1A3CBC24D8629364F75 /* DownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadTests.swift; sourceTree = "<group>"; };
 		82CE16B14635426F8CB5EAC5 /* NativeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBridge.swift; sourceTree = "<group>"; };
 		83D27BA42AEC18606F93BE66 /* PlayEventQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayEventQueueTests.swift; sourceTree = "<group>"; };
@@ -142,6 +152,7 @@
 		A455B51040981F02B505C7A9 /* RackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackTests.swift; sourceTree = "<group>"; };
 		A511EC14BBD0E33070FC473C /* ReadoutRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadoutRow.swift; sourceTree = "<group>"; };
 		A8F6329BF4E8481D133D9520 /* DownloadKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadKeychain.swift; sourceTree = "<group>"; };
+		AB525DB63F5048C1E42AF842 /* SpinLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpinLoop.swift; sourceTree = "<group>"; };
 		AB9C23CD0E30F37EFD045F42 /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
 		AF5EB22023D034F4ACC3152B /* traversal-bundle.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "traversal-bundle.zip"; sourceTree = "<group>"; };
 		B4F8376BFF28AA18E8615FB0 /* APIDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIDecodingTests.swift; sourceTree = "<group>"; };
@@ -158,6 +169,7 @@
 		DBF49DAE152235CD62BFD6C0 /* HUDBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDBackdrop.swift; sourceTree = "<group>"; };
 		DCDF42BAE939DC593F7B216B /* EncryptedAssetLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedAssetLoader.swift; sourceTree = "<group>"; };
 		DE5D2E2EA355122888517A51 /* demo-bundle.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "demo-bundle.zip"; sourceTree = "<group>"; };
+		E18D65BE2BEF2BAF3FE54383 /* DiscDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscDesign.swift; sourceTree = "<group>"; };
 		EA2F66AB9C98D5CE102BA7CE /* LCDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LCDView.swift; sourceTree = "<group>"; };
 		EA71C49B8E161D5FF5D6FB69 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
 		EE81E3D0F733E11164539F79 /* BundleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleStore.swift; sourceTree = "<group>"; };
@@ -188,6 +200,7 @@
 			children = (
 				7D8C8060CAFFC8D186E16777 /* Fixtures */,
 				B4F8376BFF28AA18E8615FB0 /* APIDecodingTests.swift */,
+				2EF7B40F77F7E9A5B52101AB /* DiscRenderTests.swift */,
 				80A3E1A3CBC24D8629364F75 /* DownloadTests.swift */,
 				6959D0F80F41349596067CB0 /* LCDGlyphTests.swift */,
 				83D27BA42AEC18606F93BE66 /* PlayEventQueueTests.swift */,
@@ -225,6 +238,7 @@
 				08B820FB1DD83786AA8826C0 /* RackGrid.swift */,
 				8795F092BA165713C92F575A /* RackRules.swift */,
 				12374B0CA4984AD9C7ED1691 /* SleeveArt.swift */,
+				AB525DB63F5048C1E42AF842 /* SpinLoop.swift */,
 			);
 			path = Rack;
 			sourceTree = "<group>";
@@ -278,6 +292,7 @@
 		41B4F2ABC21AEDF57FEABD6A /* Kit */ = {
 			isa = PBXGroup;
 			children = (
+				656918508310CE7BED2891D8 /* ArtCache.swift */,
 				5E24A0049F6BFA14034B30C6 /* BootLoader.swift */,
 				8BCE41210DD2935827704075 /* CornerTickFrame.swift */,
 				700E876AA093FB6F79C9B1B0 /* FloatingTile.swift */,
@@ -296,6 +311,7 @@
 				9DA750C3350855D4AC6A04CD /* NowPlayingBar.swift */,
 				CE067098ADA85586DC6C653B /* PrimaryButton.swift */,
 				A511EC14BBD0E33070FC473C /* ReadoutRow.swift */,
+				769F4D7A3AA69C5B117403DC /* ReleaseBackdrop.swift */,
 				F3D397527151F56BDE36F432 /* TrackRow.swift */,
 			);
 			path = Kit;
@@ -407,6 +423,8 @@
 			children = (
 				023F95EA460A7F2FC7327AC5 /* APIDecoding.swift */,
 				93913D3269A78D01CAEB61D0 /* ConvexAPI.swift */,
+				7DB0C51E03EC4CAA4BB03551 /* DevDiscs.swift */,
+				E18D65BE2BEF2BAF3FE54383 /* DiscDesign.swift */,
 				B65A2FAA37E5A5120CD7B5B3 /* JSONValue.swift */,
 				06CB1053EAF93832DC28D4C4 /* MockAPI.swift */,
 				063C684FB6731195FFBF38F0 /* Models.swift */,
@@ -426,6 +444,7 @@
 				A5C2AA0ED78B2330AF6AB22E /* Resources */,
 				BC3EE3DDEB156F5C03352662 /* Frameworks */,
 				5F239F1A2AE3AAB2AC2F3B30 /* Embed dev release bundles */,
+				AB00BD317403163A4049F456 /* Embed dev disc renders */,
 			);
 			buildRules = (
 			);
@@ -548,6 +567,27 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n[ \"$CONFIGURATION\" = \"Debug\" ] || exit 0\nSRC=\"$SRCROOT/../../dist-bundles\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevBundles\"\nrm -rf \"$DST\"\n[ -d \"$SRC\" ] || { echo \"note: no dist-bundles; the app has no dev release bundles\"; exit 0; }\nmkdir -p \"$DST\"\nfor dir in \"$SRC\"/*; do [ -f \"$dir/manifest.json\" ] && cp -R \"$dir\" \"$DST/\"; done\ncp \"$SRC\"/*.zip \"$SRC\"/*.manifest.json \"$DST/\" 2>/dev/null || true\necho \"embedded $(ls \"$DST\" | wc -l | tr -d ' ') dev bundle files\"\n";
 		};
+		AB00BD317403163A4049F456 /* Embed dev disc renders */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../packages/minidisc/shots",
+				"$(SRCROOT)/../../packages/minidisc/samples",
+			);
+			name = "Embed dev disc renders";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n[ \"$CONFIGURATION\" = \"Debug\" ] || exit 0\nPKG=\"$SRCROOT/../../packages/minidisc\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevDiscs\"\nrm -rf \"$DST\"\n[ -d \"$PKG/shots\" ] || { echo \"note: no packages/minidisc/shots; -mock shows printed sleeves\"; exit 0; }\nmkdir -p \"$DST/shots\" \"$DST/samples\"\nfor f in \"$PKG\"/shots/*-spin.webp \"$PKG\"/shots/*-spin.png \"$PKG\"/shots/*-spin.json \"$PKG\"/shots/*-still.png; do\n  [ -f \"$f\" ] && cp \"$f\" \"$DST/shots/\"\ndone\nfor design in \"$PKG\"/samples/*.json; do\n  [ -f \"$design\" ] || continue\n  name=\"$(basename \"$design\" .json)\"\n  cp \"$design\" \"$DST/samples/\"\n  [ -d \"$PKG/samples/$name\" ] && cp -R \"$PKG/samples/$name\" \"$DST/samples/\"\ndone\necho \"embedded $(ls \"$DST/shots\" | wc -l | tr -d ' ') dev disc render files\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -557,6 +597,7 @@
 			files = (
 				45924FC6D8E052A97352BEDA /* APIDecoding.swift in Sources */,
 				D39E98007025C6EBB5F1440A /* AppModel.swift in Sources */,
+				49EC277D24920F43C1C57787 /* ArtCache.swift in Sources */,
 				B17C5AFB989953F36A5EDB1A /* AudioEngine.swift in Sources */,
 				8B4E04B85273877E4661EF3B /* AudioTap.swift in Sources */,
 				3C3173918A26F79BFA15C8ED /* AuthModel.swift in Sources */,
@@ -567,6 +608,8 @@
 				257936D74D1A6C93AAE316D0 /* ClerkAuthBackend.swift in Sources */,
 				B9BF1C94040B66537E6D0895 /* ConvexAPI.swift in Sources */,
 				3286C855A9EFF85086EE7A82 /* CornerTickFrame.swift in Sources */,
+				7E556580F214F31F4665B69A /* DevDiscs.swift in Sources */,
+				1CD4F67DD701C2CF3986E702 /* DiscDesign.swift in Sources */,
 				E354FE958ACD7E1076AC13D1 /* DownloadKeychain.swift in Sources */,
 				C6AF294AB234CB05122A080B /* DownloadManager.swift in Sources */,
 				61B9B7AC5D2FA3650552FD39 /* EncryptedAssetLoader.swift in Sources */,
@@ -603,12 +646,14 @@
 				3239B94AD64BEF5777671DBA /* RackGrid.swift in Sources */,
 				114042F7C2A6E90F9D3DBACD /* RackRules.swift in Sources */,
 				9980477238710C841860B291 /* ReadoutRow.swift in Sources */,
+				A54D430BEB2C088BD8B25867 /* ReleaseBackdrop.swift in Sources */,
 				2A336880A0CC82B35A1D6A7C /* ReleaseHostController.swift in Sources */,
 				EEEB904663B84E04417419A8 /* ReleaseHostView.swift in Sources */,
 				E86DDDC66710927E6064DD19 /* ReleaseScreen.swift in Sources */,
 				1ED25F2F73E988A569DC9895 /* RootView.swift in Sources */,
 				4C004E2435712AF6DD8B500D /* SignInScreen.swift in Sources */,
 				65C51B825E9320F4A3B2107A /* SleeveArt.swift in Sources */,
+				DF23BF76C9C382C252D7B75B /* SpinLoop.swift in Sources */,
 				34D16EFC793A310E38754CC7 /* StoreScreen.swift in Sources */,
 				9EE786EDC22D281D08C4748E /* Theme.swift in Sources */,
 				10F31DC1FD00BC2D57506B82 /* TrackRow.swift in Sources */,
@@ -621,6 +666,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				789A81351F90EF4D652E8AFA /* APIDecodingTests.swift in Sources */,
+				917B2C4148CA9FD7A7D71562 /* DiscRenderTests.swift in Sources */,
 				6077F9927226F9EE1C2407C4 /* DownloadTests.swift in Sources */,
 				8E60906F1EC724DC2201DBD1 /* LCDGlyphTests.swift in Sources */,
 				989F5EF1F1EBFA49E9879571 /* PlayEventQueueTests.swift in Sources */,

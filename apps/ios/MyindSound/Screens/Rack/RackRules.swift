@@ -121,6 +121,20 @@ enum RackRules {
             .compactMap { $0 }.joined(separator: " ")
     }
 
+    // MARK: Rendered discs
+
+    /// Where the sleeve's face sits in a spin-loop frame `width × height` (trimmed to the cartridge): the
+    /// sleeve is square and at the foot, the cartridge stands above it. Its stickers, tag and film go here.
+    static func renderFace(width: CGFloat, height: CGFloat) -> CGRect {
+        let side = min(width * 0.92, height)
+        return CGRect(x: (width - side) / 2, y: height - side, width: side, height: side)
+    }
+
+    /// Seconds into the loop a copy starts at, stable per slug, so the rack's discs don't turn in step.
+    static func loopPhase(slug: String) -> TimeInterval {
+        Double(seed(slug: slug, edition: nil, slot: 9) % 1000) / 1000 * 1.5
+    }
+
     // MARK: Grid (DS-12, Dynamic Type)
 
     /// 3 across on a phone, 4 on wider size classes, 2 at Dynamic Type XXL and above so titles still fit.

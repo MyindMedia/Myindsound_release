@@ -25,6 +25,9 @@ struct HUDBackdrop: View {
 
     var depth: Depth = .page
     var imageName = "CityBackdrop"
+    /// A release's cover, already blurred (ReleaseBackdrop), in place of the city, under its own scrim.
+    var art: UIImage? = nil
+    var artScrim: Double = DiscDesign.defaultScrim
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -39,7 +42,7 @@ struct HUDBackdrop: View {
             ZStack {
                 MSColor.ink
                 city(size: proxy.size)
-                MSColor.ink.opacity(depth.scrim)
+                MSColor.ink.opacity(art == nil ? depth.scrim : artScrim)
                 RadialGradient(
                     colors: [MSColor.gold.opacity(Self.topGlowAlpha), .clear],
                     center: .top,
@@ -71,7 +74,7 @@ struct HUDBackdrop: View {
     }
 
     private func cityImage(size: CGSize, offset: CGSize) -> some View {
-        Image(imageName)
+        (art.map { Image(uiImage: $0) } ?? Image(imageName))
             .resizable()
             .scaledToFill()
             .frame(width: size.width, height: size.height)

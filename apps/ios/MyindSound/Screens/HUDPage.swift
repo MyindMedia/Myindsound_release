@@ -8,6 +8,8 @@ struct HUDPage<Content: View>: View {
     var title: String
     var subtitle: String?
     var showsBack = false
+    /// A release page: its album art is the backdrop (ReleaseBackdrop), else the city.
+    var backdropSlug: String? = nil
     @ViewBuilder var content: () -> Content
 
     @State private var scrollOffset: CGFloat = 0
@@ -40,7 +42,13 @@ struct HUDPage<Content: View>: View {
         .toolbar(.hidden, for: .navigationBar)
         // Each page carries the city itself: a NavigationStack paints its own opaque background, and a
         // pushed page slides in over the one below with its backdrop attached.
-        .background { HUDBackdrop() }
+        .background {
+            if let backdropSlug {
+                ReleaseBackdrop(slug: backdropSlug)
+            } else {
+                HUDBackdrop()
+            }
+        }
     }
 }
 

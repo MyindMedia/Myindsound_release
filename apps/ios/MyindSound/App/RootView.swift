@@ -68,7 +68,8 @@ struct RootView: View {
                         onOpen: { app.showPlayer = true },
                         onPrev: { app.audio.previous() },
                         onPlayPause: { app.audio.togglePlayPause() },
-                        onNext: { app.audio.next() }
+                        onNext: { app.audio.next() },
+                        discArt: app.design(slug: loaded.release.slug) == nil ? nil : app.coverArtURL(slug: loaded.release.slug)
                     )
                     // ios.css body.ios-app .mini-player: left/right 8, sitting on the tab bar.
                     .padding(.horizontal, MSComponent.NowPlaying.dockedLeft)
@@ -139,7 +140,7 @@ struct RootView: View {
             Task {
                 await app.refresh()
                 try? await Task.sleep(for: .seconds(0.6))
-                withAnimation(MSMotion.standardLarge) { app.openFocus(slug: "lit") }
+                withAnimation(MSMotion.standardLarge) { app.openFocus(slug: LaunchScreen.slug ?? "lit") }
                 #if DEBUG
                 guard screen != .rackFocus, let controller = app.focusController else { return }
                 for _ in 0..<40 where controller.phase != .ready { try? await Task.sleep(for: .seconds(0.25)) }
@@ -157,7 +158,8 @@ struct RootView: View {
         case .player:
             Task {
                 await app.refresh()
-                guard let release = app.featuredRelease, let tracks = try? await app.loadTracks(slug: release.slug) else { return }
+                let chosen = LaunchScreen.slug.flatMap { app.release(slug: $0) }
+                guard let release = chosen ?? app.featuredRelease, let tracks = try? await app.loadTracks(slug: release.slug) else { return }
                 app.audio.load(release: release, tracks: tracks, startAt: 0, autoplay: false)
                 app.showPlayer = true
             }

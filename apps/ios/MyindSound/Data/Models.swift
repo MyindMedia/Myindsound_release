@@ -30,7 +30,8 @@ struct ReleaseTheme: Equatable {
     var lcdTint: String?
 }
 
-/// The web bundle for this release (BUN-*). Not used until the bundle host lands.
+/// `bundle: { url, sha256, version }`: the release's own web bundle (BUN-2, BUN-4), opened by the focus view and
+/// the deck through `BundleStore`.
 struct BundleInfo: Equatable {
     var version: String?
     var url: URL?
@@ -85,6 +86,10 @@ struct LibraryRelease: Identifiable, Equatable {
     var trackCount: Int?
     /// LB-1: when the server sends it; the rack falls back to `RackRules.defaultLeaderboardSize`.
     var leaderboardSize: Int? = nil
+    /// The generated disc's DiscDesign (portal releases; nil for LIT).
+    var design: DiscDesign? = nil
+    /// The pre-rendered spin loop for the rack (nil for LIT: its built-in sleeve art stays).
+    var rack: RackRender? = nil
 
     var id: String { slug }
 }
@@ -114,6 +119,8 @@ struct ReleaseContext: Equatable {
     var status: String
     var serverNow: Date?
     var lend: LendInfo?
+    var design: DiscDesign? = nil
+    var rack: RackRender? = nil
 }
 
 /// `app.tracks({ slug })`: never a storage id or a permanent link (ARCH-4).

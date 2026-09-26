@@ -121,6 +121,32 @@ targets:
           for dir in "$SRC"/*; do [ -f "$dir/manifest.json" ] && cp -R "$dir" "$DST/"; done
           cp "$SRC"/*.zip "$SRC"/*.manifest.json "$DST/" 2>/dev/null || true
           echo "embedded $(ls "$DST" | wc -l | tr -d ' ') dev bundle files"
+      # Debug only: the sample generated discs for -mock runs (DevDiscs.swift): packages/minidisc/shots/*-spin.*
+      # and *-still.png (the spin loops), and samples/<name>.json with their art (the designs). Copied fresh on
+      # every build, never by hand, so re-rendered shots are always the ones the app shows. Release skips it.
+      - name: Embed dev disc renders
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(SRCROOT)/../../packages/minidisc/shots
+          - $(SRCROOT)/../../packages/minidisc/samples
+        script: |
+          set -e
+          [ "$CONFIGURATION" = "Debug" ] || exit 0
+          PKG="$SRCROOT/../../packages/minidisc"
+          DST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevDiscs"
+          rm -rf "$DST"
+          [ -d "$PKG/shots" ] || { echo "note: no packages/minidisc/shots; -mock shows printed sleeves"; exit 0; }
+          mkdir -p "$DST/shots" "$DST/samples"
+          for f in "$PKG"/shots/*-spin.webp "$PKG"/shots/*-spin.png "$PKG"/shots/*-spin.json "$PKG"/shots/*-still.png; do
+            [ -f "$f" ] && cp "$f" "$DST/shots/"
+          done
+          for design in "$PKG"/samples/*.json; do
+            [ -f "$design" ] || continue
+            name="$(basename "$design" .json)"
+            cp "$design" "$DST/samples/"
+            [ -d "$PKG/samples/$name" ] && cp -R "$PKG/samples/$name" "$DST/samples/"
+          done
+          echo "embedded $(ls "$DST/shots" | wc -l | tr -d ' ') dev disc render files"
     dependencies:
       - package: MyindWear
         product: MyindWear

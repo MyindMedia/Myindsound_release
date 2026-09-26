@@ -13,7 +13,8 @@ struct PlayerScreen: View {
 
     var body: some View {
         ZStack {
-            HUDBackdrop(depth: .player)
+            // The album in the deck is the backdrop (Grilled.md "Player background"); LIT keeps its city.
+            ReleaseBackdrop(slug: audio.loaded?.release.slug, depth: .player)
             ScrollView {
                 VStack(spacing: MSSpace.space16) {
                     closePill
@@ -107,12 +108,18 @@ struct PlayerScreen: View {
 
     // MARK: Disc
 
+    /// A generated disc prints its cover on the disc; LIT keeps its own disc art.
+    private var discArt: URL? {
+        guard let slug = audio.loaded?.release.slug, app.design(slug: slug) != nil else { return nil }
+        return app.coverArtURL(slug: slug)
+    }
+
     private var disc: some View {
         ZStack {
             if let slug = audio.loaded?.release.slug {
                 ReleaseSleeve(slug: slug, size: 250)
             }
-            SpinningDisc(spinning: audio.isPlaying && !reduceMotion)
+            SpinningDisc(spinning: audio.isPlaying && !reduceMotion, art: discArt)
                 .frame(width: 86, height: 86)
                 .offset(x: 108, y: 108)
                 .shadow(color: .black.opacity(0.5), radius: 8, y: 4)

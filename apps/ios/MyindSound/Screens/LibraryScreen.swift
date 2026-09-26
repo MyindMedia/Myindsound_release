@@ -111,10 +111,14 @@ struct ReleaseSleeve: View {
     let slug: String
     var size: CGFloat
 
+    @Environment(AppModel.self) private var app
+
     var body: some View {
         Group {
             if let name = ReleaseArt.imageName(for: slug) {
                 Image(name).resizable().scaledToFill()
+            } else if let url = app.coverArtURL(slug: slug) {
+                CoverArtImage(url: url)
             } else {
                 ZStack {
                     MSColor.base

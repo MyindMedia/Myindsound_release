@@ -18,6 +18,8 @@ struct NowPlayingBar: View {
     var onPlayPause: () -> Void = {}
     var onNext: () -> Void = {}
     var onClose: (() -> Void)? = nil
+    /// A generated disc's cover, printed on the disc (nil: LIT's disc art).
+    var discArt: URL? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -65,7 +67,7 @@ struct NowPlayingBar: View {
             Image("MiniDiscShell")
                 .resizable()
                 .scaledToFit()
-            SpinningDisc(spinning: isPlaying && !reduceMotion)
+            SpinningDisc(spinning: isPlaying && !reduceMotion, art: discArt)
                 .frame(
                     width: MSComponent.NowPlaying.artSizePhone * HUDSurface.nowPlayingDiscScale,
                     height: MSComponent.NowPlaying.artSizePhone * HUDSurface.nowPlayingDiscScale
@@ -155,15 +157,38 @@ private struct NowPlayingKeyStyle: ButtonStyle {
 /// theme.css .mini-player__disc + @keyframes mini-player-spin: one turn every 3.4 s while playing.
 struct SpinningDisc: View {
     var spinning: Bool
+    /// A generated disc's printed art (its cover), else LIT's disc.
+    var art: URL? = nil
     @State private var angle: Angle = .zero
 
     var body: some View {
-        Image("MiniDiscArt")
-            .resizable()
-            .scaledToFit()
+        disc
             .rotationEffect(angle)
             .onAppear { update() }
             .onChange(of: spinning) { _, _ in update() }
+    }
+
+    @ViewBuilder
+    private var disc: some View {
+        if let art {
+            // The printed disc: the cover on a circle, a clear rim, the metal hub.
+            GeometryReader { proxy in
+                let d = min(proxy.size.width, proxy.size.height)
+                ZStack {
+                    CoverArtImage(url: art).frame(width: d, height: d).clipShape(Circle())
+                    Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: max(1, d * 0.03))
+                    Circle().fill(Color(white: 0.72)).frame(width: d * 0.3, height: d * 0.3)
+                    Circle().fill(MSColor.ink).frame(width: d * 0.12, height: d * 0.12)
+                }
+                .frame(width: d, height: d)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .aspectRatio(1, contentMode: .fit)
+        } else {
+            Image("MiniDiscArt")
+                .resizable()
+                .scaledToFit()
+        }
     }
 
     private func update() {

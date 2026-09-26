@@ -88,12 +88,13 @@ enum APIDecoding {
     static func release(_ value: JSONValue) -> LibraryRelease? {
         guard let slug = value["slug"]?.string else { return nil }
         let owned = ownership(value["ownership"]?.string) ?? .locked
+        let disc = Self.design(value["design"])
         return LibraryRelease(
             releaseId: value["releaseId"]?.string,
             slug: slug,
             title: value["title"]?.string ?? slug.uppercased(),
-            artist: value["artist"]?.string,
-            year: value["year"]?.string,
+            artist: value["artist"]?.string ?? disc?.artist,
+            year: value["year"]?.string ?? disc?.year.map(String.init),
             coverURL: value["coverUrl"]?.string.flatMap(URL.init(string:)),
             editionNumber: value["editionNumber"]?.int,
             unwrapped: value["unwrapped"]?.bool ?? false,
@@ -105,7 +106,9 @@ enum APIDecoding {
             status: value["status"]?.string ?? "live",
             grantedAt: value["grantedAt"]?.date,
             trackCount: value["trackCount"]?.int,
-            leaderboardSize: value["leaderboardSize"]?.int
+            leaderboardSize: value["leaderboardSize"]?.int,
+            design: disc,
+            rack: rack(value["rack"])
         )
     }
 
@@ -125,7 +128,9 @@ enum APIDecoding {
             dropAt: dropDate(value["dropAt"]),
             status: value["status"]?.string ?? "live",
             serverNow: value["serverNow"]?.date,
-            lend: lend(value["lend"])
+            lend: lend(value["lend"]),
+            design: design(value["design"]),
+            rack: rack(value["rack"])
         )
     }
 

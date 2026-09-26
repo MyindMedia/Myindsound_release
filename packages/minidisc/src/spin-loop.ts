@@ -4,7 +4,7 @@
  * (WebP with alpha, PNG fallback) with a still front. Runs in the browser (the admin portal at publish time);
  * returns Blobs for upload. The loop is seamless: both the disc and the turn are periodic over N frames.
  */
-import { DirectionalLight, HemisphereLight, NeutralToneMapping, PerspectiveCamera, PointLight, Scene, SRGBColorSpace, WebGLRenderer } from 'three';
+import { Box3, DirectionalLight, HemisphereLight, NeutralToneMapping, PerspectiveCamera, PointLight, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three';
 import { createStudioEnvironment } from '../../../src/player3d/cartridge-detail';
 import { ensureFonts } from './canvas';
 import type { DiscDesign } from './design';
@@ -88,14 +88,22 @@ export async function renderSpinLoop(design: DiscDesign, options: SpinLoopOption
   });
   disc.setEdition(options.edition ?? null);
   scene.add(disc.group);
-  // The package (cartridge + sleeve hanging below it) centred and filling the frame.
-  const packageHeight = disc.height * (1 + drop) + 0.03;
-  const packageWidth = disc.width + 0.05;
-  const fit = Math.max(packageHeight, packageWidth) * 1.08;
-  const distance = fit / 2 / Math.tan((camera.fov * Math.PI) / 360);
-  camera.position.set(0, -disc.height * drop * 0.5, distance);
-  camera.lookAt(0, -disc.height * drop * 0.5, 0);
-  disc.group.position.y = 0;
+  // The package (cartridge + the sleeve hanging below it) fits the frame through the whole turn: the camera sits
+  // back far enough for the bounding sphere of the whole thing (its box, whichever way it turns), plus a margin.
+  const margin = 1.06;
+  const frame = (): void => {
+    disc.group.rotation.set(0, 0, 0);
+    disc.group.updateMatrixWorld(true);
+    const box = new Box3().setFromObject(disc.group, true);
+    const centre = box.getCenter(new Vector3());
+    const radius = box.getSize(new Vector3()).length() / 2;
+    const distance = (radius * margin) / Math.sin((camera.fov * Math.PI) / 360);
+    // Turn about the package's own centre, so the box is what sweeps, not a corner of it.
+    disc.group.position.sub(centre);
+    camera.position.set(0, 0, distance);
+    camera.lookAt(0, 0, 0);
+  };
+  frame();
 
   const turn = ((options.turnDeg ?? 14) * Math.PI) / 180;
   const sheet = document.createElement('canvas');
@@ -121,23 +129,34 @@ export async function renderSpinLoop(design: DiscDesign, options: SpinLoopOption
     // setSize resized the canvas to the frame, so the frame is the whole canvas.
     sctx.drawImage(canvas, 0, 0, frameSize, frameSize, cell.x, cell.y, frameSize, frameSize);
   }
+  // A blank sheet must never come back as a result: check that the frames actually drew something.
+  const probe = sctx.getImageData(0, 0, Math.min(sheet.width, 256), Math.min(sheet.height, 256)).data;
+  let drawn = 0;
+  for (let i = 3; i < probe.length; i += 4) if (probe[i] > 0) drawn++;
+  const full = sctx.getImageData(0, 0, sheet.width, sheet.height).data;
+  let any = drawn;
+  for (let i = 3; i < full.length && any === 0; i += 64) if (full[i] > 0) any++;
+  if (any === 0) throw new Error('renderSpinLoop: every frame came out blank (no pixel with alpha > 0)');
   const webp = await toBlob(sheet, 'image/webp', options.webpQuality ?? 0.9);
   const png = await toBlob(sheet, 'image/png');
   if (!png) throw new Error('renderSpinLoop: PNG encoding failed');
 
-  // The still: the front, straight on, sleeve fully on.
+  // The still: the front, nearly straight on, sleeve fully on, fitted the same way.
   disc.setSleeve(true, 0);
   for (const object of spinning) object.rotation.z = 0;
-  disc.group.rotation.set(-0.04, 0.12, 0);
-  const stillFit = Math.max(disc.height + 0.05, disc.width + 0.05) * 1.06;
-  camera.position.set(0, 0, stillFit / 2 / Math.tan((camera.fov * Math.PI) / 360));
-  camera.lookAt(0, 0, 0);
+  disc.group.position.set(0, 0, 0);
+  frame();
+  disc.group.rotation.set(0.06, 0.12, 0);
   renderer.setSize(stillSize, stillSize, false);
   camera.updateProjectionMatrix();
   renderer.render(scene, camera);
   const stillCanvas = document.createElement('canvas');
   stillCanvas.width = stillCanvas.height = stillSize;
   stillCanvas.getContext('2d')!.drawImage(canvas, 0, 0, stillSize, stillSize, 0, 0, stillSize, stillSize);
+  const stillProbe = stillCanvas.getContext('2d')!.getImageData(0, 0, stillSize, stillSize).data;
+  let stillDrawn = 0;
+  for (let i = 3; i < stillProbe.length && stillDrawn === 0; i += 64) if (stillProbe[i] > 0) stillDrawn++;
+  if (stillDrawn === 0) throw new Error('renderSpinLoop: the still came out blank');
   const still = await toBlob(stillCanvas, 'image/png');
   if (!still) throw new Error('renderSpinLoop: still PNG encoding failed');
 

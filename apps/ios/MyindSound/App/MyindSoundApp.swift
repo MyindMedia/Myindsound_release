@@ -70,6 +70,13 @@ enum LaunchScreen: String {
     case rackPull = "rack-pull"
     case rackLoaded = "rack-loaded"
 
+    /// `-slug <slug>`: the release `-screen player` and `-screen rack-focus` open (default: the newest, and LIT).
+    static var slug: String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-slug"), index + 1 < arguments.count else { return nil }
+        return arguments[index + 1].lowercased()
+    }
+
     static func fromLaunchArguments(_ arguments: [String] = ProcessInfo.processInfo.arguments) -> LaunchScreen {
         if let index = arguments.firstIndex(of: "-screen"), index + 1 < arguments.count,
            let screen = LaunchScreen(rawValue: arguments[index + 1].lowercased()) {

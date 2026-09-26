@@ -15,6 +15,9 @@ enum RackArt {
     /// The sleeve is a touch taller than wide once the cartridge's top edge stands proud of the mouth.
     static let cartridgeLip: CGFloat = 0.075
     static var aspect: CGFloat { 1 / (1 + cartridgeLip) }
+    /// A rack with rendered discs: taller tiles, so the cartridge standing out of the sleeve has room and the
+    /// sleeve still spans most of the tile. Printed sleeves sit at the foot of the same box, so rows line up.
+    static let renderAspect: CGFloat = 0.8
 }
 
 /// One copy on the rack (RACK-1): the printed card sleeve, the clear cartridge just proud of its mouth, a soft
@@ -52,25 +55,11 @@ struct SleeveArt: View {
     private func face(side: CGFloat) -> some View {
         ZStack {
             printed(side: side)
-            if let wear, wear.level > 0 {
-                WearScuffs(descriptor: wear).allowsHitTesting(false)
-            }
             // Rubbed card edge and a little light across the print.
             LinearGradient(colors: [.white.opacity(0.1), .clear, .black.opacity(0.18)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            if let lines = state.tagLines {
-                LoanTag(lines: lines, side: side)
-            }
-            ForEach(Array(stickers.enumerated()), id: \.element) { slot, sticker in
-                let centre = RackRules.stickerCentre(
-                    slug: slug, edition: edition, slot: slot, tagged: state.tagLines != nil, generic: RackArt.sleeveName(for: slug) == nil
-                )
-                VinylSticker(sticker: sticker, diameter: side * 0.27)
-                    .rotationEffect(.degrees(RackRules.stickerAngle(slug: slug, edition: edition, slot: slot)))
-                    .position(x: side * centre.x, y: side * centre.y)
-            }
-            if state.isLocked {
-                ShrinkFilm()
-            }
+            SleeveFaceOverlays(
+                slug: slug, edition: edition, stickers: stickers, state: state, wear: wear, generic: RackArt.sleeveName(for: slug) == nil
+            )
         }
         .frame(width: side, height: side)
         .clipShape(Rectangle())
@@ -86,6 +75,45 @@ struct SleeveArt: View {
         } else {
             GenericSleeve(title: title, accent: accent, side: side)
         }
+    }
+}
+
+/// What sits on a sleeve's face over the print or the render: the copy's wear, the loan tag, die-cut stickers
+/// and, for a locked release, the shrink film (DROP-2). Laid out on a square face `side` points wide.
+struct SleeveFaceOverlays: View {
+    let slug: String
+    var edition: Int?
+    var stickers: [RackSticker]
+    var state: RackTileState
+    var wear: WearDescriptor?
+    /// A sleeve without art prints its title across the top, so its stickers sit below it.
+    var generic: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            ZStack {
+                if let wear, wear.level > 0 {
+                    WearScuffs(descriptor: wear).allowsHitTesting(false)
+                }
+                if let lines = state.tagLines {
+                    LoanTag(lines: lines, side: side)
+                }
+                ForEach(Array(stickers.enumerated()), id: \.element) { slot, sticker in
+                    let centre = RackRules.stickerCentre(
+                        slug: slug, edition: edition, slot: slot, tagged: state.tagLines != nil, generic: generic
+                    )
+                    VinylSticker(sticker: sticker, diameter: side * 0.27)
+                        .rotationEffect(.degrees(RackRules.stickerAngle(slug: slug, edition: edition, slot: slot)))
+                        .position(x: side * centre.x, y: side * centre.y)
+                }
+                if state.isLocked {
+                    ShrinkFilm()
+                }
+            }
+            .frame(width: side, height: side)
+        }
+        .allowsHitTesting(false)
     }
 }
 
