@@ -1,0 +1,540 @@
+/* Release portal (admin RELEASES tab). Same HUD vocabulary as admin.html: gold hairlines, mono labels, ink panels. */
+
+.rp {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.rp-head,
+.rp-release-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rp-head h2 {
+  margin: 0;
+}
+
+.rp-head .primary-btn {
+  width: auto;
+  padding: 0.75rem 1.4rem;
+  font-size: 0.72rem;
+}
+
+.rp-release-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  overflow-wrap: anywhere;
+}
+
+.rp-drafts .mono-list li strong {
+  color: var(--text);
+}
+
+.rp-wizard {
+  border-top: 1px solid var(--line-dim);
+  padding-top: 1.25rem;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.rp-wizard[hidden],
+.rp-step[hidden] {
+  display: none;
+}
+
+/* Steps: a strip of numbered HUD buttons that wraps on a phone. */
+.rp-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(118px, 100%), 1fr));
+  gap: 0.4rem;
+}
+
+.rp-step-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line-dim);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rp-step-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rp-step-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.rp-step-btn[aria-current='step'] {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(253, 185, 19, 0.1);
+}
+
+.rp-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid currentColor;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-step-btn.done .rp-step-n {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.rp-step-btn.stale .rp-step-n {
+  border-color: var(--pink);
+  color: var(--pink);
+}
+
+.rp-step-mark {
+  margin-left: auto;
+  font-size: 0.56rem;
+  opacity: 0.8;
+}
+
+.rp-step {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.rp-nav {
+  justify-content: space-between;
+}
+
+/* Drop zones */
+.rp-drop {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  place-items: center;
+  text-align: center;
+  padding: 1.6rem 1rem;
+  border: 1px dashed var(--line);
+  background: rgba(253, 185, 19, 0.04);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.rp-drop strong {
+  color: var(--gold);
+  letter-spacing: 0.18em;
+  font-size: 0.8rem;
+}
+
+.rp-drop.over,
+.rp-drop:focus-visible {
+  outline: none;
+  border-style: solid;
+  background: rgba(253, 185, 19, 0.12);
+}
+
+.rp-drop input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+.rp-queue li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(80px, 160px) auto;
+  gap: 0.5rem 0.9rem;
+}
+
+.rp-queue li.ok .rp-q-state {
+  color: var(--gold);
+}
+
+.rp-error,
+.rp-queue li.rp-error .rp-q-state {
+  color: var(--pink);
+}
+
+.rp-q-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--gold);
+}
+
+/* Tracklist */
+.rp-tracks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.rp-track {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0, 1fr) 4.5rem auto;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.rp-track.removed {
+  opacity: 0.45;
+}
+
+.rp-track.removed .rp-track-title {
+  text-decoration: line-through;
+}
+
+.rp-track-n,
+.rp-track-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-track-title {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.88rem;
+}
+
+.rp-track-tools {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.rp-empty {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* Cover */
+.rp-cover-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.rp-cover-frame {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-dim);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  overflow: hidden;
+}
+
+.rp-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Casing */
+.rp-casing {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.rp-stage {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.rp-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 70vh;
+  display: block;
+  border: 1px solid var(--line-dim);
+  background:
+    radial-gradient(120% 80% at 50% 30%, rgba(159, 216, 255, 0.08), transparent 60%),
+    radial-gradient(90% 60% at 50% 100%, rgba(255, 61, 168, 0.08), transparent 70%),
+    #07070c;
+  touch-action: none;
+  cursor: grab;
+}
+
+.rp-canvas:active {
+  cursor: grabbing;
+}
+
+.rp-canvas:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.rp-stage-note {
+  margin: 0;
+  text-align: center;
+}
+
+.rp-stage-tools {
+  justify-content: center;
+}
+
+.rp-controls {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.rp-controls .admin-sub {
+  margin: 0.25rem 0 0;
+}
+
+.rp-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr));
+  gap: 0.4rem;
+}
+
+.rp-swatch {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.55rem;
+  align-items: center;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--line-dim);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rp-swatch:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.rp-swatch.on {
+  border-color: var(--gold);
+  background: rgba(253, 185, 19, 0.12);
+}
+
+.rp-swatch:has(.rp-suggested) {
+  box-shadow: inset 0 0 0 1px rgba(159, 216, 255, 0.55);
+}
+
+.rp-swatch-label {
+  overflow-wrap: anywhere;
+}
+
+.rp-suggested {
+  grid-column: 1 / -1;
+  color: var(--ice);
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
+}
+
+.rp-chip {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55), transparent 45%),
+    linear-gradient(160deg, var(--chip2), var(--chip));
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.rp-chip.small {
+  width: 1rem;
+  height: 1rem;
+}
+
+.rp-tint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.rp-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rp-labels [aria-checked='true'] {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(253, 185, 19, 0.12);
+}
+
+.rp-controls .primary-btn {
+  width: auto;
+  padding: 0.75rem 1.4rem;
+  font-size: 0.72rem;
+}
+
+/* Render */
+.rp-render-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 1rem;
+}
+
+.rp-render-grid figure {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.rp-sprite,
+.rp-still {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  border: 1px solid var(--line-dim);
+  background:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.04) 0 25%, transparent 0 50%) 0 0 / 16px 16px,
+    #07070c;
+}
+
+.rp-still[hidden] {
+  display: none;
+}
+
+/* Bundle */
+.rp-wide {
+  grid-column: 1 / -1;
+}
+
+.rp-cli {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.rp-cli code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--gold);
+  overflow-wrap: anywhere;
+}
+
+.rp-cli-box[hidden],
+.rp-details[hidden] {
+  display: none;
+}
+
+.rp-details summary {
+  cursor: pointer;
+}
+
+.rp-details .rp-cli {
+  margin-top: 0.75rem;
+}
+
+/* Publish */
+.rp-when {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.rp-when label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.rp-when input {
+  width: auto;
+  accent-color: var(--gold);
+}
+
+.rp-utc {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.admin-status.warn {
+  color: var(--orange);
+}
+
+@media (max-width: 760px) {
+  .rp-casing,
+  .rp-cover-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rp-cover-frame {
+    max-width: 240px;
+  }
+
+  .rp-canvas {
+    aspect-ratio: 1;
+  }
+
+  .rp-track {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .rp-track-tools {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .rp-queue li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

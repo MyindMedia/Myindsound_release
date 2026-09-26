@@ -498,3 +498,55 @@ Server config (Convex env):
 
 - APNs sending (push intents for drops and lends are recorded or counted only), R2 delivery, lossless streaming.
 - NFC tap to lend (NFC-7): the lend helpers take `channel: 'nfc'`, the tag verification does not exist yet.
+
+## Release portal releases (design, rack, bundle)
+
+New releases are made in the admin release portal (`/admin` → RELEASES, `convex/releases.ts`) and rendered by the
+generic release bundle (BUN-4) from a DiscDesign (`packages/minidisc/README.md`). `app.library` entries and
+`app.context` now carry three more fields. All three are `null` for LIT (no design: use the built-in LIT bundle and
+sleeve art) and for drafts (nothing unreleased leaks through the public queries).
+
+```ts
+// Added to every app.library entry and to app.context (app.context also gains `bundle`, the same Bundle type).
+design: DiscDesign | null;        // v1, as validated by validateDesign. coverArt is an https URL to the cover.
+rack: {
+  spriteUrl: string;              // spin loop sprite sheet (sleeved package, disc turning once); WebP when available
+  spriteFormat: 'webp' | 'png';
+  spriteMeta: { frames: number; cols: number; rows: number; frameW: number; frameH: number;
+                sheetW: number; sheetH: number; fps: number; format: 'image/webp' | 'image/png' };
+  pngSpriteUrl: string;           // the same layout as PNG (fallback)
+  stillUrl: string;               // the sleeved front, PNG with alpha
+} | null;
+bundle: { version: string; url: string; sha256: string } | null;   // app.context only; library already had it
+```
+
+- **Bundle:** download `bundle.url` (a public Convex storage URL; bundles are not secret), verify SHA-256 against
+  `bundle.sha256` (BUN-2), unpack, and load `index.html`; the zip carries `design/design.json` and the cover next to
+  it, and `manifest.json` has `generator: "minidisc/1"` plus `design: { title, artist, year, shell, labelStyle,
+  theme }`. Portal versions look like `1.0.0+r3` (generic bundle version + design revision): a new version or sha
+  means re-download.
+- **Rack grid:** frame `i` is the cell at column `i % cols`, row `floor(i / cols)`, `frameW × frameH`, played at
+  `fps`, looping seamlessly over `frames`. Tap opens the live 3D (the bundle).
+- **Cover / player backdrop:** `design.coverArt` (https) is the cover; `design.theme` holds the backdrop blur and
+  scrim (defaults: `resolveTheme` in packages/minidisc).
+- Audio is unchanged: still only through `media.getStreamUrl`.
+
+### Admin functions (`releases.*`, admin only, every change audited as `product:<slug>`)
+
+| Function | Kind | Args → returns |
+|---|---|---|
+| `drafts` | query | `{}` → drafts with progress (`tracks`, `tracksWithAudio`, `hasCover`, `hasDesign`, `rackFresh`, `bundleFresh`, `ready`) |
+| `get` | query | `{ slug }` → full portal state incl. `design`, `designHash`, `designRev`, `rack`, `bundle`, `problems[]` |
+| `createDraft` | mutation | `{ slug, title, artist, year }`: product `kind: digital`, `status: draft`, `active: false` |
+| `generateUploadUrl` | mutation | `{ slug }` → upload URL (drafts only; not audited, changes nothing) |
+| `attachTrackAudio` | action | `{ slug, file, durationSec, title?, trackId? }`: MP3 sniffed from its bytes, ≤ 80 MB, duration plausible for the size |
+| `setTracks` | mutation | `{ slug, tracks: [{ trackId, title }] }`: order and titles; tracks left out are deleted with their audio |
+| `attachCover` | action | `{ slug, file }`: PNG/JPEG/WebP, square, ≥ 1024 px (read from the file header) |
+| `saveDesign` | mutation | `{ slug, design }`: the look (shell, tint, label, accents, stickers, theme) over the server's facts, `validateDesign` |
+| `attachRackArt` | action | `{ slug, spriteWebp?, spritePng, spriteMeta, still, designHash }`: meta checked against the PNG's size |
+| `attachBundle` | action | `{ slug, version, zip, sha256, designHash }`: zip ≤ 40 MB, sha256 must equal the stored file's |
+| `publish` | mutation | `{ slug, status: 'scheduled' \| 'live', dropAt?, reason }`: needs every track with audio, the cover, a saved design, rack art and bundle made from that design; flips `active` |
+
+Rack art and bundles record the design hash they were made from; changing the tracks, cover or casing makes them
+out of date and `publish` refuses until they are redone. Internal: `releases.designForPublish`,
+`releases.attachBundleFromCli` (`npm run publish:release -- --slug X --as <admin email>`).

@@ -6,6 +6,8 @@ import { ensureViewer, getViewer } from './lib/auth';
 import { activeEntitlement, isPrelaunch, newWearSeed } from './lib/editions';
 import { fail } from './lib/errors';
 import { publicName } from './leaderboard';
+import { publishedDesign, rackOf, type RackInfo } from './releases';
+import type { DiscDesign } from '../packages/minidisc/src/design';
 import {
   heldCopy,
   ingestPlayEvents,
@@ -69,6 +71,8 @@ function lendInfo(lend: LendView | null, role: LendInfo['role']): LendInfo | nul
 }
 
 function bundleOf(product: Doc<'products'>) {
+  // A portal draft's bundle is not out yet (convex/releases.ts); LIT and published releases keep theirs.
+  if (product.status === 'draft') return null;
   if (!product.bundleVersion || !product.bundleUrl || !product.bundleSha256) return null;
   return { version: product.bundleVersion, url: product.bundleUrl, sha256: product.bundleSha256 };
 }
@@ -101,6 +105,10 @@ type LibraryEntry = {
   status: 'draft' | 'scheduled' | 'live';
   theme: Doc<'products'>['theme'] | null;
   bundle: { version: string; url: string; sha256: string } | null;
+  /** Portal releases: the DiscDesign the generic bundle renders. Null for LIT (iOS uses its built-in bundle). */
+  design: DiscDesign | null;
+  /** Portal releases: the pre-rendered spin loop and still for the rack grid. Null for LIT. */
+  rack: RackInfo | null;
   lend: LendInfo | null;
   grantedAt: number | null;
 };
@@ -132,6 +140,8 @@ export const library = query({
         status: product.status ?? 'live',
         theme: product.theme ?? null,
         bundle: bundleOf(product),
+        design: publishedDesign(product),
+        rack: await rackOf(ctx, product),
         lend: borrowed ? lendInfo(borrowed, 'borrower') : lendInfo(lentOut, 'lender'),
         grantedAt: entitlement?.grantedAt ?? null,
       };
@@ -173,6 +183,10 @@ export const context = query({
       status: product.status ?? 'live',
       serverNow: now,
       lend: borrowed ? lendInfo(borrowed, 'borrower') : lendInfo(lentOut, 'lender'),
+      // Portal releases (null for LIT): what the generic bundle renders, the rack art, and the zip to fetch.
+      design: publishedDesign(product),
+      rack: await rackOf(ctx, product),
+      bundle: bundleOf(product),
     };
   },
 });

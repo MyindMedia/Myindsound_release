@@ -21,7 +21,8 @@ const OUT_DIR = resolve(ROOT, 'dist-bundles', SLUG);
  */
 const SITE_ASSETS = [
   'assets/images/minidisc',
-  'assets/images/lit-sleeve.webp',
+  // LIT's poster is LIT's; the generic release bundle prints its sleeve from its design.json.
+  ...(SLUG === 'lit' ? ['assets/images/lit-sleeve.webp'] : []),
   'assets/audio/disc',
   'assets/audio/wrap',
 ];

@@ -35,6 +35,28 @@ export const releaseThemeValidator = v.object({
   lcdTint: v.optional(v.string()),
 });
 
+/** A pre-rendered spin loop's layout (packages/minidisc `SpriteSheetMeta`), stored next to the sheet. */
+export const spriteMetaValidator = v.object({
+  frames: v.number(),
+  cols: v.number(),
+  rows: v.number(),
+  frameW: v.number(),
+  frameH: v.number(),
+  sheetW: v.number(),
+  sheetH: v.number(),
+  fps: v.number(),
+  format: v.string(),
+});
+
+/** The rack's spin loop and still (release portal), and the design hash they were rendered from. */
+export const rackArtValidator = v.object({
+  spriteWebp: v.optional(v.id('_storage')),
+  spritePng: v.id('_storage'),
+  spriteMeta: spriteMetaValidator,
+  still: v.id('_storage'),
+  designHash: v.string(),
+});
+
 export default defineSchema({
   products: defineTable({
     slug: v.string(),
@@ -61,6 +83,20 @@ export default defineSchema({
     appStoreProductIds: v.optional(v.array(v.string())),
     leaderboardSize: v.optional(v.number()),
     theme: v.optional(releaseThemeValidator),
+    // Release portal (convex/releases.ts, Grilled.md "Release portal + generated discs"). Only the portal writes these.
+    artist: v.optional(v.string()),
+    year: v.optional(v.number()),
+    /** The square cover art. Public like the bundle (never the audio); `coverUrl` is its serving URL. */
+    coverFile: v.optional(v.id('_storage')),
+    /** DiscDesign v1 (packages/minidisc), checked by `validateDesign`; its art is `coverUrl`. */
+    design: v.optional(v.any()),
+    /** SHA-256 of the canonical design, and a counter that goes up with every change to it. */
+    designHash: v.optional(v.string()),
+    designRev: v.optional(v.number()),
+    rack: v.optional(rackArtValidator),
+    /** The bundle zip in storage (`bundleUrl` serves it) and the design hash it was built from. */
+    bundleFile: v.optional(v.id('_storage')),
+    bundleDesignHash: v.optional(v.string()),
   }).index('by_slug', ['slug']),
 
   /** The next edition number per product (ED-1). Only `fulfilment.record` and the ED-0 migration write it. */

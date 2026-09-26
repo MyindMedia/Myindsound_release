@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["lit", "../packages/bridge/src"],
-  "exclude": ["lit/public"]
+  "include": ["lit", "release", "../packages/bridge/src", "../packages/minidisc/src"],
+  "exclude": ["lit/public", "release/public"]
 }

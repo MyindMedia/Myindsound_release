@@ -88,6 +88,33 @@ function selectTab(name: string) {
     if (panel) panel.hidden = !selected;
   }
   if (name === 'audit' && !auditLoaded) void loadAudit(true);
+  if (name === 'releases') void mountPortal();
+}
+
+// ── Release portal (ADM-7): its code, three.js and minidisc load only when the RELEASES tab opens ─────────
+
+let portal: Promise<void> | null = null;
+/** Dev only: `/admin?mock=1` under `npm run dev` runs the portal against an in-memory server. */
+const MOCK = import.meta.env.DEV && new URLSearchParams(location.search).has('mock');
+
+function mountPortal(): Promise<void> {
+  portal ??= (async () => {
+    const root = document.getElementById('release-portal')!;
+    try {
+      const { mountReleasePortal } = await import('./admin-releases');
+      // `import.meta.env.DEV` is a literal false in a production build, so the mock never reaches dist/.
+      const backend =
+        import.meta.env.DEV && MOCK
+          ? (await import('./admin-releases-mock')).mockBackend()
+          : (await import('./admin-releases-backend')).convexBackend();
+      mountReleasePortal(root, backend);
+    } catch (error) {
+      console.error('Release portal failed to load:', error);
+      root.innerHTML = '<p class="admin-status error">The release portal failed to load. Refresh to try again.</p>';
+      portal = null;
+    }
+  })();
+  return portal;
 }
 
 function wireTabs() {
@@ -576,6 +603,13 @@ function wireTools() {
 
 async function init() {
   show('unauthorized', 'none');
+  if (MOCK) {
+    // No Clerk, no Convex: only the portal, on its mock server.
+    show('admin-content', 'block');
+    wireTabs();
+    selectTab('releases');
+    return;
+  }
   document.getElementById('refresh-stats')?.addEventListener('click', () => void loadStats());
   if (!isClerkConfigured()) return;
   const clerk = await getClerk();

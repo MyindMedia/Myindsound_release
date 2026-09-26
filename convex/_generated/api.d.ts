@@ -40,6 +40,8 @@ import type * as plays from "../plays.js";
 import type * as privacy from "../privacy.js";
 import type * as products from "../products.js";
 import type * as push from "../push.js";
+import type * as releases from "../releases.js";
+import type * as releasesLogic from "../releasesLogic.js";
 import type * as seed from "../seed.js";
 import type * as storekit from "../storekit.js";
 import type * as storekitLogic from "../storekitLogic.js";
@@ -87,6 +89,8 @@ declare const fullApi: ApiFromModules<{
   privacy: typeof privacy;
   products: typeof products;
   push: typeof push;
+  releases: typeof releases;
+  releasesLogic: typeof releasesLogic;
   seed: typeof seed;
   storekit: typeof storekit;
   storekitLogic: typeof storekitLogic;

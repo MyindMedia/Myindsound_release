@@ -15,8 +15,8 @@
  * The zip is deterministic: sorted entries, fixed timestamps, DEFLATE, so the same build gives the same SHA-256.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 
@@ -37,6 +37,60 @@ if (!existsSync(join(outDir, 'index.html'))) fail(`${relative(ROOT, outDir)}/ind
 
 const config = JSON.parse(readFileSync(join(srcDir, 'bundle.json'), 'utf8'));
 if (config.slug !== slug) fail(`bundle.json slug "${config.slug}" is not "${slug}"`);
+
+/**
+ * Generic release mode (`release --design <design.json>`, PRD BUN-4): the built `bundles/release` is packaged
+ * with one release's `DiscDesign` and its art, copied into `design/` inside the zip (the bundle reads
+ * `./design/design.json`). The zip and manifest take the DESIGN's slug: `<slug>-<bundle version>.zip`.
+ */
+const designArg = process.argv.indexOf('--design');
+const designPath = designArg > 0 ? process.argv[designArg + 1] : null;
+if (slug === 'release' && !designPath) fail('release mode needs --design <path to design.json>');
+if (designPath && slug !== 'release') fail('--design only applies to the generic release bundle (slug "release")');
+let design = null;
+if (designPath) {
+  const { assertDesign, designArtRefs, resolveTheme } = await import('../packages/minidisc/src/design.ts');
+  const file = resolve(process.cwd(), designPath);
+  if (!existsSync(file)) fail(`design not found: ${designPath}`);
+  try {
+    design = assertDesign(JSON.parse(readFileSync(file, 'utf8')));
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+  const designDir = join(outDir, 'design');
+  rmSync(designDir, { recursive: true, force: true });
+  mkdirSync(designDir, { recursive: true });
+  // Each art file is copied in under its basename; the copied design.json refers to those names.
+  const renamed = new Map();
+  const taken = new Set(['design.json']);
+  for (const ref of designArtRefs(design)) {
+    if (/^[a-z]+:/i.test(ref)) fail(`art must ship inside the zip, not from a URL: ${ref}`);
+    const source = resolve(dirname(file), ref);
+    if (!existsSync(source)) fail(`art missing: ${ref} (from ${relative(ROOT, file)})`);
+    if (!/\.(png|jpe?g|webp)$/i.test(source)) fail(`art must be PNG, JPEG or WebP: ${ref}`);
+    let name = basename(source);
+    if (taken.has(name)) name = `${createHash('sha256').update(ref).digest('hex').slice(0, 8)}-${name}`;
+    taken.add(name);
+    cpSync(source, join(designDir, name));
+    renamed.set(ref, name);
+  }
+  const rewrite = (ref) => (ref === undefined ? undefined : renamed.get(ref));
+  const shipped = {
+    ...design,
+    coverArt: rewrite(design.coverArt),
+    discArt: rewrite(design.discArt),
+    theme: design.theme
+      ? {
+          ...design.theme,
+          backdropImage: rewrite(design.theme.backdropImage),
+          backdrop: design.theme.backdrop ? { ...design.theme.backdrop, image: rewrite(design.theme.backdrop.image) } : undefined,
+        }
+      : undefined,
+  };
+  writeFileSync(join(designDir, 'design.json'), `${JSON.stringify(shipped, null, 2)}\n`);
+  design = { ...design, theme: resolveTheme(design) };
+}
+const releaseSlug = design ? design.slug : slug;
 if (!/^\d+\.\d+\.\d+$/.test(config.version ?? '')) fail('bundle.json version must be x.y.z');
 if (!/^\d+\.\d+\.\d+$/.test(config.minAppVersion ?? '')) fail('bundle.json minAppVersion must be x.y.z');
 
@@ -63,10 +117,27 @@ const walk = (dir) =>
     entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)],
   );
 const isDevOnly = (path) => path === 'dev.html' || /^assets\/dev-[^/]+\.js$/.test(path);
-const files = walk(outDir)
+const built = walk(outDir)
   .map((file) => relative(outDir, file).split(sep).join('/'))
-  .filter((path) => !isDevOnly(path) && path !== 'manifest.json' && !path.endsWith('.DS_Store'))
+  .filter((path) => path !== 'manifest.json' && !path.endsWith('.DS_Store'))
   .sort();
+// Assets only the dev harness refers to (its sample art, say) are as dev-only as the harness itself.
+// Vite refers to a hashed asset by path (`./assets/x-H4sh.png`) or, from inside assets/, by bare name.
+const assetRefs = (path) => {
+  const text = readFileSync(join(outDir, path), 'utf8');
+  return new Set([...text.matchAll(/[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+/g)].map((m) => m[0]));
+};
+const keptRefs = new Set();
+const devRefs = new Set();
+for (const path of built.filter((p) => /\.(js|html|css)$/.test(p))) {
+  for (const ref of assetRefs(path)) (isDevOnly(path) ? devRefs : keptRefs).add(ref);
+}
+const isDevAsset = (path) => {
+  if (!path.startsWith('assets/')) return false;
+  const name = path.slice('assets/'.length);
+  return devRefs.has(name) && !keptRefs.has(name);
+};
+const files = built.filter((path) => !isDevOnly(path) && !isDevAsset(path));
 
 if (!files.includes(config.entry)) fail(`entry "${config.entry}" is not in the build`);
 
@@ -89,12 +160,19 @@ for (const path of files) {
 
 const manifestBase = {
   releaseId: process.env.RELEASE_ID ?? 'REPLACE_WITH_RELEASE_ID',
-  slug,
+  slug: releaseSlug,
   version: config.version,
   entry: config.entry,
   bridgeVersion,
   minAppVersion: config.minAppVersion,
   wearSafeZones,
+  // Generic release bundles: what the app shows before the bundle boots (title, theme), and which generator made it.
+  ...(design
+    ? {
+        generator: `minidisc/${design.v}`,
+        design: { title: design.title, artist: design.artist, year: design.year, shell: design.shell, labelStyle: design.labelStyle, theme: design.theme },
+      }
+    : {}),
 };
 
 // ── Zip (PKWARE APPNOTE: local headers, central directory, end record; no ZIP64, so < 4 GB) ─────────────
@@ -174,8 +252,8 @@ if (archive.length > MAX_ZIP_BYTES) {
 }
 
 const sha256 = createHash('sha256').update(archive).digest('hex');
-const zipPath = join(ROOT, 'dist-bundles', `${slug}-${config.version}.zip`);
-const manifestPath = join(ROOT, 'dist-bundles', `${slug}-${config.version}.manifest.json`);
+const zipPath = join(ROOT, 'dist-bundles', `${releaseSlug}-${config.version}.zip`);
+const manifestPath = join(ROOT, 'dist-bundles', `${releaseSlug}-${config.version}.manifest.json`);
 writeFileSync(zipPath, archive);
 writeFileSync(manifestPath, `${JSON.stringify({ ...manifestBase, sha256 }, null, 2)}\n`);
 

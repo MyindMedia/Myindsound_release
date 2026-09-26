@@ -6,17 +6,22 @@
   "scripts": {
     "dev": "vite",
     "prebuild": "convex codegen --typecheck=disable || echo 'convex codegen skipped (no deployment credentials); using the committed convex/_generated'",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/stage-release-bundle.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "tokens": "node packages/tokens/scripts/build.mjs",
     "textures": "python3 scripts/build-player-assets.py",
     "city": "python3 scripts/build-city.py",
     "upload:audio": "tsx scripts/upload-lit-audio.ts",
+    "publish:release": "tsx scripts/publish-release.ts",
+    "stage:release-bundle": "node scripts/stage-release-bundle.mjs --strict",
     "previews": "python3 scripts/build-lit-previews.py",
     "wrap-sounds": "python3 scripts/build-wrap-sounds.py",
     "disc-sounds": "python3 scripts/build-disc-sounds.py",
-    "bundle:lit": "tsc -p bundles && vite build -c vite.bundles.config.ts && node scripts/build-bundle.mjs lit"
+    "bundle:lit": "tsc -p bundles && vite build -c vite.bundles.config.ts && node scripts/build-bundle.mjs lit",
+    "bundle:release": "tsc -p bundles && BUNDLE_SLUG=release vite build -c vite.bundles.config.ts && node scripts/build-bundle.mjs release",
+    "dev:release": "BUNDLE_SLUG=release vite -c vite.bundles.config.ts",
+    "minidisc:preview": "vite -c packages/minidisc/vite.config.ts"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

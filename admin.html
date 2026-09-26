@@ -358,6 +358,7 @@
                 <button class="secondary-btn" role="tab" id="tab-grant" aria-controls="panel-grant" aria-selected="false" tabindex="-1">GRANT</button>
                 <button class="secondary-btn" role="tab" id="tab-transfer" aria-controls="panel-transfer" aria-selected="false" tabindex="-1">TRANSFER</button>
                 <button class="secondary-btn" role="tab" id="tab-revoke" aria-controls="panel-revoke" aria-selected="false" tabindex="-1">REVOKE</button>
+                <button class="secondary-btn" role="tab" id="tab-releases" aria-controls="panel-releases" aria-selected="false" tabindex="-1">RELEASES</button>
                 <button class="secondary-btn" role="tab" id="tab-release" aria-controls="panel-release" aria-selected="false" tabindex="-1">RELEASE</button>
                 <button class="secondary-btn" role="tab" id="tab-audit" aria-controls="panel-audit" aria-selected="false" tabindex="-1">AUDIT LOG</button>
             </div>
@@ -423,6 +424,11 @@
                     <div class="confirm-strip danger" hidden></div>
                     <p class="admin-status" role="status" aria-live="polite"></p>
                 </form>
+            </div>
+
+            <!-- ADM-7: the release portal (src/admin-releases.ts, loaded when this tab opens) -->
+            <div class="stats-card admin-panel" role="tabpanel" id="panel-releases" aria-labelledby="tab-releases" hidden>
+                <div id="release-portal"><p class="admin-sub">Loading the release portal…</p></div>
             </div>
 
             <!-- ADM-7 -->
