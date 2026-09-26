@@ -48,12 +48,16 @@ export const spriteMetaValidator = v.object({
   format: v.string(),
 });
 
-/** The rack's spin loop and still (release portal), and the design hash they were rendered from. */
+/**
+ * The rack art (release portal) and the design hash it was rendered from: the sleeve still the app's grid shows
+ * (PNG, plus a WebP twin), and optionally the older spin loop (PNG sheet, WebP sheet, layout).
+ */
 export const rackArtValidator = v.object({
   spriteWebp: v.optional(v.id('_storage')),
-  spritePng: v.id('_storage'),
-  spriteMeta: spriteMetaValidator,
+  spritePng: v.optional(v.id('_storage')),
+  spriteMeta: v.optional(spriteMetaValidator),
   still: v.id('_storage'),
+  stillWebp: v.optional(v.id('_storage')),
   designHash: v.string(),
 });
 

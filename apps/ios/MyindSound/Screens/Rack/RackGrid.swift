@@ -17,15 +17,10 @@ struct RackGrid: View {
         return Array(repeating: GridItem(.flexible(), spacing: MSSpace.space16, alignment: .top), count: count)
     }
 
-    /// Taller boxes once any copy on the rack is a rendered disc, so every row lines up.
-    private var boxAspect: CGFloat {
-        releases.contains { app.rackRender(slug: $0.slug) != nil } ? RackArt.renderAspect : RackArt.aspect
-    }
-
     var body: some View {
         LazyVGrid(columns: columns, alignment: .center, spacing: MSSpace.space24) {
             ForEach(releases) { release in
-                RackTile(release: release, namespace: namespace, hidden: app.rackFocus?.slug == release.slug, boxAspect: boxAspect) {
+                RackTile(release: release, namespace: namespace, hidden: app.rackFocus?.slug == release.slug) {
                     tap(release)
                 }
             }
@@ -115,8 +110,8 @@ struct RackTile: View {
     }
 }
 
-/// The sleeve for a library row, with its stickers, wear and state: the release's rendered spin loop when it
-/// has one (`rack`), else the printed sleeve art (LIT and releases made before the portal).
+/// The sleeve for a library row, with its stickers, wear and state: the release's rendered still when it has one
+/// (`rack`, or LIT's built-in render), completely still, else the printed sleeve art.
 struct RackSleeve: View {
     let release: LibraryRelease
     let state: RackTileState

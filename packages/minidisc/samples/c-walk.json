@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "slug": "c-walk",
+  "title": "C-WALK",
+  "artist": "Tha Myind",
+  "year": 2026,
+  "tracks": [
+    { "n": 1, "title": "C-Walk", "durationSec": 187 }
+  ],
+  "coverArt": "c-walk/cover.png",
+  "shell": "smoke-gold",
+  "labelStyle": "sticker",
+  "labelText": "C-WALK\nTHA MYIND",
+  "accent": "#FFC800",
+  "accent2": "#FF8C00",
+  "theme": { "accent": "#FF8C00", "accent2": "#FFC800", "backdrop": { "blurPx": 12, "scrim": 0.6 } }
+}

@@ -1,13 +1,14 @@
 /**
  * The release portal: the RELEASES tab on /admin (Grilled.md "Release portal + generated discs", PRD §17 ADM-7).
- * A guided flow for one draft: 1 new release, 2 MP3s, 3 cover, 4 casing (live 3D), 5 spin render, 6 bundle,
+ * A guided flow for one draft: 1 new release, 2 MP3s, 3 cover, 4 casing (live 3D), 5 rack render (the sleeve
+ * still; the spin loop optional), 6 bundle,
  * 7 drop date and publish. Loaded by admin.ts only when the tab opens; three.js and packages/minidisc load later
  * still, at the casing step (`admin-releases-3d.ts`). Every change goes through convex/releases.ts, admin only
  * and audited. No window.confirm or alert: publishing is confirmed in the page, with a reason.
  */
 import './admin-releases.css';
 import type { Id } from '../convex/_generated/dataModel';
-import type { DiscDesign, LoadedArt, ShellSuggestion, SpinLoopResult } from './admin-releases-3d';
+import type { DiscDesign, LoadedArt, ShellSuggestion, SleeveStill, SpinLoopResult } from './admin-releases-3d';
 import type { DraftRow, PortalBackend, ReleaseState } from './admin-releases-backend';
 import { assembleReleaseZip, type GenericBundleIndex } from './admin-releases-zip';
 import { convexErrorMessage } from './convex';
@@ -124,7 +125,9 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
   let suggestion: ShellSuggestion | null = null;
   let sleeveOn = false;
   let preview: ReturnType<ThreeModule['createCasingPreview']> | null = null;
-  let render: SpinLoopResult | null = null;
+  /** The rack art rendered in this browser and not uploaded yet: the sleeve still, and the optional loop. */
+  let render: { still: SleeveStill; loop: SpinLoopResult | null } | null = null;
+  let withLoop = false;
   let spriteTimer = 0;
 
   root.innerHTML = `
@@ -828,7 +831,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     spriteTimer = 0;
   }
 
-  /** Plays a sprite sheet in a canvas at its fps, the way the app's rack grid will. */
+  /** Plays the optional spin loop's sprite sheet in a canvas at its fps. */
   function playSprite(canvas: HTMLCanvasElement, src: string, meta: { frames: number; cols: number; frameW: number; frameH: number; fps: number }) {
     stopSprite();
     const image = new Image();
@@ -849,7 +852,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     spriteTimer = requestAnimationFrame(tick);
   }
 
-  let renderUrls: { sprite: string; still: string } | null = null;
+  let renderUrls: { still: string; sprite: string | null } | null = null;
 
   function renderRender() {
     const el = section(4);
@@ -859,31 +862,36 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       return;
     }
     const existing = s.rack;
+    const loopShown = Boolean(render?.loop) || (!render && Boolean(existing?.spriteUrl && existing.spriteMeta));
     el.innerHTML = `
-      <p class="admin-sub">The rack grid plays a pre-rendered loop: the release in its sleeve, the disc spinning one turn. It is rendered here, in this browser, from the saved casing.</p>
+      <p class="admin-sub">The rack grid shows one still: the release in its printed sleeve, the disc all the way inside, a detailed render of the card at a slight angle. It is rendered here, in this browser, from the saved casing, and uploaded as PNG and WebP. The spin loop is optional; the app no longer plays it.</p>
+      <label class="admin-sub rp-loop-choice"><input type="checkbox" class="rp-with-loop" ${withLoop ? 'checked' : ''}> Also render the spin loop (optional)</label>
       <div class="admin-actions">
-        <button type="button" class="primary-btn rp-do-render">${render ? 'RENDER AGAIN' : 'RENDER SPIN LOOP'}</button>
+        <button type="button" class="primary-btn rp-do-render">${render ? 'RENDER AGAIN' : 'RENDER SLEEVE STILL'}</button>
         <button type="button" class="primary-btn rp-upload-render" ${render ? '' : 'disabled'}>UPLOAD RACK ART</button>
       </div>
       <progress class="rp-render-progress" max="1" value="0" hidden></progress>
       <p class="admin-status rp-render-status" role="status" aria-live="polite"></p>
       <div class="rp-render-grid">
-        <figure><canvas class="rp-sprite" width="256" height="256" aria-label="Spin loop preview"></canvas><figcaption class="admin-sub rp-sprite-caption"></figcaption></figure>
-        <figure><img class="rp-still" alt="Still of the sleeved release" hidden><figcaption class="admin-sub">STILL</figcaption></figure>
+        <figure><img class="rp-still" alt="The sleeve still the rack shows" hidden><figcaption class="admin-sub rp-still-caption"></figcaption></figure>
+        ${loopShown ? '<figure><canvas class="rp-sprite" width="256" height="256" aria-label="Spin loop preview"></canvas><figcaption class="admin-sub">SPIN LOOP · OPTIONAL</figcaption></figure>' : ''}
       </div>`;
     const status = $('.rp-render-status', el);
-    const canvas = $<HTMLCanvasElement>('.rp-sprite', el);
     const still = $<HTMLImageElement>('.rp-still', el);
-    const caption = $('.rp-sprite-caption', el);
+    const caption = $('.rp-still-caption', el);
+    const canvas = el.querySelector<HTMLCanvasElement>('.rp-sprite');
+    $<HTMLInputElement>('.rp-with-loop', el).addEventListener('change', (event) => {
+      withLoop = (event.currentTarget as HTMLInputElement).checked;
+    });
     if (render && renderUrls) {
-      playSprite(canvas, renderUrls.sprite, render.sheet.meta);
       still.src = renderUrls.still;
       still.hidden = false;
-      caption.textContent = `NEW · ${render.sheet.meta.frames} FRAMES · ${render.sheet.webp ? 'WEBP + PNG' : 'PNG'} · NOT UPLOADED`;
-    } else if (existing?.spriteUrl && existing.stillUrl) {
-      playSprite(canvas, existing.spriteUrl, existing.spriteMeta);
+      if (canvas && render.loop && renderUrls.sprite) playSprite(canvas, renderUrls.sprite, render.loop.sheet.meta);
+      caption.textContent = `NEW · ${render.still.size} PX · ${render.still.webp ? 'PNG + WEBP' : 'PNG'}${render.loop ? ' · WITH LOOP' : ''} · NOT UPLOADED`;
+    } else if (existing?.stillUrl) {
       still.src = existing.stillUrl;
       still.hidden = false;
+      if (canvas && existing.spriteUrl && existing.spriteMeta) playSprite(canvas, existing.spriteUrl, existing.spriteMeta);
       caption.textContent = existing.fresh ? 'UPLOADED · UP TO DATE' : 'UPLOADED · OUT OF DATE: RENDER AGAIN';
     } else caption.textContent = 'NOT RENDERED YET';
 
@@ -894,17 +902,23 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       try {
         const mod = await loadThree();
         const loaded = await ensureArt(mod);
-        setStatus(status, 'Rendering 36 frames…');
         const started = performance.now();
         const design = { ...(state!.design as DiscDesign), coverArt: art!.src };
-        render = await mod.renderSpinLoop(design, { art: loaded });
-        if (renderUrls) {
-          URL.revokeObjectURL(renderUrls.sprite);
-          URL.revokeObjectURL(renderUrls.still);
+        setStatus(status, 'Rendering the sleeve still…');
+        const sleeve = await mod.renderSleeveStill(design, { art: loaded });
+        let loop: SpinLoopResult | null = null;
+        if (withLoop) {
+          setStatus(status, 'Rendering 36 frames of the spin loop…');
+          loop = await mod.renderSpinLoop(design, { art: loaded });
         }
-        renderUrls = { sprite: URL.createObjectURL(render.sheet.webp ?? render.sheet.png), still: URL.createObjectURL(render.still) };
+        render = { still: sleeve, loop };
+        if (renderUrls) {
+          URL.revokeObjectURL(renderUrls.still);
+          if (renderUrls.sprite) URL.revokeObjectURL(renderUrls.sprite);
+        }
+        renderUrls = { still: URL.createObjectURL(sleeve.png), sprite: loop ? URL.createObjectURL(loop.sheet.webp ?? loop.sheet.png) : null };
         renderRender();
-        const size = (render.sheet.webp?.size ?? 0) + render.sheet.png.size + render.still.size;
+        const size = sleeve.png.size + (sleeve.webp?.size ?? 0) + (loop ? (loop.sheet.webp?.size ?? 0) + loop.sheet.png.size : 0);
         setStatus($('.rp-render-status', section(4)), `Rendered in ${((performance.now() - started) / 1000).toFixed(1)} s (${mb(size)}). Check it, then upload.`, 'ok');
       } catch (error) {
         button.disabled = false;
@@ -918,19 +932,33 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       const bar = $<HTMLProgressElement>('.rp-render-progress', el);
       bar.hidden = false;
       const slug = state.slug;
-      const parts: [Blob, string][] = [...(render.sheet.webp ? [[render.sheet.webp, 'image/webp'] as [Blob, string]] : []), [render.sheet.png, 'image/png'], [render.still, 'image/png']];
-      const total = parts.reduce((sum, [blob]) => sum + blob.size, 0);
+      const { still: sleeve, loop } = render;
+      type Part = { key: 'still' | 'stillWebp' | 'spriteWebp' | 'spritePng'; blob: Blob; type: string };
+      const parts: Part[] = [
+        { key: 'still', blob: sleeve.png, type: 'image/png' },
+        ...(sleeve.webp ? [{ key: 'stillWebp', blob: sleeve.webp, type: 'image/webp' } as Part] : []),
+        ...(loop?.sheet.webp ? [{ key: 'spriteWebp', blob: loop.sheet.webp, type: 'image/webp' } as Part] : []),
+        ...(loop ? [{ key: 'spritePng', blob: loop.sheet.png, type: 'image/png' } as Part] : []),
+      ];
+      const total = parts.reduce((sum, part) => sum + part.blob.size, 0);
       let done = 0;
       try {
-        const ids: Id<'_storage'>[] = [];
-        for (const [blob, type] of parts) {
-          setStatus(status, `Uploading ${ids.length + 1} of ${parts.length}…`);
-          ids.push(await backend.upload(slug, blob, type, (fraction) => (bar.value = (done + fraction * blob.size) / total)));
-          done += blob.size;
+        const ids: Partial<Record<Part['key'], Id<'_storage'>>> = {};
+        for (const [i, part] of parts.entries()) {
+          setStatus(status, `Uploading ${i + 1} of ${parts.length}…`);
+          ids[part.key] = await backend.upload(slug, part.blob, part.type, (fraction) => (bar.value = (done + fraction * part.blob.size) / total));
+          done += part.blob.size;
         }
-        const [spriteWebp, spritePng, stillId] = render.sheet.webp ? ids : [undefined, ids[0], ids[1]];
         setStatus(status, 'Checking…');
-        await backend.attachRackArt({ slug, spriteWebp, spritePng: spritePng!, spriteMeta: render.sheet.meta, still: stillId!, designHash: state.designHash });
+        await backend.attachRackArt({
+          slug,
+          still: ids.still!,
+          stillWebp: ids.stillWebp,
+          spriteWebp: ids.spriteWebp,
+          spritePng: ids.spritePng,
+          spriteMeta: loop?.sheet.meta,
+          designHash: state.designHash,
+        });
         render = null;
         await refresh();
         setStatus($('.rp-render-status', section(4)), 'Rack art uploaded.', 'ok');

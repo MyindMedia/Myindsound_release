@@ -88,7 +88,7 @@ struct LibraryRelease: Identifiable, Equatable {
     var leaderboardSize: Int? = nil
     /// The generated disc's DiscDesign (portal releases; nil for LIT).
     var design: DiscDesign? = nil
-    /// The pre-rendered spin loop for the rack (nil for LIT: its built-in sleeve art stays).
+    /// The rack's rendered sleeve still (portal releases; nil for LIT, whose render is built in: `RackRender.builtIn`).
     var rack: RackRender? = nil
 
     var id: String { slug }

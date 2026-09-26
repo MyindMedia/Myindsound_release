@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		10F31DC1FD00BC2D57506B82 /* TrackRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D397527151F56BDE36F432 /* TrackRow.swift */; };
 		114042F7C2A6E90F9D3DBACD /* RackRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8795F092BA165713C92F575A /* RackRules.swift */; };
+		123F69CFA506CB3C01F9EDA8 /* RenderedSleeve.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27725006455E1B11AB6D0829 /* RenderedSleeve.swift */; };
 		124ABB64CF8CE4FB758175BA /* ReleaseHostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE3B90C4A6414EA8EF5CA94F /* ReleaseHostTests.swift */; };
 		146D9A82D03FA2C443CB8D38 /* HUDBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF49DAE152235CD62BFD6C0 /* HUDBackdrop.swift */; };
 		1601A426E82A754E442CD3CE /* KeyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 765D2C56D9976BB4A3EC9ED3 /* KeyButton.swift */; };
@@ -23,6 +24,7 @@
 		3286C855A9EFF85086EE7A82 /* CornerTickFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BCE41210DD2935827704075 /* CornerTickFrame.swift */; };
 		32B73C59723CBCACE1C676EC /* MockAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06CB1053EAF93832DC28D4C4 /* MockAPI.swift */; };
 		34D16EFC793A310E38754CC7 /* StoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80168AC3177E9D3A23B14EF /* StoreScreen.swift */; };
+		385DB5654CA4DFFE5B04D2F7 /* lit-sleeve.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100A31C5F4941B5FD667568B /* lit-sleeve.webp */; };
 		39C5945B8381DEF05B81C829 /* native-shim.js in Resources */ = {isa = PBXBuildFile; fileRef = 7A566267A88C6A880A2EC09D /* native-shim.js */; };
 		3AEE05808580EB9C954D2826 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F8B151DE0FAAD0B61B53F16E /* Assets.xcassets */; };
 		3C3173918A26F79BFA15C8ED /* AuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA71C49B8E161D5FF5D6FB69 /* AuthModel.swift */; };
@@ -77,7 +79,6 @@
 		D3FDDE244E5985DF5FB5D289 /* BundleSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFE9AD08F7A9A430912C273E /* BundleSchemeHandler.swift */; };
 		D44A779D8C7AAC562726CE28 /* PlayEventQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0976638A66C6F421411B5BB0 /* PlayEventQueue.swift */; };
 		D961D43F122BA3D2A88BB893 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 063C684FB6731195FFBF38F0 /* Models.swift */; };
-		DF23BF76C9C382C252D7B75B /* SpinLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB525DB63F5048C1E42AF842 /* SpinLoop.swift */; };
 		E354FE958ACD7E1076AC13D1 /* DownloadKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F6329BF4E8481D133D9520 /* DownloadKeychain.swift */; };
 		E35AB2EEFC80B2432502DC4E /* demo-bundle.zip in Resources */ = {isa = PBXBuildFile; fileRef = DE5D2E2EA355122888517A51 /* demo-bundle.zip */; };
 		E3F513EE27C94D7D15678792 /* NowPlayingBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DA750C3350855D4AC6A04CD /* NowPlayingBar.swift */; };
@@ -106,10 +107,12 @@
 		08B820FB1DD83786AA8826C0 /* RackGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackGrid.swift; sourceTree = "<group>"; };
 		0976638A66C6F421411B5BB0 /* PlayEventQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayEventQueue.swift; sourceTree = "<group>"; };
 		0AE2D44546D14D721B43F6F7 /* ReleaseHostController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseHostController.swift; sourceTree = "<group>"; };
+		100A31C5F4941B5FD667568B /* lit-sleeve.webp */ = {isa = PBXFileReference; path = "lit-sleeve.webp"; sourceTree = "<group>"; };
 		12374B0CA4984AD9C7ED1691 /* SleeveArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleeveArt.swift; sourceTree = "<group>"; };
 		14B7007122EC4C172D39CD54 /* LCDGlyphs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LCDGlyphs.swift; sourceTree = "<group>"; };
 		250C76043745180AA55113A5 /* ClerkAuthBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClerkAuthBackend.swift; sourceTree = "<group>"; };
 		26CF3FAFDB591A50A9EBAAC5 /* RackFocusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackFocusView.swift; sourceTree = "<group>"; };
+		27725006455E1B11AB6D0829 /* RenderedSleeve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderedSleeve.swift; sourceTree = "<group>"; };
 		28736B22E105471C884E072A /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
 		29394103A0989087FA8E7C49 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
 		2993158BC599C2EFA3F7F6A5 /* AudioTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTap.swift; sourceTree = "<group>"; };
@@ -152,7 +155,6 @@
 		A455B51040981F02B505C7A9 /* RackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackTests.swift; sourceTree = "<group>"; };
 		A511EC14BBD0E33070FC473C /* ReadoutRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadoutRow.swift; sourceTree = "<group>"; };
 		A8F6329BF4E8481D133D9520 /* DownloadKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadKeychain.swift; sourceTree = "<group>"; };
-		AB525DB63F5048C1E42AF842 /* SpinLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpinLoop.swift; sourceTree = "<group>"; };
 		AB9C23CD0E30F37EFD045F42 /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
 		AF5EB22023D034F4ACC3152B /* traversal-bundle.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "traversal-bundle.zip"; sourceTree = "<group>"; };
 		B4F8376BFF28AA18E8615FB0 /* APIDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIDecodingTests.swift; sourceTree = "<group>"; };
@@ -237,8 +239,8 @@
 				26CF3FAFDB591A50A9EBAAC5 /* RackFocusView.swift */,
 				08B820FB1DD83786AA8826C0 /* RackGrid.swift */,
 				8795F092BA165713C92F575A /* RackRules.swift */,
+				27725006455E1B11AB6D0829 /* RenderedSleeve.swift */,
 				12374B0CA4984AD9C7ED1691 /* SleeveArt.swift */,
-				AB525DB63F5048C1E42AF842 /* SpinLoop.swift */,
 			);
 			path = Rack;
 			sourceTree = "<group>";
@@ -354,6 +356,7 @@
 		915EF5DC11D4F1840AD5ACC1 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C2FBD21E59FF04DEE25E79E3 /* RackStills */,
 				F8B151DE0FAAD0B61B53F16E /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -375,6 +378,14 @@
 				250C76043745180AA55113A5 /* ClerkAuthBackend.swift */,
 			);
 			path = Auth;
+			sourceTree = "<group>";
+		};
+		C2FBD21E59FF04DEE25E79E3 /* RackStills */ = {
+			isa = PBXGroup;
+			children = (
+				100A31C5F4941B5FD667568B /* lit-sleeve.webp */,
+			);
+			path = RackStills;
 			sourceTree = "<group>";
 		};
 		C4AFD859A27FF69A66462E5A /* MyindSound */ = {
@@ -540,6 +551,7 @@
 				3AEE05808580EB9C954D2826 /* Assets.xcassets in Resources */,
 				AB3A1BB29F60EEDCEC0929E0 /* inter in Resources */,
 				6216E56BE02A55506FF30D7B /* jetbrains-mono in Resources */,
+				385DB5654CA4DFFE5B04D2F7 /* lit-sleeve.webp in Resources */,
 				39C5945B8381DEF05B81C829 /* native-shim.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -586,7 +598,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n[ \"$CONFIGURATION\" = \"Debug\" ] || exit 0\nPKG=\"$SRCROOT/../../packages/minidisc\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevDiscs\"\nrm -rf \"$DST\"\n[ -d \"$PKG/shots\" ] || { echo \"note: no packages/minidisc/shots; -mock shows printed sleeves\"; exit 0; }\nmkdir -p \"$DST/shots\" \"$DST/samples\"\nfor f in \"$PKG\"/shots/*-spin.webp \"$PKG\"/shots/*-spin.png \"$PKG\"/shots/*-spin.json \"$PKG\"/shots/*-still.png; do\n  [ -f \"$f\" ] && cp \"$f\" \"$DST/shots/\"\ndone\nfor design in \"$PKG\"/samples/*.json; do\n  [ -f \"$design\" ] || continue\n  name=\"$(basename \"$design\" .json)\"\n  cp \"$design\" \"$DST/samples/\"\n  [ -d \"$PKG/samples/$name\" ] && cp -R \"$PKG/samples/$name\" \"$DST/samples/\"\ndone\necho \"embedded $(ls \"$DST/shots\" | wc -l | tr -d ' ') dev disc render files\"\n";
+			shellScript = "set -e\n[ \"$CONFIGURATION\" = \"Debug\" ] || exit 0\nPKG=\"$SRCROOT/../../packages/minidisc\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevDiscs\"\nrm -rf \"$DST\"\n[ -d \"$PKG/shots\" ] || { echo \"note: no packages/minidisc/shots; -mock shows printed sleeves\"; exit 0; }\nmkdir -p \"$DST/shots\" \"$DST/samples\"\nfor f in \"$PKG\"/shots/*-sleeve.png \"$PKG\"/shots/*-sleeve.webp \"$PKG\"/shots/*-sleeve.json; do\n  [ -f \"$f\" ] && cp \"$f\" \"$DST/shots/\"\ndone\nfor design in \"$PKG\"/samples/*.json; do\n  [ -f \"$design\" ] || continue\n  name=\"$(basename \"$design\" .json)\"\n  cp \"$design\" \"$DST/samples/\"\n  [ -d \"$PKG/samples/$name\" ] && cp -R \"$PKG/samples/$name\" \"$DST/samples/\"\ndone\necho \"embedded $(ls \"$DST/shots\" | wc -l | tr -d ' ') dev disc render files\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -650,10 +662,10 @@
 				2A336880A0CC82B35A1D6A7C /* ReleaseHostController.swift in Sources */,
 				EEEB904663B84E04417419A8 /* ReleaseHostView.swift in Sources */,
 				E86DDDC66710927E6064DD19 /* ReleaseScreen.swift in Sources */,
+				123F69CFA506CB3C01F9EDA8 /* RenderedSleeve.swift in Sources */,
 				1ED25F2F73E988A569DC9895 /* RootView.swift in Sources */,
 				4C004E2435712AF6DD8B500D /* SignInScreen.swift in Sources */,
 				65C51B825E9320F4A3B2107A /* SleeveArt.swift in Sources */,
-				DF23BF76C9C382C252D7B75B /* SpinLoop.swift in Sources */,
 				34D16EFC793A310E38754CC7 /* StoreScreen.swift in Sources */,
 				9EE786EDC22D281D08C4748E /* Theme.swift in Sources */,
 				10F31DC1FD00BC2D57506B82 /* TrackRow.swift in Sources */,

@@ -462,6 +462,14 @@ export class DiscWrap {
     const spineRight = new Mesh(new PlaneGeometry(sd, sh), card(prints.spineRight ?? edge(rim, 1, 1 - rim, 0)));
     spineRight.rotation.y = Math.PI / 2;
     spineRight.position.x = sw / 2 + 0.0003;
+    // Named so a still renderer can dress the card (packages/minidisc `renderSleeveStill`); nothing here reads them.
+    body.name = 'sleeve-body';
+    foot.name = 'sleeve-foot';
+    cover.name = 'sleeve-cover';
+    backPrint.name = 'sleeve-back';
+    spineLeft.name = 'sleeve-spine-left';
+    spineRight.name = 'sleeve-spine-right';
+    this.sleeve.name = 'sleeve';
     this.sleeve.add(body, foot, cover, backPrint, spineLeft, spineRight);
     this.sleeve.position.y = this.sleeveRest;
 

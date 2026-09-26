@@ -27,7 +27,9 @@ import {
   checkCoverSize,
   checkDraftFacts,
   checkDuration,
+  checkRackParts,
   checkSpriteMeta,
+  checkStillSize,
   checkUpload,
   designHash,
   imageSize,
@@ -123,7 +125,7 @@ async function referencedFiles(ctx: Pick<QueryCtx, 'db'>): Promise<Set<string>> 
     if (track.originalFile) ids.add(track.originalFile);
   }
   for (const product of await ctx.db.query('products').collect()) {
-    for (const id of [product.downloadFile, product.coverFile, product.bundleFile, product.rack?.spriteWebp, product.rack?.spritePng, product.rack?.still]) {
+    for (const id of [product.downloadFile, product.coverFile, product.bundleFile, product.rack?.spriteWebp, product.rack?.spritePng, product.rack?.still, product.rack?.stillWebp]) {
       if (id) ids.add(id);
     }
   }
@@ -163,6 +165,7 @@ async function publishStateOf(ctx: Pick<QueryCtx, 'db'>, product: Product): Prom
     hasCover: Boolean(product.coverFile),
     designHash: product.designHash ?? null,
     rackDesignHash: product.rack?.designHash ?? null,
+    rackHasStill: Boolean(product.rack?.still),
     bundleDesignHash: product.bundleDesignHash ?? null,
   };
 }
@@ -171,14 +174,19 @@ async function publishStateOf(ctx: Pick<QueryCtx, 'db'>, product: Product): Prom
 // What the app sees (app.library, app.context)
 
 export type RackInfo = {
-  /** The spin loop sheet: WebP when the portal's browser could encode it, else PNG. */
-  spriteUrl: string;
-  spriteFormat: 'webp' | 'png';
-  spriteMeta: { frames: number; cols: number; rows: number; frameW: number; frameH: number; sheetW: number; sheetH: number; fps: number; format: string };
-  /** The PNG sheet (same layout), for a client that can't decode WebP. */
-  pngSpriteUrl: string;
-  /** The front of the sleeved package, PNG with alpha. */
+  /**
+   * The rack image: the release in its printed sleeve, the disc inside, one still render (`renderSleeveStill`),
+   * PNG with alpha, square, at least 1024 px. The app's grid shows this, statically.
+   */
   stillUrl: string;
+  /** The same render as WebP with alpha, or null when the portal's browser couldn't encode WebP. */
+  stillWebpUrl: string | null;
+  /** Optional, unused by the grid: the older spin loop sheet (WebP when there is one, else PNG), or null. */
+  spriteUrl: string | null;
+  spriteFormat: 'webp' | 'png' | null;
+  spriteMeta: { frames: number; cols: number; rows: number; frameW: number; frameH: number; sheetW: number; sheetH: number; fps: number; format: string } | null;
+  /** The PNG sheet (same layout), or null without a loop. */
+  pngSpriteUrl: string | null;
 };
 
 /** The published design, or null (LIT has none: iOS uses its built-in LIT bundle and sleeve art). Never a draft's. */
@@ -187,23 +195,21 @@ export function publishedDesign(product: Product): DiscDesign | null {
   return product.design as DiscDesign;
 }
 
-/** The rack's spin loop and still as serving URLs, or null (LIT, drafts). */
+/** The rack's still (and the optional spin loop) as serving URLs, or null (LIT, drafts, no still). */
 export async function rackOf(ctx: Pick<QueryCtx, 'storage'>, product: Product): Promise<RackInfo | null> {
   const rack = product.rack;
   if (!rack || product.status === 'draft') return null;
-  const [webp, png, still] = await Promise.all([
-    rack.spriteWebp ? ctx.storage.getUrl(rack.spriteWebp) : Promise.resolve(null),
-    ctx.storage.getUrl(rack.spritePng),
-    ctx.storage.getUrl(rack.still),
-  ]);
-  if (!png || !still) return null;
-  const spriteFormat = webp ? 'webp' : 'png';
+  const url = (id: Id<'_storage'> | undefined) => (id ? ctx.storage.getUrl(id) : Promise.resolve(null));
+  const [still, stillWebp, webp, png] = await Promise.all([url(rack.still), url(rack.stillWebp), url(rack.spriteWebp), url(rack.spritePng)]);
+  if (!still) return null;
+  const loop = png && rack.spriteMeta ? { png, webp } : null;
   return {
-    spriteUrl: webp ?? png,
-    spriteFormat,
-    spriteMeta: { ...rack.spriteMeta, format: webp ? 'image/webp' : 'image/png' },
-    pngSpriteUrl: png,
     stillUrl: still,
+    stillWebpUrl: stillWebp,
+    spriteUrl: loop ? (loop.webp ?? loop.png) : null,
+    spriteFormat: loop ? (loop.webp ? 'webp' : 'png') : null,
+    spriteMeta: loop && rack.spriteMeta ? { ...rack.spriteMeta, format: loop.webp ? 'image/webp' : 'image/png' } : null,
+    pngSpriteUrl: loop ? loop.png : null,
   };
 }
 
@@ -336,9 +342,10 @@ export const get = query({
       designRev: product.designRev ?? 0,
       rack: rack
         ? {
-            spriteUrl: (await url(rack.spriteWebp)) ?? (await url(rack.spritePng)),
-            spriteMeta: rack.spriteMeta,
             stillUrl: await url(rack.still),
+            stillWebpUrl: await url(rack.stillWebp),
+            spriteUrl: (await url(rack.spriteWebp)) ?? (await url(rack.spritePng)),
+            spriteMeta: rack.spriteMeta ?? null,
             fresh: rack.designHash === product.designHash,
           }
         : null,
@@ -589,26 +596,43 @@ export const recordCover = internalMutation({
 
 const rackArgs = {
   slug: v.string(),
-  spriteWebp: v.optional(v.id('_storage')),
-  spritePng: v.id('_storage'),
-  spriteMeta: spriteMetaValidator,
+  /** Required: the sleeve still (`renderSleeveStill`), PNG, square, >= 1024 px. The app's grid shows it. */
   still: v.id('_storage'),
+  /** Optional: the same still as WebP. */
+  stillWebp: v.optional(v.id('_storage')),
+  /** Optional: the spin loop (unused by the grid). With any of it, the PNG sheet and its metadata are required. */
+  spriteWebp: v.optional(v.id('_storage')),
+  spritePng: v.optional(v.id('_storage')),
+  spriteMeta: v.optional(spriteMetaValidator),
   /** The design hash the portal rendered from (`get().designHash`): refused when the design has moved on. */
   designHash: v.string(),
 };
 
-/** Step 5: the spin loop sheet (WebP and PNG, one layout), its metadata and the still. */
+/** Step 5: the rack still (PNG, and WebP when the browser could encode it); optionally the older spin loop. */
 export const attachRackArt = action({
   args: rackArgs,
   handler: async (ctx, args): Promise<{ designHash: string }> => {
     const actorUserId: Id<'users'> = await ctx.runQuery(internal.releases.adminUserId, {});
-    const uploads = [args.spriteWebp, args.spritePng, args.still].filter((id): id is Id<'_storage'> => Boolean(id));
+    const uploads = [args.still, args.stillWebp, args.spriteWebp, args.spritePng].filter((id): id is Id<'_storage'> => Boolean(id));
     return await attaching(ctx, uploads, async () => {
+      const parts = checkRackParts({
+        still: Boolean(args.still),
+        stillWebp: Boolean(args.stillWebp),
+        spriteWebp: Boolean(args.spriteWebp),
+        spritePng: Boolean(args.spritePng),
+        spriteMeta: Boolean(args.spriteMeta),
+      });
+      if (parts) fail('INVALID_INPUT', parts);
+      const still = await inspect(ctx, args.still, 'still');
+      const stillWebp = args.stillWebp ? await inspect(ctx, args.stillWebp, 'stillWebp') : null;
+      const stillProblem = checkStillSize(imageSize(still.head, 'png'), stillWebp ? imageSize(stillWebp.head, 'webp') : undefined);
+      if (stillProblem) fail('INVALID_INPUT', stillProblem);
       if (args.spriteWebp) await inspect(ctx, args.spriteWebp, 'spriteWebp');
-      const png = await inspect(ctx, args.spritePng, 'spritePng');
-      await inspect(ctx, args.still, 'still');
-      const problem = checkSpriteMeta(args.spriteMeta, imageSize(png.head, 'png'));
-      if (problem) fail('INVALID_INPUT', problem);
+      if (args.spritePng && args.spriteMeta) {
+        const png = await inspect(ctx, args.spritePng, 'spritePng');
+        const problem = checkSpriteMeta(args.spriteMeta, imageSize(png.head, 'png'));
+        if (problem) fail('INVALID_INPUT', problem);
+      }
       await ctx.runMutation(internal.releases.recordRackArt, { ...args, actorUserId });
       return { designHash: args.designHash };
     });
@@ -623,17 +647,19 @@ export const recordRackArt = internalMutation({
     if (!product.designHash || product.designHash !== renderedFrom) {
       fail('INVALID_INPUT', 'The casing changed since this render. Render the rack art again.');
     }
-    await requireUnused(ctx, [files.spriteWebp, files.spritePng, files.still]);
+    const ids = [files.still, files.stillWebp, files.spriteWebp, files.spritePng];
+    await requireUnused(ctx, ids);
     const previous = product.rack;
     await ctx.db.patch(product._id, { rack: { ...files, designHash: renderedFrom } });
-    const kept = new Set<string>([files.spriteWebp, files.spritePng, files.still].filter((id) => id !== undefined));
+    const kept = new Set<string>(ids.filter((id) => id !== undefined));
     await deleteFiles(
       ctx,
-      [previous?.spriteWebp, previous?.spritePng, previous?.still].filter((id) => id !== undefined && !kept.has(id)),
+      [previous?.still, previous?.stillWebp, previous?.spriteWebp, previous?.spritePng].filter((id) => id !== undefined && !kept.has(id)),
     );
     await audit(ctx, actorUserId, 'release.rack', slug, previous ? { designHash: previous.designHash } : null, {
       designHash: renderedFrom,
-      spriteMeta: files.spriteMeta,
+      stillWebp: Boolean(files.stillWebp),
+      spriteMeta: files.spriteMeta ?? null,
       webp: Boolean(files.spriteWebp),
     });
     return null;

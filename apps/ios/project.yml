@@ -121,9 +121,11 @@ targets:
           for dir in "$SRC"/*; do [ -f "$dir/manifest.json" ] && cp -R "$dir" "$DST/"; done
           cp "$SRC"/*.zip "$SRC"/*.manifest.json "$DST/" 2>/dev/null || true
           echo "embedded $(ls "$DST" | wc -l | tr -d ' ') dev bundle files"
-      # Debug only: the sample generated discs for -mock runs (DevDiscs.swift): packages/minidisc/shots/*-spin.*
-      # and *-still.png (the spin loops), and samples/<name>.json with their art (the designs). Copied fresh on
-      # every build, never by hand, so re-rendered shots are always the ones the app shows. Release skips it.
+      # Debug only: the sample discs for -mock runs (DevDiscs.swift): packages/minidisc/shots/*-sleeve.{png,webp,json}
+      # (the rack stills, renderSleeveStill, for every tile: LIT, C-WALK, THE SOURCE and the generated samples), and
+      # samples/<name>.json with their art (the designs). The old *-spin.* loops are no longer copied: nothing plays
+      # them. Copied fresh on every build, never by hand, so re-rendered shots are always the ones the app shows.
+      # Release skips it (LIT's still ships in Resources/RackStills for every configuration).
       - name: Embed dev disc renders
         basedOnDependencyAnalysis: false
         inputFiles:
@@ -137,7 +139,7 @@ targets:
           rm -rf "$DST"
           [ -d "$PKG/shots" ] || { echo "note: no packages/minidisc/shots; -mock shows printed sleeves"; exit 0; }
           mkdir -p "$DST/shots" "$DST/samples"
-          for f in "$PKG"/shots/*-spin.webp "$PKG"/shots/*-spin.png "$PKG"/shots/*-spin.json "$PKG"/shots/*-still.png; do
+          for f in "$PKG"/shots/*-sleeve.png "$PKG"/shots/*-sleeve.webp "$PKG"/shots/*-sleeve.json; do
             [ -f "$f" ] && cp "$f" "$DST/shots/"
           done
           for design in "$PKG"/samples/*.json; do

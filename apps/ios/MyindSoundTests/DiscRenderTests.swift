@@ -3,93 +3,57 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import MyindSound
 
-/// Generated discs: the spin-loop sheet maths (packages/minidisc/src/sprite.ts layout), the library's new
-/// `design` / `rack` / `bundle` fields (LIT has none), and which backdrop a release gets. Values are made up.
+/// Generated discs: the rack's still (one render of the sleeve, the disc inside; how it decodes and where its face
+/// is), the library's `design` / `rack` / `bundle` fields (LIT has none from the API), and which backdrop a release
+/// gets. Values are made up.
 final class DiscRenderTests: XCTestCase {
-    private let meta36 = SpriteMeta(frames: 36, cols: 6, rows: 6, frameW: 512, frameH: 512, sheetW: 3072, sheetH: 3072, fps: 24)
+    // MARK: Rack still
 
-    // MARK: Sprite sheet slicing
-
-    func testCellsAreRowMajorWithNoPadding() {
-        XCTAssertEqual(SpriteSheet.cell(0, meta: meta36), CGRect(x: 0, y: 0, width: 512, height: 512))
-        XCTAssertEqual(SpriteSheet.cell(5, meta: meta36), CGRect(x: 2560, y: 0, width: 512, height: 512))
-        XCTAssertEqual(SpriteSheet.cell(7, meta: meta36), CGRect(x: 512, y: 512, width: 512, height: 512))
-        XCTAssertEqual(SpriteSheet.cell(35, meta: meta36), CGRect(x: 2560, y: 2560, width: 512, height: 512))
-        XCTAssertNil(SpriteSheet.cell(36, meta: meta36))
-        XCTAssertNil(SpriteSheet.cell(-1, meta: meta36))
+    func testStillFaceIsInsideTheImageAndNearlySquare() {
+        let face = RackStill.face
+        XCTAssertGreaterThan(face.minX, 0)
+        XCTAssertGreaterThan(face.minY, 0)
+        XCTAssertLessThan(face.maxX, 1)
+        XCTAssertLessThan(face.maxY, 1)
+        // The printed front is square; the slight three-quarter view keeps its bounds within a few percent.
+        XCTAssertEqual(face.width / face.height, 1, accuracy: 0.05)
+        XCTAssertEqual(RackStill.face(side: 200), CGRect(x: face.minX * 200, y: face.minY * 200, width: face.width * 200, height: face.height * 200))
     }
 
-    func testCellsScaleToADownsampledSheet() {
-        // Decoded at half size for a small tile.
-        XCTAssertEqual(SpriteSheet.cell(7, meta: meta36, pixelWidth: 1536, pixelHeight: 1536), CGRect(x: 256, y: 256, width: 256, height: 256))
-        // An odd size rounds to whole pixels and never leaves the sheet.
-        let odd = SpriteSheet.cell(35, meta: meta36, pixelWidth: 1000, pixelHeight: 1000)
-        XCTAssertEqual(odd?.maxX, 1000)
-        XCTAssertEqual(odd?.maxY, 1000)
-        XCTAssertEqual(SpriteSheet.cells(meta: meta36, pixelWidth: 1536, pixelHeight: 1536).count, 36)
+    func testStillCandidatesTryWebPFirst() {
+        let png = URL(string: "https://cdn.example.com/blood/still.png")!, webp = URL(string: "https://cdn.example.com/blood/still.webp")!
+        XCTAssertEqual(RackRender(stillURL: png, stillWebpURL: webp).candidates, [webp, png])
+        XCTAssertEqual(RackRender(stillURL: png).candidates, [png])
     }
 
-    func testPartialLastRowAndTallFrames() {
-        // packSprites packs tall frames into more columns; 10 frames in 4 × 3 leaves two cells empty.
-        let meta = SpriteMeta(frames: 10, cols: 4, rows: 3, frameW: 300, frameH: 200, sheetW: 1200, sheetH: 600, fps: 12)
-        XCTAssertEqual(SpriteSheet.cell(9, meta: meta), CGRect(x: 300, y: 400, width: 300, height: 200))
-        XCTAssertNil(SpriteSheet.cell(10, meta: meta))
-        XCTAssertEqual(SpriteSheet.cells(meta: meta, pixelWidth: 1200, pixelHeight: 600).count, 10)
+    /// End to end on a real PNG with alpha: it decodes, downsampled to the tile size; a non-image gives nil.
+    func testStillDecodesDownsampledAndRejectsNonImages() throws {
+        let file = try writePNG(size: 1200)
+        let image = try XCTUnwrap(RackStillLoader.decode(file: file, maxPixels: 300))
+        XCTAssertEqual(max(image.width, image.height), 300)
+        let junk = FileManager.default.temporaryDirectory.appendingPathComponent("junk-\(UUID().uuidString).png")
+        try Data("not an image".utf8).write(to: junk)
+        addTeardownBlock { try? FileManager.default.removeItem(at: junk) }
+        XCTAssertNil(RackStillLoader.decode(file: junk))
     }
 
-    func testInvalidLayoutsGiveNoCells() {
-        var meta = meta36
-        meta.frames = 37 // more frames than cells
-        XCTAssertFalse(meta.isValid)
-        XCTAssertNil(SpriteSheet.cell(0, meta: meta))
-        meta = meta36
-        meta.sheetW = 3000 // cells run off the sheet
-        XCTAssertFalse(meta.isValid)
+    func testLITHasABuiltInStill() throws {
+        let lit = try XCTUnwrap(RackRender.builtIn(slug: "lit", bundle: Bundle(for: AppModel.self)))
+        XCTAssertEqual(lit.stillURL.lastPathComponent, "lit-sleeve.webp")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: lit.stillURL.path))
+        XCTAssertNotNil(RackStillLoader.decode(file: lit.stillURL))
+        XCTAssertNil(RackRender.builtIn(slug: "blood", bundle: Bundle(for: AppModel.self)))
     }
 
-    func testFrameIndexLoopsAtFps() {
-        XCTAssertEqual(SpriteSheet.frameIndex(at: 0, frames: 36, fps: 24), 0)
-        XCTAssertEqual(SpriteSheet.frameIndex(at: 1, frames: 36, fps: 24), 24)
-        XCTAssertEqual(SpriteSheet.frameIndex(at: 1.5, frames: 36, fps: 24), 0)
-        XCTAssertEqual(SpriteSheet.frameIndex(at: -1 / 24, frames: 36, fps: 24), 35)
-        XCTAssertEqual(SpriteSheet.frameIndex(at: .nan, frames: 36, fps: 24), 0)
-    }
-
-    /// End to end on a real PNG: 4 cells, each with an opaque square that moves; the frames come back trimmed
-    /// to the union of the squares, so the loop never jitters. A blank sheet gives nil (the still stands in).
-    func testSliceTrimsEveryFrameToTheUnionOfOpaquePixels() throws {
-        let meta = SpriteMeta(frames: 4, cols: 2, rows: 2, frameW: 100, frameH: 100, sheetW: 200, sheetH: 200, fps: 8)
-        let squares = [CGRect(x: 20, y: 30, width: 40, height: 40), CGRect(x: 30, y: 30, width: 40, height: 40),
-                       CGRect(x: 20, y: 40, width: 40, height: 40), CGRect(x: 30, y: 40, width: 40, height: 40)]
-        let file = try writeSheet(meta: meta, squares: squares)
-        let frames = try XCTUnwrap(SpinLoopLoader.slice(file: file, meta: meta, framePixels: 100))
-        XCTAssertEqual(frames.frames.count, 4)
-        XCTAssertEqual(frames.fps, 8)
-        // Union: x 20...70, y 30...80 (50 × 50), plus the scan's small margin.
-        let first = try XCTUnwrap(frames.frames.first)
-        XCTAssertEqual(Double(first.width), 50, accuracy: 6)
-        XCTAssertEqual(Double(first.height), 50, accuracy: 6)
-        XCTAssertTrue(frames.frames.allSatisfy { $0.width == first.width && $0.height == first.height })
-
-        let blank = try writeSheet(meta: meta, squares: [])
-        XCTAssertNil(SpinLoopLoader.slice(file: blank, meta: meta, framePixels: 100))
-    }
-
-    private func writeSheet(meta: SpriteMeta, squares: [CGRect]) throws -> URL {
+    private func writePNG(size: Int) throws -> URL {
         let context = try XCTUnwrap(CGContext(
-            data: nil, width: meta.sheetW, height: meta.sheetH, bitsPerComponent: 8, bytesPerRow: meta.sheetW * 4,
+            data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ))
-        // Top-left origin, as the sheet is laid out.
-        context.translateBy(x: 0, y: CGFloat(meta.sheetH))
-        context.scaleBy(x: 1, y: -1)
         context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
-        for (index, square) in squares.enumerated() {
-            let cell = try XCTUnwrap(SpriteSheet.cell(index, meta: meta))
-            context.fill(square.offsetBy(dx: cell.minX, dy: cell.minY))
-        }
+        context.fill(CGRect(x: size / 8, y: size / 8, width: size * 3 / 4, height: size * 3 / 4))
         let image = try XCTUnwrap(context.makeImage())
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("sheet-\(UUID().uuidString).png")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("still-\(UUID().uuidString).png")
         let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil))
         CGImageDestinationAddImage(destination, image, nil)
         XCTAssertTrue(CGImageDestinationFinalize(destination))
@@ -113,11 +77,9 @@ final class DiscRenderTests: XCTestCase {
                 "coverArt": "https://cdn.example.com/blood/cover.png", "shell": "red",
                 "tracks": [{ "n": 1, "title": "Blood", "durationSec": 201 }, { "n": 2, "title": "Vein", "durationSec": 184 }],
                 "theme": { "accent": "#E63024", "backdrop": { "blurPx": 10, "scrim": 0.7 } } },
-              "rack": { "spriteUrl": "https://cdn.example.com/blood/spin.webp", "spriteFormat": "webp",
-                "spriteMeta": { "frames": 36, "cols": 6, "rows": 6, "frameW": 512, "frameH": 512,
-                                "sheetW": 3072, "sheetH": 3072, "fps": 24, "format": "image/webp" },
-                "pngSpriteUrl": "https://cdn.example.com/blood/spin.png",
-                "stillUrl": "https://cdn.example.com/blood/still.png" },
+              "rack": { "stillUrl": "https://cdn.example.com/blood/still.png",
+                "stillWebpUrl": "https://cdn.example.com/blood/still.webp",
+                "spriteUrl": null, "spriteFormat": null, "spriteMeta": null, "pngSpriteUrl": null },
               "bundle": { "url": "https://cdn.example.com/blood-1.0.0.zip", "sha256": "bb", "version": "1.0.0" } }
           ]
         }
@@ -134,26 +96,24 @@ final class DiscRenderTests: XCTestCase {
         XCTAssertEqual(blood.design?.theme?.backdrop?.blurPx, 10)
         XCTAssertEqual(blood.artist, "Tha Myind") // filled from the design
         XCTAssertEqual(blood.year, "2026")
-        XCTAssertEqual(blood.rack?.spriteFormat, "webp")
-        XCTAssertEqual(blood.rack?.meta, meta36)
-        XCTAssertEqual(blood.rack?.stillURL?.absoluteString, "https://cdn.example.com/blood/still.png")
-        XCTAssertEqual(blood.rack?.pngURL?.absoluteString, "https://cdn.example.com/blood/spin.png")
+        XCTAssertEqual(blood.rack?.stillURL.absoluteString, "https://cdn.example.com/blood/still.png")
+        XCTAssertEqual(blood.rack?.stillWebpURL?.absoluteString, "https://cdn.example.com/blood/still.webp")
         XCTAssertEqual(blood.bundle?.url?.absoluteString, "https://cdn.example.com/blood-1.0.0.zip")
         XCTAssertEqual(blood.bundle?.sha256, "bb")
     }
 
-    func testRackIsNilWithoutAUsableSheet() throws {
-        XCTAssertNil(APIDecoding.rack(try JSONValue.parse(#"{ "spriteUrl": "https://x/s.png" }"#)))
-        XCTAssertNil(APIDecoding.rack(try JSONValue.parse(#"{ "spriteMeta": { "frames": 4, "cols": 2, "frameW": 8, "frameH": 8 } }"#)))
-        // Missing format, rows and sheet size are derived; fps defaults to 24.
-        let rack = try XCTUnwrap(APIDecoding.rack(try JSONValue.parse(
-            #"{ "spriteUrl": "https://x/s.png", "spriteMeta": { "frames": 5, "cols": 2, "frameW": 8, "frameH": 8 } }"#
+    func testRackNeedsAStillAndIgnoresTheSpinLoop() throws {
+        // A spin loop alone (an older render) is not a rack image: the printed sleeve stands in.
+        XCTAssertNil(APIDecoding.rack(try JSONValue.parse(
+            #"{ "spriteUrl": "https://x/s.png", "spriteMeta": { "frames": 4, "cols": 2, "frameW": 8, "frameH": 8 } }"#
         )))
-        XCTAssertEqual(rack.spriteFormat, "png")
-        XCTAssertEqual(rack.meta.rows, 3)
-        XCTAssertEqual(rack.meta.sheetH, 24)
-        XCTAssertEqual(rack.meta.fps, 24)
-        XCTAssertNil(rack.stillURL)
+        XCTAssertNil(APIDecoding.rack(try JSONValue.parse(#"{ "stillUrl": "not a url" }"#)))
+        XCTAssertNil(APIDecoding.rack(nil))
+        let rack = try XCTUnwrap(APIDecoding.rack(try JSONValue.parse(
+            #"{ "stillUrl": "https://x/still.png", "stillWebpUrl": null, "spriteUrl": "https://x/s.png" }"#
+        )))
+        XCTAssertEqual(rack.stillURL.absoluteString, "https://x/still.png")
+        XCTAssertNil(rack.stillWebpURL)
     }
 
     func testContextDecodesDesignAndRack() throws {
@@ -211,14 +171,19 @@ final class DiscRenderTests: XCTestCase {
                        .art(URL(string: "https://cdn.example.com/cover.png")!, blurPx: BackdropRules.maxBlurPx, scrim: BackdropRules.minScrim))
     }
 
-    // MARK: Tile layout
+    // MARK: Focus layout
 
-    func testRenderFaceIsTheSquareAtTheFoot() {
-        let face = RackRules.renderFace(width: 100, height: 160)
-        XCTAssertEqual(face.width, 92, accuracy: 0.001)
-        XCTAssertEqual(face.height, 92, accuracy: 0.001)
-        XCTAssertEqual(face.maxY, 160, accuracy: 0.001)
-        XCTAssertEqual(face.midX, 50, accuracy: 0.001)
-        XCTAssertEqual(RackRules.loopPhase(slug: "blood"), RackRules.loopPhase(slug: "blood"))
+    func testFocusPutsTheStillsFaceWhereThePrintedSleeveGoes() {
+        let layout = FocusLayout(size: CGSize(width: 390, height: 844))
+        let printed = layout.sleeveFrame(rendered: false)
+        let rendered = layout.sleeveFrame(rendered: true)
+        XCTAssertEqual(printed.width, layout.sleeveWidth, accuracy: 0.001)
+        // The still is bigger (margin, spine, shadow), and its face lands on the printed sleeve's square.
+        let face = CGRect(x: rendered.minX + RackStill.face.minX * rendered.width, y: rendered.minY + RackStill.face.minY * rendered.height,
+                          width: RackStill.face.width * rendered.width, height: RackStill.face.height * rendered.height)
+        XCTAssertEqual(face.width, printed.width, accuracy: 0.001)
+        XCTAssertEqual(face.midX, printed.midX, accuracy: 0.001)
+        XCTAssertEqual(face.midY, printed.midY, accuracy: 0.001)
+        XCTAssertEqual(rendered.width, rendered.height, accuracy: 0.001)
     }
 }

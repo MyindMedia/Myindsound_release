@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "slug": "lit",
+  "title": "LIT",
+  "artist": "Tha Myind",
+  "year": 2026,
+  "tracks": [
+    { "n": 1, "title": "L.I.T. (Living In Truth)", "durationSec": 192 },
+    { "n": 2, "title": "G. O. D.", "durationSec": 225 },
+    { "n": 3, "title": "Victory In the Valley", "durationSec": 158 },
+    { "n": 4, "title": "Tired", "durationSec": 142 },
+    { "n": 5, "title": "Let Him Cook", "durationSec": 139 },
+    { "n": 6, "title": "He The Truth", "durationSec": 183 },
+    { "n": 7, "title": "Faith", "durationSec": 183 }
+  ],
+  "coverArt": "lit/cover.png",
+  "shell": "clear-pink",
+  "labelStyle": "sticker",
+  "labelText": "LIT\nLIVING IN TRUTH\nTHA MYIND",
+  "accent": "#FF3DA8",
+  "accent2": "#9FD8FF",
+  "theme": { "accent": "#FF3DA8", "accent2": "#9FD8FF", "backdrop": { "blurPx": 12, "scrim": 0.62 } }
+}

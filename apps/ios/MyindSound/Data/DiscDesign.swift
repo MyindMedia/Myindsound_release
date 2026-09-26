@@ -62,71 +62,35 @@ struct DiscDesign: Equatable {
     }
 }
 
-/// `rack.spriteMeta`: the sheet layout `renderSpinLoop` wrote (packages/minidisc/src/sprite.ts: row major, no
-/// padding, cell `i` at `((i % cols) * frameW, floor(i / cols) * frameH)`).
-struct SpriteMeta: Equatable {
-    var frames: Int
-    var cols: Int
-    var rows: Int
-    var frameW: Int
-    var frameH: Int
-    var sheetW: Int
-    var sheetH: Int
-    var fps: Double
-
-    /// The layout is usable: at least one frame, every cell inside the sheet.
-    var isValid: Bool {
-        frames > 0 && cols > 0 && rows > 0 && frameW > 0 && frameH > 0 && frames <= cols * rows
-            && cols * frameW <= sheetW && rows * frameH <= sheetH && fps > 0
-    }
-}
-
-/// `rack` (convex/releases.ts `RackInfo`): the release's spin loop for the grid (the sleeved cartridge, disc turning inside the casing).
+/// `rack` (convex/releases.ts `RackInfo`): the rack image, one still 3D render of the release in its printed
+/// sleeve with the disc all the way inside (packages/minidisc `renderSleeveStill`), PNG and WebP with alpha, square.
+/// The grid shows it completely still. The API's optional spin-loop fields are not read: nothing plays them.
 struct RackRender: Equatable {
-    var spriteURL: URL
-    /// `webp` or `png`.
-    var spriteFormat: String
-    var meta: SpriteMeta
-    var stillURL: URL?
-    /// `pngSpriteUrl`: the same layout as PNG, used when the WebP sheet can't be had or decoded.
-    var pngURL: URL? = nil
+    var stillURL: URL
+    /// The same render as WebP (smaller; iOS decodes it natively). Tried first, the PNG is the fallback.
+    var stillWebpURL: URL? = nil
+
+    /// Where to load the still from, best first.
+    var candidates: [URL] { [stillWebpURL, stillURL].compactMap { $0 } }
+
+    /// LIT has no portal rack (it predates the portal), so its render ships in the app, every configuration:
+    /// `Resources/RackStills/<slug>-sleeve.webp`, copied from packages/minidisc/shots (`dev/stills.html`).
+    static func builtIn(slug: String, bundle: Bundle = .main) -> RackRender? {
+        guard slug == "lit", let url = bundle.url(forResource: "\(slug)-sleeve", withExtension: "webp") else { return nil }
+        return RackRender(stillURL: url)
+    }
 }
 
-/// The sheet maths: which rectangle of the decoded sheet is frame `i`. The decoded image may be smaller than
-/// `meta.sheetW × meta.sheetH` (downsampled for the tile), so rects scale to it.
-enum SpriteSheet {
-    static func cell(_ index: Int, meta: SpriteMeta) -> CGRect? {
-        guard meta.isValid, index >= 0, index < meta.frames else { return nil }
-        return CGRect(
-            x: (index % meta.cols) * meta.frameW,
-            y: (index / meta.cols) * meta.frameH,
-            width: meta.frameW,
-            height: meta.frameH
-        )
-    }
+/// The still's fixed framing: `renderSleeveStill` renders every release with the same pose, light and camera, so
+/// the sleeve's printed front lands in the same place in every image (its `face`, packages/minidisc/shots/
+/// *-sleeve.json; docs/app-v1/API.md). Stickers, the loan tag and the sealed film are laid over this rectangle.
+enum RackStill {
+    /// The printed front, as fractions of the (square) image, origin top left.
+    static let face = CGRect(x: 0.0720, y: 0.0747, width: 0.8343, height: 0.8579)
 
-    /// Frame `index` in a sheet decoded at `pixelWidth × pixelHeight`, snapped to whole pixels.
-    static func cell(_ index: Int, meta: SpriteMeta, pixelWidth: Int, pixelHeight: Int) -> CGRect? {
-        guard let rect = cell(index, meta: meta), pixelWidth > 0, pixelHeight > 0 else { return nil }
-        let sx = CGFloat(pixelWidth) / CGFloat(meta.sheetW)
-        let sy = CGFloat(pixelHeight) / CGFloat(meta.sheetH)
-        let x0 = (rect.minX * sx).rounded(), y0 = (rect.minY * sy).rounded()
-        let x1 = min(CGFloat(pixelWidth), (rect.maxX * sx).rounded())
-        let y1 = min(CGFloat(pixelHeight), (rect.maxY * sy).rounded())
-        guard x1 > x0, y1 > y0 else { return nil }
-        return CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
-    }
-
-    /// Every frame's rect, in order.
-    static func cells(meta: SpriteMeta, pixelWidth: Int, pixelHeight: Int) -> [CGRect] {
-        (0..<max(0, meta.frames)).compactMap { cell($0, meta: meta, pixelWidth: pixelWidth, pixelHeight: pixelHeight) }
-    }
-
-    /// Which frame shows at `time` seconds, looping at `meta.fps`.
-    static func frameIndex(at time: TimeInterval, frames: Int, fps: Double) -> Int {
-        guard frames > 0, fps > 0, time.isFinite else { return 0 }
-        let n = Int((time * fps).rounded(.down)) % frames
-        return n < 0 ? n + frames : n
+    /// `face` in an image drawn `side` points square.
+    static func face(side: CGFloat) -> CGRect {
+        CGRect(x: face.minX * side, y: face.minY * side, width: face.width * side, height: face.height * side)
     }
 }
 
@@ -167,36 +131,13 @@ extension APIDecoding {
         )
     }
 
-    static func spriteMeta(_ value: JSONValue?) -> SpriteMeta? {
-        guard let value, let frames = value["frames"]?.int, let cols = value["cols"]?.int,
-              let frameW = value["frameW"]?.int, let frameH = value["frameH"]?.int else { return nil }
-        let rows = value["rows"]?.int ?? Int((Double(frames) / Double(max(1, cols))).rounded(.up))
-        let meta = SpriteMeta(
-            frames: frames,
-            cols: cols,
-            rows: rows,
-            frameW: frameW,
-            frameH: frameH,
-            sheetW: value["sheetW"]?.int ?? cols * frameW,
-            sheetH: value["sheetH"]?.int ?? rows * frameH,
-            fps: value["fps"]?.double ?? 24
-        )
-        return meta.isValid ? meta : nil
-    }
-
-    /// `rack: { spriteUrl, spriteFormat, spriteMeta, stillUrl }`. Nil without a sheet or a usable layout.
+    /// `rack: { stillUrl, stillWebpUrl?, ... }`. Nil without a usable still URL (the printed sleeve stands in).
     static func rack(_ value: JSONValue?) -> RackRender? {
-        guard let value, let text = value["spriteUrl"]?.string, let url = URL(string: text), url.scheme != nil,
-              let meta = spriteMeta(value["spriteMeta"]) else { return nil }
-        let format = value["spriteFormat"]?.string?.lowercased()
-            ?? value["spriteMeta"]?["format"]?.string.map { $0.contains("webp") ? "webp" : "png" }
-            ?? (url.pathExtension.lowercased() == "webp" ? "webp" : "png")
-        return RackRender(
-            spriteURL: url,
-            spriteFormat: format == "webp" ? "webp" : "png",
-            meta: meta,
-            stillURL: value["stillUrl"]?.string.flatMap(URL.init(string:)),
-            pngURL: value["pngSpriteUrl"]?.string.flatMap(URL.init(string:))
-        )
+        let url = { (key: String) -> URL? in
+            guard let text = value?[key]?.string, let url = URL(string: text), url.scheme != nil else { return nil }
+            return url
+        }
+        guard let still = url("stillUrl") else { return nil }
+        return RackRender(stillURL: still, stillWebpURL: url("stillWebpUrl"))
     }
 }

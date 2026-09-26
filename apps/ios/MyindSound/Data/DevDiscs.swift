@@ -2,7 +2,7 @@ import Foundation
 
 /// Debug only: the sample generated discs from `packages/minidisc`, embedded as `DevDiscs/` by a Debug-only build
 /// phase (project.yml "Embed dev disc renders"), so `-mock` runs show real renders with no hosting:
-/// `DevDiscs/shots/<name>-spin.{webp,png,json}` + `<name>-still.png` (the publish-time spin loops) and
+/// `DevDiscs/shots/<name>-sleeve.{webp,png}` (the publish-time rack stills, `renderSleeveStill`) and
 /// `DevDiscs/samples/<name>.json` + its art (the DiscDesigns). The build copies them fresh every time, so the
 /// newest renders are always used. Release builds carry none of it and every lookup is nil.
 enum DevDiscs {
@@ -25,26 +25,16 @@ enum DevDiscs {
         return design
     }
 
-    /// `shots/<name>-spin.*`: WebP when present (what the portal publishes by default), else PNG.
+    /// `shots/<name>-sleeve.png` (+ `.webp`, tried first), as the API's `rack.stillUrl` / `stillWebpUrl`.
     static func rack(_ name: String) -> RackRender? {
-        guard let dir = root?.appendingPathComponent("shots", isDirectory: true),
-              let data = try? Data(contentsOf: dir.appendingPathComponent("\(name)-spin.json")),
-              let meta = APIDecoding.spriteMeta(try? JSONValue.parse(data)) else { return nil }
+        guard let dir = root?.appendingPathComponent("shots", isDirectory: true) else { return nil }
         let fm = FileManager.default
-        let webp = dir.appendingPathComponent("\(name)-spin.webp"), png = dir.appendingPathComponent("\(name)-spin.png")
-        let sheet = fm.fileExists(atPath: webp.path) ? webp : png
-        guard fm.fileExists(atPath: sheet.path) else { return nil }
-        let still = dir.appendingPathComponent("\(name)-still.png")
-        return RackRender(
-            spriteURL: sheet,
-            spriteFormat: sheet.pathExtension,
-            meta: meta,
-            stillURL: fm.fileExists(atPath: still.path) ? still : nil,
-            pngURL: sheet != png && fm.fileExists(atPath: png.path) ? png : nil
-        )
+        let png = dir.appendingPathComponent("\(name)-sleeve.png"), webp = dir.appendingPathComponent("\(name)-sleeve.webp")
+        guard fm.fileExists(atPath: png.path) else { return nil }
+        return RackRender(stillURL: png, stillWebpURL: fm.fileExists(atPath: webp.path) ? webp : nil)
     }
 
-    /// The first of `names` that has a render (a missing sample borrows another's loop).
+    /// The first of `names` that has a render (a missing sample borrows another's).
     static func rack(anyOf names: [String]) -> RackRender? {
         names.lazy.compactMap { rack($0) }.first
     }

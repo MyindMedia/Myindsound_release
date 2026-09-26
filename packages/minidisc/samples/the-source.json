@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "slug": "the-source",
+  "title": "THE SOURCE",
+  "artist": "Tha Myind",
+  "year": 2026,
+  "tracks": [
+    { "n": 1, "title": "The Source", "durationSec": 204 }
+  ],
+  "coverArt": "the-source/cover.png",
+  "shell": "purple",
+  "labelStyle": "metal",
+  "accent": "#B79CFF",
+  "accent2": "#9FD8FF",
+  "theme": { "accent": "#B79CFF", "accent2": "#9FD8FF", "backdrop": { "blurPx": 14, "scrim": 0.64 } }
+}

@@ -3,8 +3,9 @@ import SwiftUI
 /// RACK-2: a copy lifted out of the rack. The tile's sleeve moves up into the middle of the screen over the dimmed
 /// backdrop (the shared element), then crossfades into the release's own three.js sleeve (ARCH-1: the same renderer
 /// as the site, opened in sleeve mode for an unwrapped copy), where the fan turns it, zooms and double-taps to
-/// reset. A tap on the sleeve, or LOAD DISC, slides the sleeve off and inserts the disc into the deck. Closing
-/// fades back to the printed sleeve and it drops back into its slot.
+/// reset. The tile's sleeve is the rendered still (the disc inside), so the move is of that still and the
+/// crossfade goes from it into the live 3D sleeve. A tap on the sleeve, or LOAD DISC, slides the sleeve off and
+/// inserts the disc into the deck. Closing fades back to the still and it drops back into its slot.
 ///
 /// A copy that has never been unwrapped opens the full experience instead (RACK-3: the film peels once).
 struct RackFocusView: View {
@@ -74,17 +75,14 @@ struct RackFocusView: View {
         }
     }
 
-    /// The printed sleeve: the shared element, and the splash until the page is ready (NAT-3).
+    /// The tile's sleeve (the rendered still, else the printed sleeve): the shared element, and the splash until the
+    /// page is ready (NAT-3), when it crossfades into the live 3D sleeve.
     private func printedSleeve(layout: FocusLayout, size: CGSize) -> some View {
-        // A rendered disc's box is taller (the cartridge stands out of the sleeve); its foot stays where the
-        // printed sleeve's is, so the crossfade into the 3D sleeve lands in the same place.
-        let aspect = app.rackRender(slug: release.slug) == nil ? RackArt.aspect : RackArt.renderAspect
-        let height = layout.sleeveWidth / aspect
-        let lift = (height - layout.sleeveWidth / RackArt.aspect) / 2
+        let frame = layout.sleeveFrame(rendered: app.rackRender(slug: release.slug) != nil)
         return RackSleeve(release: release, state: state)
             .modifier(SharedSleeve(id: release.slug, namespace: namespace, enabled: !reduceMotion))
-            .frame(width: layout.sleeveWidth, height: height)
-            .position(x: size.width / 2, y: layout.sleeveCentreY - lift)
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
             .opacity(showHost ? 0 : 1)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -276,8 +274,19 @@ struct FocusLayout {
     let size: CGSize
 
     var sleeveWidth: CGFloat { min(size.width * 0.846, size.height * 0.39) }
-    /// The centre of the whole view (cartridge lip included), so the sleeve face centres at 49.4 % of the height.
-    var sleeveCentreY: CGFloat {
-        size.height * 0.494 - sleeveWidth * RackArt.cartridgeLip / 2
+    /// The sleeve face centres at 49.4 % of the height.
+    var sleeveCentreY: CGFloat { size.height * 0.494 }
+
+    /// The square the tile's sleeve is drawn in. A rendered still is scaled so its printed front
+    /// (`RackStill.face`) is `sleeveWidth` wide and centred where the 3D sleeve's face sits, so the crossfade lands
+    /// on it; a printed sleeve is the face itself.
+    func sleeveFrame(rendered: Bool) -> CGRect {
+        let centre = CGPoint(x: size.width / 2, y: sleeveCentreY)
+        guard rendered else {
+            return CGRect(x: centre.x - sleeveWidth / 2, y: centre.y - sleeveWidth / 2, width: sleeveWidth, height: sleeveWidth)
+        }
+        let side = sleeveWidth / RackStill.face.width
+        let face = RackStill.face
+        return CGRect(x: centre.x - face.midX * side, y: centre.y - face.midY * side, width: side, height: side)
     }
 }

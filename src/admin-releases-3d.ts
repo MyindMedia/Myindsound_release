@@ -1,19 +1,20 @@
 /**
  * The release portal's three.js side, loaded only when the admin reaches the casing step (three.js and
  * packages/minidisc never touch the public pages or the rest of admin). A live preview of the cartridge on the
- * chosen shell, spinning and draggable, plus the minidisc calls the portal makes: `suggestShell`, `renderSpinLoop`.
+ * chosen shell, spinning and draggable, plus the minidisc calls the portal makes: `suggestShell`, `renderSleeveStill` (the rack image) and the optional
+ * `renderSpinLoop`.
  */
 import { ACESFilmicToneMapping, DirectionalLight, HemisphereLight, PerspectiveCamera, PointLight, Scene, SRGBColorSpace, WebGLRenderer } from 'three';
 import { ensureFonts, createMiniDisc, type DiscDesign, type LoadedArt, type MiniDisc } from '../packages/minidisc/src/index';
 import { createStudioEnvironment } from './player3d/cartridge-detail';
 
-export { SHELL_PRESET_LIST, ensureFonts, loadDesignArt, renderSpinLoop, suggestShell, validateDesign } from '../packages/minidisc/src/index';
-export type { DiscDesign, LoadedArt, ShellPreset, ShellSuggestion, SpinLoopResult } from '../packages/minidisc/src/index';
+export { SHELL_PRESET_LIST, ensureFonts, loadDesignArt, renderSleeveStill, renderSpinLoop, suggestShell, validateDesign } from '../packages/minidisc/src/index';
+export type { DiscDesign, LoadedArt, ShellPreset, ShellSuggestion, SleeveStill, SpinLoopResult } from '../packages/minidisc/src/index';
 
 export interface CasingPreview {
   /** Rebuilds the cartridge for this design (disposing the last one). */
   show(design: DiscDesign, art: LoadedArt): void;
-  /** Sleeve on (pulled part way down, as on the rack) or off (the bare cartridge). */
+  /** Sleeve on (pulled part way down, so the cartridge shows) or off (the bare cartridge). */
   setSleeve(on: boolean): void;
   /** Turns the cartridge to face front again. */
   reset(): void;

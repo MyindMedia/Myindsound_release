@@ -510,13 +510,16 @@ sleeve art) and for drafts (nothing unreleased leaks through the public queries)
 // Added to every app.library entry and to app.context (app.context also gains `bundle`, the same Bundle type).
 design: DiscDesign | null;        // v1, as validated by validateDesign. coverArt is an https URL to the cover.
 rack: {
-  spriteUrl: string;              // spin loop sprite sheet (sleeved package, disc turning once); WebP when available
-  spriteFormat: 'webp' | 'png';
+  stillUrl: string;               // THE rack image: the release in its printed sleeve, disc all the way inside,
+                                  // one still 3D render (renderSleeveStill), PNG with alpha, square, >= 1024 px
+  stillWebpUrl: string | null;    // the same render as WebP with alpha (null if the portal couldn't encode WebP)
+  // Optional and unused by the grid (older portal renders, or the portal's "also render the spin loop"):
+  spriteUrl: string | null;       // spin loop sprite sheet; WebP when available
+  spriteFormat: 'webp' | 'png' | null;
   spriteMeta: { frames: number; cols: number; rows: number; frameW: number; frameH: number;
-                sheetW: number; sheetH: number; fps: number; format: 'image/webp' | 'image/png' };
-  pngSpriteUrl: string;           // the same layout as PNG (fallback)
-  stillUrl: string;               // the sleeved front, PNG with alpha
-} | null;
+                sheetW: number; sheetH: number; fps: number; format: 'image/webp' | 'image/png' } | null;
+  pngSpriteUrl: string | null;    // the same layout as PNG
+} | null;                         // null without a still
 bundle: { version: string; url: string; sha256: string } | null;   // app.context only; library already had it
 ```
 
@@ -525,8 +528,12 @@ bundle: { version: string; url: string; sha256: string } | null;   // app.contex
   it, and `manifest.json` has `generator: "minidisc/1"` plus `design: { title, artist, year, shell, labelStyle,
   theme }`. Portal versions look like `1.0.0+r3` (generic bundle version + design revision): a new version or sha
   means re-download.
-- **Rack grid:** frame `i` is the cell at column `i % cols`, row `floor(i / cols)`, `frameW × frameH`, played at
-  `fps`, looping seamlessly over `frames`. Tap opens the live 3D (the bundle).
+- **Rack grid:** show `stillWebpUrl` (else `stillUrl`), completely still: no spinning. Every release is rendered
+  with the same pose, light and framing, so the printed front always lands at the same place in the image
+  (`face` from `renderSleeveStill`: x 0.072, y 0.075, w 0.834, h 0.858 of the image), which is where the app lays
+  stickers, the loan tag and the sealed film. Tap opens the live 3D (the bundle, sleeve mode); the shared-element
+  move uses the still and crossfades into it. The sprite fields are optional history: frame `i` is the cell at
+  column `i % cols`, row `floor(i / cols)`, `frameW × frameH`, at `fps`.
 - **Cover / player backdrop:** `design.coverArt` (https) is the cover; `design.theme` holds the backdrop blur and
   scrim (defaults: `resolveTheme` in packages/minidisc).
 - Audio is unchanged: still only through `media.getStreamUrl`.
@@ -543,9 +550,9 @@ bundle: { version: string; url: string; sha256: string } | null;   // app.contex
 | `setTracks` | mutation | `{ slug, tracks: [{ trackId, title }] }`: order and titles; tracks left out are deleted with their audio |
 | `attachCover` | action | `{ slug, file }`: PNG/JPEG/WebP, square, ≥ 1024 px (read from the file header) |
 | `saveDesign` | mutation | `{ slug, design }`: the look (shell, tint, label, accents, stickers, theme) over the server's facts, `validateDesign` |
-| `attachRackArt` | action | `{ slug, spriteWebp?, spritePng, spriteMeta, still, designHash }`: meta checked against the PNG's size |
+| `attachRackArt` | action | `{ slug, still, stillWebp?, spriteWebp?, spritePng?, spriteMeta?, designHash }`: `still` is required (PNG, square, ≥ 1024 px, `stillWebp` the same size); the spin loop is optional, but with any of it `spritePng` + `spriteMeta` are required and the meta is checked against the PNG's size |
 | `attachBundle` | action | `{ slug, version, zip, sha256, designHash }`: zip ≤ 40 MB, sha256 must equal the stored file's |
-| `publish` | mutation | `{ slug, status: 'scheduled' \| 'live', dropAt?, reason }`: needs every track with audio, the cover, a saved design, rack art and bundle made from that design; flips `active` |
+| `publish` | mutation | `{ slug, status: 'scheduled' \| 'live', dropAt?, reason }`: needs every track with audio, the cover, a saved design, rack art with its sleeve still (a spin loop is not needed) and a bundle made from that design; flips `active` |
 
 Rack art and bundles record the design hash they were made from; changing the tracks, cover or casing makes them
 out of date and `publish` refuses until they are redone. Internal: `releases.designForPublish`,

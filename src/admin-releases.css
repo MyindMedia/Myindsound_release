@@ -538,3 +538,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.rp-loop-choice {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

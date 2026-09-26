@@ -67,7 +67,10 @@ export interface MiniDiscOptions extends BuildOptions {
   quality?: DetailQuality;
   /** Start in the printed card sleeve. Default true. */
   sleeve?: boolean;
-  /** How far the sleeve sits down the cartridge, as a fraction of its height (0 = fully sleeved). Default 0. */
+  /**
+   * How far the sleeve sits down the cartridge, as a fraction of its height. Default 0: the sleeve's rest, where
+   * the cartridge's top edge stands `SLEEVE_PROUD` out of the mouth. `-SLEEVE_PROUD` puts the cartridge all the way in.
+   */
   sleeveDrop?: number;
   wearSafeZones?: readonly WearZone[];
 }
@@ -80,6 +83,8 @@ export interface MiniDisc {
   readonly height: number;
   readonly depth: number;
   readonly built: BuiltCartridge;
+  /** The printed card sleeve (its meshes are named `sleeve-*`), or null while it's off. */
+  readonly sleeve: Group | null;
   /** Target disc speed, in revolutions per second (LIT plays at about 3.3). Eased, as the deck does. */
   spin(rate: number): void;
   /** Advance the spin (and the sleeve, when it's sliding). */
@@ -93,6 +98,12 @@ export interface MiniDisc {
 
 const SPIN_RESPONSE = 3;
 
+/** wrap.ts `sleeveRest`: at rest the cartridge stands this fraction of its height out of the sleeve's mouth. */
+export const SLEEVE_PROUD = 0.07;
+/** wrap.ts: the sleeve stands `SLEEVE_GAP` off the cartridge, and its card is `SLEEVE_CARD` thick. */
+export const SLEEVE_GAP = 0.009;
+export const SLEEVE_CARD = 0.006;
+
 /** The sleeve's printed faces from the design: the cover, and the generated back and spines. */
 export function makeSleevePrints(design: DiscDesign, art: DesignArt, options: { quality?: DetailQuality; anisotropy?: number } = {}): {
   poster: Texture;
@@ -104,8 +115,8 @@ export function makeSleevePrints(design: DiscDesign, art: DesignArt, options: { 
   drawCover(ctx, art.cover, 0, 0, size, size);
   const layout = cartridgeLayout();
   // wrap.ts: the sleeve stands SLEEVE_GAP (0.009) off the cartridge and its card is 0.006 thick.
-  const sleeveDepth = CART_DEPTH + 0.009 * 2 + 0.006 * 2;
-  const sleeveHeight = layout.height + 0.009 * 2;
+  const sleeveDepth = CART_DEPTH + SLEEVE_GAP * 2 + SLEEVE_CARD * 2;
+  const sleeveHeight = layout.height + SLEEVE_GAP * 2;
   return {
     poster: srgbTexture(cover, anisotropy),
     prints: {
@@ -200,6 +211,9 @@ export function createMiniDisc(design: DiscDesign, art: DesignArt, options: Mini
     height: layout.height,
     depth: CART_DEPTH,
     built,
+    get sleeve() {
+      return wrap?.group ?? null;
+    },
     spin: (rps) => {
       target = rps;
     },

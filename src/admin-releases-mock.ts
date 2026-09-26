@@ -12,6 +12,7 @@ import {
   checkUpload,
   designHash,
   imageSize,
+  checkRackParts,
   publishProblems,
   refreshDesign,
   type ReleaseFacts,
@@ -37,7 +38,7 @@ type Release = {
   design: DiscDesign | null;
   designHash: string | null;
   designRev: number;
-  rack: { sprite: string; meta: SpriteMeta; still: string; designHash: string } | null;
+  rack: { still: string; stillWebp: string | null; sprite: string | null; meta: SpriteMeta | null; designHash: string } | null;
   bundle: { version: string; file: string; sha256: string; designHash: string } | null;
 };
 
@@ -100,6 +101,7 @@ export function mockBackend(): PortalBackend {
     hasCover: Boolean(row.cover),
     designHash: row.designHash,
     rackDesignHash: row.rack?.designHash ?? null,
+    rackHasStill: Boolean(row.rack?.still),
     bundleDesignHash: row.bundle?.designHash ?? null,
   });
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -149,7 +151,9 @@ export function mockBackend(): PortalBackend {
         design: row.design,
         designHash: row.designHash,
         designRev: row.designRev,
-        rack: row.rack ? { spriteUrl: urlOf(row.rack.sprite), spriteMeta: row.rack.meta, stillUrl: urlOf(row.rack.still), fresh: row.rack.designHash === row.designHash } : null,
+        rack: row.rack
+          ? { stillUrl: urlOf(row.rack.still), stillWebpUrl: urlOf(row.rack.stillWebp), spriteUrl: urlOf(row.rack.sprite), spriteMeta: row.rack.meta, fresh: row.rack.designHash === row.designHash }
+          : null,
         bundle: row.bundle
           ? { version: row.bundle.version, url: urlOf(row.bundle.file)!, sha256: row.bundle.sha256, fresh: row.bundle.designHash === row.designHash }
           : null,
@@ -249,11 +253,26 @@ export function mockBackend(): PortalBackend {
     },
     async attachRackArt(args) {
       const row = draft(args.slug);
-      if (args.spriteWebp) await check(args.spriteWebp, 'spriteWebp');
-      await check(args.spritePng, 'spritePng');
+      const parts = checkRackParts({
+        still: Boolean(args.still),
+        stillWebp: Boolean(args.stillWebp),
+        spriteWebp: Boolean(args.spriteWebp),
+        spritePng: Boolean(args.spritePng),
+        spriteMeta: Boolean(args.spriteMeta),
+      });
+      if (parts) fail(parts);
       await check(args.still, 'still');
+      if (args.stillWebp) await check(args.stillWebp, 'stillWebp');
+      if (args.spriteWebp) await check(args.spriteWebp, 'spriteWebp');
+      if (args.spritePng) await check(args.spritePng, 'spritePng');
       if (row.designHash !== args.designHash) fail('The casing changed since this render. Render the rack art again.');
-      row.rack = { sprite: args.spriteWebp ?? args.spritePng, meta: args.spriteMeta, still: args.still, designHash: args.designHash };
+      row.rack = {
+        still: args.still,
+        stillWebp: args.stillWebp ?? null,
+        sprite: args.spriteWebp ?? args.spritePng ?? null,
+        meta: args.spriteMeta ?? null,
+        designHash: args.designHash,
+      };
       return { designHash: args.designHash };
     },
     async attachBundle(args) {

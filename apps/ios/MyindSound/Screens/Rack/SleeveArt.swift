@@ -12,16 +12,13 @@ enum RackArt {
         }
     }
 
-    /// The sleeve is a touch taller than wide once the cartridge's top edge stands proud of the mouth.
-    static let cartridgeLip: CGFloat = 0.075
-    static var aspect: CGFloat { 1 / (1 + cartridgeLip) }
-    /// A rack with rendered discs: taller tiles, so the cartridge standing out of the sleeve has room and the
-    /// sleeve still spans most of the tile. Printed sleeves sit at the foot of the same box, so rows line up.
-    static let renderAspect: CGFloat = 0.8
+    /// Every tile is square: the rendered still is square, and a printed sleeve is square with the disc all the way
+    /// inside it (nothing stands out of the mouth), so rows line up whatever each copy shows.
+    static let aspect: CGFloat = 1
 }
 
-/// One copy on the rack (RACK-1): the printed card sleeve, the clear cartridge just proud of its mouth, a soft
-/// shadow, the copy's wear as a faint scuff (proportional to its level, WEAR-1: the same seed always scuffs the
+/// One copy on the rack without a rendered still (RACK-1 fallback): the printed card sleeve with the disc all the
+/// way inside it, a soft shadow, the copy's wear as a faint scuff (proportional to its level, WEAR-1: the same seed always scuffs the
 /// same way), die-cut stickers, a loan tag, and for a locked release the shrink film (DROP-2).
 /// Everything is drawn relative to the view's size, so it scales smoothly through the shared-element move.
 struct SleeveArt: View {
@@ -35,18 +32,10 @@ struct SleeveArt: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = proxy.size.width
-            let lip = width * RackArt.cartridgeLip
-            VStack(spacing: 0) {
-                CartridgeEdge()
-                    .frame(width: width * 0.9, height: lip * 1.6)
-                    .offset(y: lip * 0.6)
-                    .zIndex(0)
-                face(side: width)
-                    .frame(width: width, height: width)
-                    .zIndex(1)
-            }
-            .frame(width: width, height: proxy.size.height, alignment: .bottom)
+            let side = min(proxy.size.width, proxy.size.height)
+            face(side: side)
+                .frame(width: side, height: side)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }
         .aspectRatio(RackArt.aspect, contentMode: .fit)
         .accessibilityHidden(true)
@@ -114,32 +103,6 @@ struct SleeveFaceOverlays: View {
             .frame(width: side, height: side)
         }
         .allowsHitTesting(false)
-    }
-}
-
-/// The clear MiniDisc shell's top edge, standing just proud of the sleeve's mouth.
-private struct CartridgeEdge: View {
-    var body: some View {
-        GeometryReader { proxy in
-            let h = proxy.size.height
-            ZStack(alignment: .top) {
-                UnevenRoundedRectangle(topLeadingRadius: h * 0.45, topTrailingRadius: h * 0.45)
-                    .fill(LinearGradient(
-                        colors: [Color(white: 0.86).opacity(0.55), Color(white: 0.55).opacity(0.3), Color(white: 0.2).opacity(0.5)],
-                        startPoint: .top, endPoint: .bottom
-                    ))
-                UnevenRoundedRectangle(topLeadingRadius: h * 0.45, topTrailingRadius: h * 0.45)
-                    .strokeBorder(Color.white.opacity(0.45), lineWidth: max(0.5, h * 0.05))
-                // The two screws at the top corners of the shell.
-                HStack {
-                    Circle().fill(Color(white: 0.75)).frame(width: h * 0.26)
-                    Spacer()
-                    Circle().fill(Color(white: 0.75)).frame(width: h * 0.26)
-                }
-                .padding(.horizontal, h * 0.45)
-                .padding(.top, h * 0.18)
-            }
-        }
     }
 }
 

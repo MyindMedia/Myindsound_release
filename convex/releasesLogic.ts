@@ -10,7 +10,7 @@ import { validateDesign, type DiscDesign, type ValidationResult } from '../packa
 export const MB = 1024 * 1024;
 
 /** What each upload is for. Each has its own sniffed formats and size cap. */
-export type UploadPurpose = 'audio' | 'cover' | 'spriteWebp' | 'spritePng' | 'still' | 'bundle';
+export type UploadPurpose = 'audio' | 'cover' | 'spriteWebp' | 'spritePng' | 'still' | 'stillWebp' | 'bundle';
 export type FileKind = 'mp3' | 'png' | 'jpeg' | 'webp' | 'zip';
 
 export const UPLOAD_RULES: Record<UploadPurpose, { kinds: FileKind[]; maxBytes: number; label: string; headBytes: number }> = {
@@ -20,7 +20,9 @@ export const UPLOAD_RULES: Record<UploadPurpose, { kinds: FileKind[]; maxBytes: 
   cover: { kinds: ['png', 'jpeg', 'webp'], maxBytes: 25 * MB, label: 'PNG, JPEG or WebP image', headBytes: 512 * 1024 },
   spriteWebp: { kinds: ['webp'], maxBytes: 40 * MB, label: 'WebP sprite sheet', headBytes: 64 },
   spritePng: { kinds: ['png'], maxBytes: 60 * MB, label: 'PNG sprite sheet', headBytes: 64 },
+  // The rack image: the sleeve still (`renderSleeveStill`), PNG with alpha, and the same render as WebP.
   still: { kinds: ['png'], maxBytes: 15 * MB, label: 'PNG still', headBytes: 64 },
+  stillWebp: { kinds: ['webp'], maxBytes: 10 * MB, label: 'WebP still', headBytes: 64 },
   // NAT-5: bundle CI fails over 40 MB.
   bundle: { kinds: ['zip'], maxBytes: 40 * MB, label: 'zip', headBytes: 16 },
 };
@@ -166,6 +168,31 @@ export type SpriteMeta = {
   format: string;
 };
 
+/** The rack still (`renderSleeveStill`) is square and at least this big. */
+export const MIN_STILL_PX = 1024;
+
+/** The sleeve still's size: square (to 1%) and at least `MIN_STILL_PX`. Its WebP twin must match it exactly. */
+export function checkStillSize(png: { width: number; height: number } | null, webp?: { width: number; height: number } | null): string | null {
+  if (!png) return 'The still could not be read as a PNG.';
+  if (Math.min(png.width, png.height) < MIN_STILL_PX) return `The still must be at least ${MIN_STILL_PX} px. Render it again.`;
+  if (Math.abs(png.width - png.height) > Math.max(png.width, png.height) * 0.01) return 'The still must be square. Render it again.';
+  if (webp !== undefined && (!webp || webp.width !== png.width || webp.height !== png.height)) {
+    return 'The WebP still is not the same size as the PNG. Render it again.';
+  }
+  return null;
+}
+
+/**
+ * Which files make the rack art: the still (PNG) is required; its WebP twin is optional; the spin loop is optional
+ * (the app's grid shows the still), but when any of it is sent it needs the PNG sheet and its metadata.
+ */
+export function checkRackParts(parts: { still: boolean; stillWebp: boolean; spriteWebp: boolean; spritePng: boolean; spriteMeta: boolean }): string | null {
+  if (!parts.still) return 'The rack needs the sleeve still.';
+  const anySprite = parts.spriteWebp || parts.spritePng || parts.spriteMeta;
+  if (anySprite && !(parts.spritePng && parts.spriteMeta)) return 'A spin loop needs its PNG sheet and its metadata.';
+  return null;
+}
+
 /** `renderSpinLoop`'s metadata, checked against itself and against the PNG sheet's real size. */
 export function checkSpriteMeta(meta: SpriteMeta, pngSize: { width: number; height: number } | null): string | null {
   const ints = [meta.frames, meta.cols, meta.rows, meta.frameW, meta.frameH, meta.sheetW, meta.sheetH];
@@ -305,6 +332,8 @@ export type PublishState = {
   hasCover: boolean;
   designHash: string | null;
   rackDesignHash: string | null;
+  /** The rack art has its sleeve still (the image the app's grid shows). */
+  rackHasStill: boolean;
   bundleDesignHash: string | null;
 };
 
@@ -322,6 +351,8 @@ export function publishProblems(state: PublishState): string[] {
   else {
     if (state.rackDesignHash !== state.designHash) {
       problems.push(state.rackDesignHash ? 'The rack art is out of date: render it again.' : 'Render the rack art.');
+    } else if (!state.rackHasStill) {
+      problems.push('The rack art has no sleeve still: render it again.');
     }
     if (state.bundleDesignHash !== state.designHash) {
       problems.push(state.bundleDesignHash ? 'The bundle is out of date: build it again.' : 'Build and upload the bundle.');

@@ -53,7 +53,9 @@ final class MockAPI: MyindAPI {
         bundle: BundleStore.devZip(slug: "lit"),
         lend: nil,
         grantedAt: Date(timeIntervalSince1970: 1_758_326_400),
-        trackCount: litTracks.count
+        trackCount: litTracks.count,
+        // The fresh render from packages/minidisc/shots (Debug), else the one built into the app.
+        rack: DevDiscs.rack("lit") ?? RackRender.builtIn(slug: "lit")
     )
 
     static let theSource = LibraryRelease(
@@ -71,11 +73,12 @@ final class MockAPI: MyindAPI {
         bundle: nil,
         lend: nil,
         status: "scheduled",
-        trackCount: nil
+        trackCount: nil,
+        rack: DevDiscs.rack("the-source")
     )
 
     /// Sample copies for the other rack states. Titles other than LIT, C-WALK and The Source are samples. The
-    /// generated ones carry the sample designs and spin loops from packages/minidisc (Debug builds, DevDiscs).
+    /// generated ones carry the sample designs and sleeve stills from packages/minidisc (Debug builds, DevDiscs).
     static func sample(
         _ slug: String, _ title: String, edition: Int?, ownership: Ownership, lend: LendInfo? = nil, accent: String,
         design: DiscDesign? = nil, rack: RackRender? = nil, bundle: BundleInfo? = nil
@@ -90,7 +93,10 @@ final class MockAPI: MyindAPI {
         )
     }
 
-    static let cWalk = sample("c-walk", "C-WALK", edition: 64, ownership: .owned, accent: "#FF8C00")
+    static let cWalk = sample(
+        "c-walk", "C-WALK", edition: 64, ownership: .owned, accent: "#FF8C00",
+        design: DevDiscs.design("c-walk"), rack: DevDiscs.rack("c-walk")
+    )
     /// Out on loan, so its tile shows the loan tag over the render.
     static let reflections = sample(
         "reflections", "Reflections", edition: 212, ownership: .owned,

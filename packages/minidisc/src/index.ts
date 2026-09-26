@@ -1,7 +1,8 @@
 /**
  * @myind/minidisc: the parameterised MiniDisc. A `DiscDesign` (JSON, validated) becomes a three.js cartridge
  * with the preset shell, the disc printed with the art, the label plate and the edition stamp, plus its
- * printed card sleeve; `renderSpinLoop` pre-renders the grid loop at publish time; `suggestShell` picks a
+ * printed card sleeve; `renderSleeveStill` renders the rack's still at publish time (`renderSpinLoop`, the old
+ * spinning loop, stays exported but the grid no longer uses it); `suggestShell` picks a
  * shell from the cover art. See README.md for the contract the portal, the backend and iOS code against.
  */
 export {
@@ -61,10 +62,14 @@ export {
   loadDesignArt,
   makeSleevePrints,
   resolveArtUrl,
+  SLEEVE_CARD,
+  SLEEVE_GAP,
+  SLEEVE_PROUD,
   type LoadedArt,
   type MiniDisc,
   type MiniDiscOptions,
 } from './minidisc';
 export { ArtBackdrop, blurArt, type ArtBackdropOptions } from './backdrop';
 export { renderSpinLoop, type SpinLoopOptions, type SpinLoopResult } from './spin-loop';
+export { SLEEVE_STILL_POSE, renderSleeveStill, type NormalizedRect, type SleeveStill, type SleeveStillOptions } from './sleeve-still';
 export { ensureFonts } from './canvas';

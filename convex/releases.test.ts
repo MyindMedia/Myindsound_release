@@ -7,7 +7,9 @@ import {
   canonicalJson,
   checkCoverSize,
   checkDuration,
+  checkRackParts,
   checkSpriteMeta,
+  checkStillSize,
   checkUpload,
   designHash,
   imageSize,
@@ -92,14 +94,12 @@ async function draftWithMedia(t: T) {
   return { admin, one, two };
 }
 
-/** Rack art and a bundle for the current design. */
+/** Rack art (the sleeve still, PNG + WebP, no spin loop) and a bundle for the current design. */
 async function renderAndBundle(t: T, admin: ReturnType<T['withIdentity']>, hash: string) {
   await admin.action(api.releases.attachRackArt, {
     slug: SLUG,
-    spriteWebp: await store(t, webp(3072, 3072)),
-    spritePng: await store(t, png(3072, 3072)),
-    spriteMeta: META,
     still: await store(t, png(1024, 1024)),
+    stillWebp: await store(t, webp(1024, 1024)),
     designHash: hash,
   });
   const zip = zipBytes();
@@ -160,6 +160,22 @@ describe('file checks', () => {
     expect(checkSpriteMeta({ ...META, cols: 5 }, { width: 3072, height: 3072 })).toMatch(/fewer cells/);
   });
 
+  test('the rack needs a square still of at least 1024 px; the spin loop is optional but whole', () => {
+    expect(checkStillSize({ width: 1024, height: 1024 })).toBeNull();
+    expect(checkStillSize({ width: 2048, height: 2048 }, { width: 2048, height: 2048 })).toBeNull();
+    expect(checkStillSize(null)).toMatch(/could not be read/);
+    expect(checkStillSize({ width: 512, height: 512 })).toMatch(/1024/);
+    expect(checkStillSize({ width: 1400, height: 1024 })).toMatch(/square/);
+    expect(checkStillSize({ width: 1024, height: 1024 }, { width: 512, height: 512 })).toMatch(/WebP still/);
+    expect(checkStillSize({ width: 1024, height: 1024 }, null)).toMatch(/WebP still/);
+    const none = { still: true, stillWebp: false, spriteWebp: false, spritePng: false, spriteMeta: false };
+    expect(checkRackParts(none)).toBeNull();
+    expect(checkRackParts({ ...none, stillWebp: true, spritePng: true, spriteMeta: true, spriteWebp: true })).toBeNull();
+    expect(checkRackParts({ ...none, still: false })).toMatch(/needs the sleeve still/);
+    expect(checkRackParts({ ...none, spriteWebp: true })).toMatch(/PNG sheet and its metadata/);
+    expect(checkRackParts({ ...none, spritePng: true })).toMatch(/PNG sheet and its metadata/);
+  });
+
   test('base64 storage hashes read as hex', () => {
     expect(base64ToHex(btoa(String.fromCharCode(0, 15, 255)))).toBe('000fff');
   });
@@ -205,6 +221,7 @@ describe('the design', () => {
       hasCover: true,
       designHash: 'h1',
       rackDesignHash: 'h1',
+      rackHasStill: true,
       bundleDesignHash: 'h1',
     };
     expect(publishProblems(ready)).toEqual([]);
@@ -214,6 +231,9 @@ describe('the design', () => {
     expect(publishProblems({ ...ready, hasCover: false })).toContain('Upload the cover art.');
     expect(publishProblems({ ...ready, designHash: null })).toContain('Save the casing (the design).');
     expect(publishProblems({ ...ready, rackDesignHash: 'h0' })).toContain('The rack art is out of date: render it again.');
+    expect(publishProblems({ ...ready, rackDesignHash: null, rackHasStill: false })).toContain('Render the rack art.');
+    // The still is what publishing needs; there is no spin loop in `ready` at all.
+    expect(publishProblems({ ...ready, rackHasStill: false })).toEqual(['The rack art has no sleeve still: render it again.']);
     expect(publishProblems({ ...ready, bundleDesignHash: null })).toContain('Build and upload the bundle.');
   });
 });
@@ -366,6 +386,26 @@ describe('drafts', () => {
         designHash: saved.designHash,
       }),
     ).rejects.toThrow(/not the size/);
+    // The still is required, square and >= 1024 px; its WebP twin matches it; a loop comes whole or not at all.
+    const small = await store(t, png(512, 512));
+    await expect(admin.action(api.releases.attachRackArt, { slug: SLUG, still: small, designHash: saved.designHash })).rejects.toThrow(/1024/);
+    expect(await exists(t, small)).toBe(false);
+    await expect(
+      admin.action(api.releases.attachRackArt, {
+        slug: SLUG,
+        still: await store(t, png(1024, 1024)),
+        stillWebp: await store(t, webp(800, 800)),
+        designHash: saved.designHash,
+      }),
+    ).rejects.toThrow(/WebP still/);
+    await expect(
+      admin.action(api.releases.attachRackArt, {
+        slug: SLUG,
+        still: await store(t, png(1024, 1024)),
+        spriteWebp: await store(t, webp(3072, 3072)),
+        designHash: saved.designHash,
+      }),
+    ).rejects.toThrow(/PNG sheet and its metadata/);
     const zip = zipBytes();
     const zipId = await store(t, zip);
     await expect(
@@ -466,12 +506,14 @@ describe('app.library and app.context', () => {
     expect(blood).toMatchObject({ ownership: 'locked', status: 'scheduled', dropAt, title: 'BLOOD' });
     expect(blood.design).toEqual(saved.design);
     expect(blood.design).toMatchObject({ v: 1, slug: SLUG, shell: 'red', labelStyle: 'sticker', tracks: [{ n: 1 }, { n: 2 }] });
+    // The rack is the sleeve still (PNG + WebP); no spin loop was rendered, so its fields are null.
     expect(blood.rack).toEqual({
-      spriteUrl: expect.stringMatching(/^https:\/\//),
-      spriteFormat: 'webp',
-      spriteMeta: { ...META, format: 'image/webp' },
-      pngSpriteUrl: expect.stringMatching(/^https:\/\//),
       stillUrl: expect.stringMatching(/^https:\/\//),
+      stillWebpUrl: expect.stringMatching(/^https:\/\//),
+      spriteUrl: null,
+      spriteFormat: null,
+      spriteMeta: null,
+      pngSpriteUrl: null,
     });
     expect(blood.bundle).toEqual({ version: '1.0.0+r1', url: bundle.url, sha256: bundle.sha256 });
     expect(blood.bundle?.url).toMatch(/^https:\/\//);
@@ -485,7 +527,7 @@ describe('app.library and app.context', () => {
     for (const id of audioIds) expect(json).not.toContain(id);
   });
 
-  test('without a WebP sheet the rack falls back to the PNG', async () => {
+  test('an optional spin loop still comes through; without a WebP sheet it falls back to the PNG', async () => {
     const t = newTest();
     await seed(t);
     const { admin } = await draftWithMedia(t);
@@ -501,7 +543,8 @@ describe('app.library and app.context', () => {
     await admin.action(api.releases.attachBundle, { slug: SLUG, version: '1.0.0', zip: await store(t, zip), sha256: await sha256Hex(zip), designHash: saved.designHash });
     await admin.mutation(api.releases.publish, { slug: SLUG, status: 'live', reason: 'Launch' });
     const context = await t.query(api.app.context, { slug: SLUG });
-    expect(context.rack).toMatchObject({ spriteFormat: 'png', spriteMeta: { format: 'image/png' } });
+    expect(context.rack).toMatchObject({ spriteFormat: 'png', spriteMeta: { format: 'image/png' }, stillWebpUrl: null });
+    expect(context.rack?.stillUrl).toMatch(/^https:\/\//);
     expect(context.rack?.spriteUrl).toBe(context.rack?.pngSpriteUrl);
   });
 });

@@ -3,7 +3,7 @@
 The parameterised three.js MiniDisc. A `DiscDesign` (JSON) becomes the release's cartridge (preset shell,
 printed disc, label plate, edition stamp, LIT's screws / hub / coat / iridescent sheen, wear) and its printed card
 sleeve. The same module drives the generic release bundle (`bundles/release`), the portal's live preview, the
-preset gallery and the publish-time spin loops. Peer dependency: `three` (the repo's).
+preset gallery and the publish-time rack still (`renderSleeveStill`). Peer dependency: `three` (the repo's).
 
 Grilled.md: "Release portal + generated discs". PRD §4A (design system), §10 (bundles, BUN-1..6), §11.4 (wear).
 
@@ -48,12 +48,13 @@ Schema: [`schema/disc-design.schema.json`](schema/disc-design.schema.json). Vali
 | `SHELL_PRESET_IDS`, `SHELL_WINDOWS`, `SHELL_PRESETS`, `SHELL_PRESET_LIST`, `resolvePreset(id, tint?, finish?)` | The shell presets (material numbers per catalogue reference) and the window modes. |
 | `suggestShell(image)` → `{ shell, tint?, key, swatches }` | Browser: median cut over a 64 px downscale, mapped to the nearest preset. `suggestShellFromPixels(rgba)` is the pure version; `dominantColours`, `keyColour`, `shellForColour` underneath. |
 | `loadDesignArt(design, base?)` → `{ cover, disc, backdrop }` | Loads every image the design names. |
-| `createMiniDisc(design, art, opts)` → `MiniDisc` | Standalone cartridge + sleeve: `group`, `cartridge`, `spin(rps)`, `update(dt)`, `setWear(descriptor)`, `setEdition(n)`, `setSleeve(on, drop)`, `built`, `dispose()`. Options: `environment`, `quality: 'high' \| 'low'` (BUN-0a), `transmission`, `sleeve`, `sleeveDrop`, `wearSafeZones`, `anisotropy`. |
+| `createMiniDisc(design, art, opts)` → `MiniDisc` | Standalone cartridge + sleeve: `group`, `cartridge`, `spin(rps)`, `update(dt)`, `setWear(descriptor)`, `setEdition(n)`, `setSleeve(on, drop)`, `sleeve` (the sleeve group, meshes named `sleeve-*`), `built`, `dispose()`. `sleeveDrop` 0 is the rest (cartridge `SLEEVE_PROUD` = 7 % out of the mouth); `-SLEEVE_PROUD` is all the way in. Options: `environment`, `quality: 'high' \| 'low'` (BUN-0a), `transmission`, `sleeve`, `sleeveDrop`, `wearSafeZones`, `anisotropy`. |
 | `buildCartridge(design, art, input, opts)` → `BuiltCartridge` | Builds into a deck `CartridgeBuilderInput` (`src/player3d/deck.ts`): `spinning`, `hitTarget`, `plateRect`, `setWear`, `setEdition`, `dispose`. |
 | `cartridgeBuilder(design, art, opts, onBuilt)` | The `PlayerOptions.cartridge` hook for `PlayerApp`. |
 | `makeSleevePrints(design, art, opts)` → `{ poster, prints }` | The sleeve's cover, generated back (tracklist, imprint, barcode strip) and spines, for `DiscWrap` / `PlayerOptions.sleeve`. |
 | `ArtBackdrop(options)` | `Backdrop` for `PlayerOptions.createBackdrop`: the cover blurred (`blurPx` at 390 pt), under an ink `scrim`, slow drift (still under Reduce Motion), bass pulse. `blurArt(image, blurPx)` is the canvas step. |
-| `renderSpinLoop(design, opts)` → `Promise<SpinLoopResult>` | Browser only. `{ sheet: { webp: Blob \| null, png: Blob, meta }, still: Blob }`; `meta = { frames, cols, rows, frameW, frameH, sheetW, sheetH, fps, format }`. Options: `frames` (36), `frameSize` (512, shrunk to fit 4096 px), `fps` (24), `stillSize` (1024), `art`, `base`, `sleeveDrop` (0.55), `turnDeg` (14), `edition`, `webpQuality`. |
+| `renderSleeveStill(design, opts)` → `Promise<{ png, webp, size, face }>` | Browser only. **The rack image** (portal publish step, `rack.stillUrl`): one still render of the sleeved release, the cartridge all the way in (its top a hairline below the mouth), left spine turned a little to camera, camera slightly above, the live bundle's sleeve and prints dressed with paper grain and a light laminate, soft studio light (key, fill, rim edge highlight, sheen; the live rig's pink and ice turned low), soft contact shadow, transparent. `png` (always) and `webp` (null without an encoder) Blobs, `size` px square (>= 1024, default 1024, supersampled 2x), `face`: the printed front's bounds as image fractions (the same for every release; iOS lays stickers and states over it). Options: `size`, `supersample`, `art`, `base`, `edition`, `webpQuality`. Pose constants: `SLEEVE_STILL_POSE`. |
+| `renderSpinLoop(design, opts)` → `Promise<SpinLoopResult>` | Browser only. No longer used by the app's grid (the rack is still now); kept for the portal's optional loop. `{ sheet: { webp: Blob \| null, png: Blob, meta }, still: Blob }`; `meta = { frames, cols, rows, frameW, frameH, sheetW, sheetH, fps, format }`. Options: `frames` (36), `frameSize` (512, shrunk to fit 4096 px), `fps` (24), `stillSize` (1024), `art`, `base`, `sleeveDrop` (0.55), `turnDeg` (14), `edition`, `webpQuality`. |
 | `packSprites(frames, w, h, maxSide?)`, `spriteCell(layout, i)`, `largestFrameSize(frames, preferred)` | The sheet maths (tested). |
 | `STAMP_UV`, `ensureFonts()` | Where the edition stamp sits on the plate; waits for Inter / JetBrains Mono when the page declares them. |
 
@@ -117,11 +118,15 @@ labelStyle, theme }` to the manifest. The harness: `npm run dev:release`, then
 `npm run minidisc:preview` (port 5178):
 - `preview.html?design=<sample>[&sleeve][&edition=N]`: every preset side by side on the sample's art, spinning;
   a sleeve mode; WEAR toggle; RENDER SPIN LOOP writes `shots/<slug>-spin.{webp,png,json}` and `<slug>-still.png`.
+- `stills.html[?designs=lit,blood]`: renders `renderSleeveStill` for every sample (or the ones named) and writes
+  `shots/<slug>-sleeve.{png,webp,json}` (the json holds `size` and `face`). The iOS Debug build embeds these.
 - `make-art.html`: draws the samples' original placeholder covers (gradients, noise and type only) into
   `samples/<slug>/cover.png`.
 
 Samples: `samples/blood.json` (red, sticker), `samples/reflections.json` (smoke black, metal plate),
-`samples/let-him-cook.json` (clear pink, sticker). Screenshots in `shots/`.
+`samples/let-him-cook.json` (clear pink, sticker), and Lawrence's own releases on their real art: `samples/lit.json`
+(LIT's sleeve art, `public/assets/images/lit-sleeve.webp`), `samples/c-walk.json` and `samples/the-source.json` (the
+iOS mock covers, border cropped). Screenshots in `shots/`.
 
 ## Tests
 

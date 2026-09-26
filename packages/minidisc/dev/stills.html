@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>Sleeve stills</title>
+  <link rel="stylesheet" href="./fonts.css" />
+  <style>
+    html, body { margin: 0; background: #07070C; color: #F5F1E6; font: 600 11px/1.4 'JetBrains Mono', monospace; letter-spacing: 0.1em; }
+    #status { position: fixed; left: 16px; top: 12px; color: #FDB913; text-transform: uppercase; }
+    #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 44px 16px 16px; }
+    figure { margin: 0; background: repeating-conic-gradient(#1b1b22 0 25%, #121218 0 50%) 0 0 / 16px 16px; }
+    figure img { display: block; width: 100%; }
+    figcaption { padding: 6px 8px; background: #07070C; text-transform: uppercase; color: rgba(245,241,230,0.66); }
+  </style>
+  <!-- ?designs=lit,blood (default: every sample) renders each sample's sleeve still and saves
+       shots/<slug>-sleeve.{png,webp,json} through the dev server. window.__stills resolves when done. -->
+  <script type="module" src="./stills.ts"></script>
+</head>
+<body>
+  <div id="status">BOOTING</div>
+  <div id="grid"></div>
+</body>
+</html>

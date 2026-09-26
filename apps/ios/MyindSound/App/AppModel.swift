@@ -371,9 +371,9 @@ final class AppModel {
         release(slug: slug)?.design ?? contexts[slug]?.design
     }
 
-    /// The rack's spin loop for the release, when the portal rendered one.
+    /// The rack's sleeve still for the release: the portal's render, else the one built into the app (LIT).
     func rackRender(slug: String) -> RackRender? {
-        release(slug: slug)?.rack ?? contexts[slug]?.rack
+        release(slug: slug)?.rack ?? contexts[slug]?.rack ?? RackRender.builtIn(slug: slug)
     }
 
     /// Where the release's backdrop art comes from (BackdropRules picks): the art the design names, then the
