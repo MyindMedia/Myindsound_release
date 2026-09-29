@@ -5,12 +5,12 @@
  * facts: slug, title, artist, year, tracklist, cover), the design hash that ties the rack art and the bundle to the
  * design they were made from, and the publish preconditions.
  */
-import { validateDesign, type DiscDesign, type ValidationResult } from '../packages/minidisc/src/design';
+import { validateDesign, MAX_STICKERS, type DiscDesign, type ValidationResult } from '../packages/minidisc/src/design';
 
 export const MB = 1024 * 1024;
 
 /** What each upload is for. Each has its own sniffed formats and size cap. */
-export type UploadPurpose = 'audio' | 'cover' | 'spriteWebp' | 'spritePng' | 'still' | 'stillWebp' | 'bundle';
+export type UploadPurpose = 'audio' | 'cover' | 'sticker' | 'spriteWebp' | 'spritePng' | 'still' | 'stillWebp' | 'bundle';
 export type FileKind = 'mp3' | 'png' | 'jpeg' | 'webp' | 'zip';
 
 export const UPLOAD_RULES: Record<UploadPurpose, { kinds: FileKind[]; maxBytes: number; label: string; headBytes: number }> = {
@@ -18,6 +18,8 @@ export const UPLOAD_RULES: Record<UploadPurpose, { kinds: FileKind[]; maxBytes: 
   audio: { kinds: ['mp3'], maxBytes: 80 * MB, label: 'MP3', headBytes: 16 },
   // JPEG keeps its size in a frame header that can sit after the EXIF block, so read further for images.
   cover: { kinds: ['png', 'jpeg', 'webp'], maxBytes: 25 * MB, label: 'PNG, JPEG or WebP image', headBytes: 512 * 1024 },
+  // A sticker: any shape PNG (alpha kept) or JPEG/WebP, same checks and cap as the cover.
+  sticker: { kinds: ['png', 'jpeg', 'webp'], maxBytes: 25 * MB, label: 'PNG, JPEG or WebP image', headBytes: 512 * 1024 },
   spriteWebp: { kinds: ['webp'], maxBytes: 40 * MB, label: 'WebP sprite sheet', headBytes: 64 },
   spritePng: { kinds: ['png'], maxBytes: 60 * MB, label: 'PNG sprite sheet', headBytes: 64 },
   // The rack image: the sleeve still (`renderSleeveStill`), PNG with alpha, and the same render as WebP.
@@ -42,6 +44,10 @@ export const RECOMMENDED_COVER_PX = 1500;
 export const MAX_TRACKS = 40;
 export const MAX_TITLE = 80;
 export const MAX_TRACK_TITLE = 120;
+/** Image stickers ('shutter' area, on the slide lid): at most this many, inside the overall `MAX_STICKERS` cap. */
+export const MAX_SHUTTER_IMAGE_STICKERS = 4;
+/** Image stickers, any area, total: the whole `stickers` array's own cap (`MAX_STICKERS`, packages/minidisc). */
+export const MAX_IMAGE_STICKERS = MAX_STICKERS;
 /** No MP3 runs longer than this (seconds); longer is a parse error on the client. */
 export const MAX_DURATION_SEC = 2 * 60 * 60;
 /** Constant or variable bitrate MP3s land between 16 and 384 kbps: bytes per second of audio. */
@@ -242,10 +248,13 @@ export type ReleaseFacts = {
   year: number;
   coverUrl: string;
   tracks: { n: number; title: string; durationSec: number }[];
+  /** The release's uploaded sticker images' serving URLs (`products.stickerFiles`): an image sticker's `src` must be one of these. */
+  stickerUrls: string[];
 };
 
 const DESIGN_KEYS = ['shell', 'shellTint', 'labelStyle', 'labelText', 'accent', 'accent2', 'discFinish'] as const;
-const STICKER_KEYS = ['kind', 'text', 'x', 'y', 'w', 'rotation', 'fill', 'ink'] as const;
+// `src`, `area` and `size` are the image sticker's own fields; `w` stays for the text/advisory/badge kinds.
+const STICKER_KEYS = ['kind', 'text', 'src', 'area', 'x', 'y', 'w', 'size', 'rotation', 'fill', 'ink'] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -278,7 +287,19 @@ export function buildDesign(input: unknown, facts: ReleaseFacts): ValidationResu
     ...pick(input, DESIGN_KEYS),
   };
   if (input.stickers !== undefined) {
-    out.stickers = Array.isArray(input.stickers) ? input.stickers.map((s) => (isRecord(s) ? pick(s, STICKER_KEYS) : s)) : input.stickers;
+    const raw = Array.isArray(input.stickers) ? input.stickers : [];
+    const stickers = raw.map((s) => (isRecord(s) ? pick(s, STICKER_KEYS) : s));
+    out.stickers = stickers;
+    // Image stickers point at an uploaded sticker file, never an arbitrary URL, and stay inside the shutter/total caps.
+    const images = stickers.filter((s): s is Record<string, unknown> => isRecord(s) && s.kind === 'image');
+    images.forEach((sticker, i) => {
+      if (typeof sticker.src !== 'string' || !facts.stickerUrls.includes(sticker.src)) {
+        errors.push(`stickers[${i}].src: only an uploaded sticker image can be used`);
+      }
+    });
+    const onShutter = images.filter((s) => s.area === 'shutter').length;
+    if (onShutter > MAX_SHUTTER_IMAGE_STICKERS) errors.push(`stickers: at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers on the slide cover`);
+    if (images.length > MAX_IMAGE_STICKERS) errors.push(`stickers: at most ${MAX_IMAGE_STICKERS} image stickers`);
   }
   if (input.theme !== undefined) {
     if (!isRecord(input.theme)) out.theme = input.theme;

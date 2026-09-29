@@ -31,7 +31,8 @@ enum DevDiscs {
         let fm = FileManager.default
         let png = dir.appendingPathComponent("\(name)-sleeve.png"), webp = dir.appendingPathComponent("\(name)-sleeve.webp")
         guard fm.fileExists(atPath: png.path) else { return nil }
-        return RackRender(stillURL: png, stillWebpURL: fm.fileExists(atPath: webp.path) ? webp : nil)
+        let cart = [dir.appendingPathComponent("\(name)-cart.webp"), dir.appendingPathComponent("\(name)-cart.png")].first { fm.fileExists(atPath: $0.path) }
+        return RackRender(stillURL: png, stillWebpURL: fm.fileExists(atPath: webp.path) ? webp : nil, cartURL: cart)
     }
 
     /// The first of `names` that has a render (a missing sample borrows another's).

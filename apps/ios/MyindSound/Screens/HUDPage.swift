@@ -14,6 +14,7 @@ struct HUDPage<Content: View>: View {
 
     @State private var scrollOffset: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.hudBottomChrome) private var bottomChrome
 
     private var scrolled: Bool { scrollOffset > HUDSurface.navHandover }
 
@@ -31,11 +32,14 @@ struct HUDPage<Content: View>: View {
             // the page scrolls, so reserving its 46 pt left a blank band above the title on device. Pushed pages
             // keep the room for their back chevron.
             .padding(.top, showsBack ? HUDSurface.navBarHeight : MSSpace.space8)
-            .padding(.bottom, MSSpace.space24)
+            // The shell's bars (now playing + tabs) are a safe area inset the NavigationStack's pages never
+            // receive, so without this room the last ~160 pt (Sign out, a page's closing buttons) sat under the
+            // bars and the scroll sprang back before reaching them.
+            .padding(.bottom, MSSpace.space24 + bottomChrome)
         }
         .coordinateSpace(name: "hud-page")
         .scrollIndicators(.hidden)
-        .onPreferenceChange(HUDScrollOffsetKey.self) { scrollOffset = $0 }
+        .modifier(HUDScrollTracker(offset: $scrollOffset))
         .overlay(alignment: .top) {
             HUDCompactBar(title: title, scrolled: scrolled, onBack: showsBack ? { dismiss() } : nil)
         }
@@ -48,6 +52,25 @@ struct HUDPage<Content: View>: View {
             } else {
                 HUDBackdrop()
             }
+        }
+    }
+}
+
+/// How far the page has scrolled. iOS 18 reads the scroll view's own geometry: the GeometryReader preference
+/// stopped updating mid-scroll on iOS 26, so pushed pages never showed their compact bar and the large title slid
+/// under the status bar. iOS 17 keeps the preference.
+private struct HUDScrollTracker: ViewModifier {
+    @Binding var offset: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, value in
+                offset = value
+            }
+        } else {
+            content.onPreferenceChange(HUDScrollOffsetKey.self) { offset = $0 }
         }
     }
 }
@@ -140,4 +163,9 @@ extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         viewControllers.count > 1
     }
+}
+
+extension EnvironmentValues {
+    /// The height of the shell's docked bars (RootView), which pages scroll clear of.
+    @Entry var hudBottomChrome: CGFloat = 0
 }

@@ -235,9 +235,20 @@ final class AppModel {
     // MARK: Release host (BUN-3, RACK-2..4)
 
     /// OPEN DECK and the rack tiles: the release's experience, full screen.
-    func openHost(slug: String) {
-        hostController = hosts.controller(for: slug)
+    func openHost(slug: String, mode: HostMode = .full) {
+        hostController = hosts.controller(for: slug, mode: mode)
         hostRoute = HostRoute(slug: slug)
+    }
+
+    /// The player (the now playing bar, a track picked on a release page): the release's own 3D deck with the
+    /// disc that's playing in it, never a flat cover. Only a release without a bundle falls back to the native one.
+    func openPlayer() {
+        guard let release = audio.loaded?.release ?? featuredRelease else { return }
+        if release.bundle != nil {
+            openHost(slug: release.slug, mode: .player)
+        } else {
+            showPlayer = true
+        }
     }
 
     func closeHost() {
@@ -369,6 +380,11 @@ final class AppModel {
     /// The release's DiscDesign (library row, else its context). Nil for LIT.
     func design(slug: String) -> DiscDesign? {
         release(slug: slug)?.design ?? contexts[slug]?.design
+    }
+
+    /// The cartridge as the deck shows it, for the now playing thumbnail (nil: the drawn disc stands in).
+    func cartridgeStill(slug: String) -> URL? {
+        rackRender(slug: slug)?.cartURL ?? RackRender.builtIn(slug: slug)?.cartURL
     }
 
     /// The rack's sleeve still for the release: the portal's render, else the one built into the app (LIT).

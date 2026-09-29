@@ -136,6 +136,12 @@ final class RackTests: XCTestCase {
         XCTAssertEqual(RackRules.columns(regularWidth: false, largeText: false), 3)
         XCTAssertEqual(RackRules.columns(regularWidth: true, largeText: false), 4)
         XCTAssertEqual(RackRules.columns(regularWidth: false, largeText: true), 2)
+        XCTAssertEqual(RackRules.pages(Array(1...14), columns: 3), [[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12], [13, 14]])
+        XCTAssertEqual(RackRules.pages(Array(1...6), columns: 3).count, 1)
+        XCTAssertEqual(RackRules.pages([Int](), columns: 3), [])
+        // LB-4: the same ladder as convex/leaderboard.ts AWARD_TIERS.
+        XCTAssertEqual(RackRules.tiers.map(\.tier), ["bronze", "silver", "gold"])
+        XCTAssertEqual(RackRules.tiers.map(\.minPlacements), [3, 7, 10])
     }
 
     // MARK: Sleeve mode (RACK-3)

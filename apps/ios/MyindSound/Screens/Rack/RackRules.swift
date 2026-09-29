@@ -31,6 +31,9 @@ enum RackSticker: Equatable, Hashable {
 }
 
 enum RackRules {
+    /// LB-4 collector tiers, lowest first: releases placed on for each (convex/leaderboard.ts AWARD_TIERS).
+    static let tiers: [(tier: String, minPlacements: Int)] = [("bronze", 3), ("silver", 7), ("gold", 10)]
+
     /// LB-1 [DECIDE] default, used when the library row carries no `leaderboardSize`.
     static let defaultLeaderboardSize = 100
     static let top20 = 20
@@ -127,6 +130,15 @@ enum RackRules {
     static func columns(regularWidth: Bool, largeText: Bool) -> Int {
         if largeText { return 2 }
         return regularWidth ? 4 : 3
+    }
+
+    /// The rack pages sideways, two rows at a time: 6 discs a page on a phone.
+    static let rowsPerPage = 2
+
+    /// The discs split into swipeable pages of `columns * rowsPerPage`.
+    static func pages<T>(_ items: [T], columns: Int) -> [[T]] {
+        let size = max(1, columns * rowsPerPage)
+        return stride(from: 0, to: items.count, by: size).map { Array(items[$0..<min($0 + size, items.count)]) }
     }
 }
 

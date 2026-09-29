@@ -15,6 +15,8 @@ import {
   imageSize,
   publishProblems,
   sniffKind,
+  MAX_IMAGE_STICKERS,
+  MAX_SHUTTER_IMAGE_STICKERS,
   type PublishState,
   type ReleaseFacts,
 } from './releasesLogic';
@@ -188,6 +190,7 @@ describe('the design', () => {
     artist: 'Tha Myind',
     year: 2026,
     coverUrl: 'https://x.convex.cloud/api/storage/cover',
+    stickerUrls: [],
     tracks: [{ n: 1, title: 'Blood', durationSec: 201 }],
   };
 
@@ -200,7 +203,7 @@ describe('the design', () => {
   });
 
   test('validateDesign errors come back, and art other than the cover is refused', () => {
-    const bad = buildDesign({ shell: 'green', labelStyle: 'sticker' }, facts);
+    const bad = buildDesign({ shell: 'chrome', labelStyle: 'sticker' }, facts);
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.errors.join()).toMatch(/shell: must be one of/);
     const foreign = buildDesign({ ...DESIGN_LOOK, discArt: 'https://elsewhere.test/a.png' }, facts);
@@ -254,6 +257,8 @@ describe('admin only', () => {
       await expect(caller.mutation(api.releases.setTracks, { slug: 'lit', tracks: [] })).rejects.toThrow(/Admins only/);
       await expect(caller.action(api.releases.attachTrackAudio, { slug: 'lit', file, durationSec: 10 })).rejects.toThrow(/Admins only/);
       await expect(caller.action(api.releases.attachCover, { slug: 'lit', file })).rejects.toThrow(/Admins only/);
+      await expect(caller.action(api.releases.attachSticker, { slug: 'lit', file, area: 'shutter' })).rejects.toThrow(/Admins only/);
+      await expect(caller.mutation(api.releases.removeSticker, { slug: 'lit', file })).rejects.toThrow(/Admins only/);
       await expect(
         caller.action(api.releases.attachBundle, { slug: 'lit', version: '1.0.0', zip: file, sha256: '0'.repeat(64), designHash: 'x' }),
       ).rejects.toThrow(/Admins only/);
@@ -352,7 +357,7 @@ describe('drafts', () => {
     await admin.mutation(api.releases.createDraft, { slug: SLUG, title: 'BLOOD', artist: 'Tha Myind', year: 2026 });
     await expect(admin.mutation(api.releases.saveDesign, { slug: SLUG, design: DESIGN_LOOK })).rejects.toThrow(/tracks and the cover/);
     await draftWithMediaOn(t, admin);
-    await expect(admin.mutation(api.releases.saveDesign, { slug: SLUG, design: { ...DESIGN_LOOK, shell: 'green' } })).rejects.toThrow(/shell: must be one of/);
+    await expect(admin.mutation(api.releases.saveDesign, { slug: SLUG, design: { ...DESIGN_LOOK, shell: 'chrome' } })).rejects.toThrow(/shell: must be one of/);
     await expect(admin.mutation(api.releases.saveDesign, { slug: SLUG, design: { ...DESIGN_LOOK, shellTint: 'red' } })).rejects.toThrow(/shellTint/);
     const saved = await admin.mutation(api.releases.saveDesign, { slug: SLUG, design: DESIGN_LOOK });
     expect(saved).toMatchObject({ changed: true, designRev: 1 });
@@ -418,6 +423,51 @@ describe('drafts', () => {
     await expect(
       admin.action(api.releases.attachBundle, { slug: SLUG, version: '1.0.0', zip: await store(t, png(10, 10)), sha256: await sha256Hex(zip), designHash: saved.designHash }),
     ).rejects.toThrow(/not a zip/);
+  });
+
+  test('stickers: any shape image, replace-free removal, and the shutter/total caps', async () => {
+    const t = newTest();
+    await seed(t);
+    const { admin, saved } = await readyDraft(t);
+    // Any shape: a non-square PNG is fine (unlike the cover).
+    const notImage = await store(t, mp3(1));
+    await expect(admin.action(api.releases.attachSticker, { slug: SLUG, file: notImage, area: 'shutter' })).rejects.toThrow(/PNG, JPEG or WebP/);
+    expect(await exists(t, notImage)).toBe(false);
+
+    const first = await store(t, png(400, 220));
+    const attached = await admin.action(api.releases.attachSticker, { slug: SLUG, file: first, area: 'shutter' });
+    expect(attached.url).toMatch(/^https:\/\//);
+    let state = await admin.query(api.releases.get, { slug: SLUG });
+    expect(state.design?.stickers).toEqual([{ kind: 'image', src: attached.url, area: 'shutter', x: 0.5, y: 0.5, size: 0.25, rotation: 0 }]);
+    expect(state.designHash).not.toBe(saved.designHash);
+    expect(state.stickerFiles).toEqual([{ file: first, url: attached.url }]);
+
+    // The slide cover caps at MAX_SHUTTER_IMAGE_STICKERS.
+    for (let i = 1; i < MAX_SHUTTER_IMAGE_STICKERS; i++) {
+      await admin.action(api.releases.attachSticker, { slug: SLUG, file: await store(t, png(300, 300)), area: 'shutter' });
+    }
+    const overShutter = await store(t, png(300, 300));
+    await expect(admin.action(api.releases.attachSticker, { slug: SLUG, file: overShutter, area: 'shutter' })).rejects.toThrow(/slide cover has at most/);
+    expect(await exists(t, overShutter)).toBe(false);
+
+    // The shell has its own room up to the overall total.
+    while ((await admin.query(api.releases.get, { slug: SLUG })).stickerFiles.length < MAX_IMAGE_STICKERS) {
+      await admin.action(api.releases.attachSticker, { slug: SLUG, file: await store(t, png(200, 200)), area: 'shell' });
+    }
+    const overTotal = await store(t, png(200, 200));
+    await expect(admin.action(api.releases.attachSticker, { slug: SLUG, file: overTotal, area: 'shell' })).rejects.toThrow(/at most 8 stickers/);
+    expect(await exists(t, overTotal)).toBe(false);
+
+    // Removing one drops it from `design.stickers`, deletes the file, and frees a shutter slot.
+    state = await admin.query(api.releases.get, { slug: SLUG });
+    const beforeRemove = state.design?.stickers?.length;
+    await admin.mutation(api.releases.removeSticker, { slug: SLUG, file: first });
+    expect(await exists(t, first)).toBe(false);
+    state = await admin.query(api.releases.get, { slug: SLUG });
+    expect(state.design?.stickers?.length).toBe(beforeRemove! - 1);
+    expect(state.stickerFiles.some((row) => row.file === first)).toBe(false);
+    await expect(admin.mutation(api.releases.removeSticker, { slug: SLUG, file: first })).rejects.toThrow(/not on this release/);
+    await admin.action(api.releases.attachSticker, { slug: SLUG, file: await store(t, png(300, 300)), area: 'shutter' });
   });
 });
 

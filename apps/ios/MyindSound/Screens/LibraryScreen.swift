@@ -4,15 +4,21 @@ import SwiftUI
 enum HUDRoute: Hashable {
     case release(String)
     case leaderboard(String)
+    /// LB-4: the collector tier in detail.
+    case collectorTier
+    /// LB-4: one release's early-buyer placement.
+    case placement(String)
 }
 
 /// LIBRARY (PRD 4A.9, RACK-1, DS-12, DS-18): the large title with the greeting, then the rack: the fan's
 /// MiniDiscs in their sleeves as the page's main content (owned and borrowed copies, and upcoming releases sealed
 /// with their drop countdown). A tap lifts a disc into the focus view (RACK-2), which carries the per-copy
-/// readouts. Offline saves, awards and the account sit in compact sections well below the rack.
+/// readouts. A long press on a disc opens its own menu (details, credits, offline, share; RACK-4). Awards and the
+/// account sit in compact sections well below the rack.
 struct LibraryScreen: View {
     @Environment(AppModel.self) private var app
     @State private var privacySheet = false
+    @State private var details: LibraryRelease?
     @Namespace private var rack
 
     var body: some View {
@@ -31,7 +37,9 @@ struct LibraryScreen: View {
             .accessibilityHidden(app.rackFocus != nil)
 
             if let focus = app.rackFocus, let release = app.release(slug: focus.slug) {
-                RackFocusView(focus: focus, release: release, controller: app.focusController, namespace: rack)
+                RackFocusView(focus: focus, release: release, controller: app.focusController, namespace: rack) {
+                    details = release
+                }
                     .transition(.opacity)
                     .zIndex(10)
             }
@@ -39,6 +47,13 @@ struct LibraryScreen: View {
         .hudSheet(isPresented: $privacySheet, title: "Your data") {
             PrivacySheet()
         }
+        .hudSheet(isPresented: detailsShown, title: "Details", detents: [.large]) {
+            if let details { DiscDetailsSheet(release: details) }
+        }
+    }
+
+    private var detailsShown: Binding<Bool> {
+        Binding(get: { details != nil }, set: { if !$0 { details = nil } })
     }
 
     private var greeting: String {
@@ -53,32 +68,25 @@ struct LibraryScreen: View {
             if discs.isEmpty {
                 RackEmpty()
             } else {
-                RackGrid(releases: discs, namespace: rack)
+                RackGrid(releases: discs, namespace: rack) { details = $0 }
                     .padding(.top, MSSpace.space8)
             }
         }
         .padding(.bottom, MSSpace.space16)
 
-        let owned = snapshot.releases.filter(DownloadManager.canDownload)
-        if !owned.isEmpty {
-            HUDSection("Offline") {
-                HUDList(meta: "Encrypted on this device") {
-                    ForEach(owned) { release in
-                        DownloadRow(release: release)
-                    }
-                }
-            }
-        }
-
         HUDSection("Awards") {
             HUDList {
-                HUDListRow("Collector tier", subtitle: tierLine, systemImage: "rosette") {}
+                HUDListRow("Collector tier", subtitle: tierLine, systemImage: "rosette") {
+                    app.libraryPath.append(HUDRoute.collectorTier)
+                }
                 ForEach(app.awards.placements) { placement in
                     HUDListRow(
                         "\(placement.title) · Early buyer",
                         subtitle: "Edition NO \(String(format: "%04d", placement.editionNumber)) · rank \(placement.rank)",
                         systemImage: "seal"
-                    ) {}
+                    ) {
+                        app.libraryPath.append(HUDRoute.placement(placement.slug))
+                    }
                 }
             }
         }

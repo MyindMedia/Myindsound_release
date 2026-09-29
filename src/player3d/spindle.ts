@@ -1,4 +1,4 @@
-import { CylinderGeometry, Group, LatheGeometry, Mesh, MeshStandardMaterial, Vector2, type Texture } from 'three';
+import { CylinderGeometry, DoubleSide, Group, LatheGeometry, Mesh, MeshStandardMaterial, RingGeometry, Vector2, type Texture } from 'three';
 
 /**
  * The deck's spindle motor, under the seated disc. Once the cartridge is seated the rotor rises through the
@@ -69,7 +69,8 @@ export class Spindle {
         [chuckRadius - 0.001, CHUCK_HEIGHT],
         [0, CHUCK_HEIGHT],
       ]),
-      metal('#b9bdc4', 0.32),
+      // The turntable of the laser pod (laser-pod.ts): a black rubber mat on a steel rotor.
+      new MeshStandardMaterial({ color: '#141518', roughness: 0.7, metalness: 0.1, envMap, envMapIntensity: 0.25, side: DoubleSide }),
     );
     // Chuck face sits just under the hub; the magnet pads on it touch the hub plate.
     chuck.position.z = chuckBase - 0.0008;
@@ -106,7 +107,16 @@ export class Spindle {
     );
     shaft.position.z = options.hubBaseZ;
 
-    this.rotor.add(column, chuck, pads, shaft);
+    // The white centring ring and the dark groove inside it, flat on the mat so nothing meets the hub.
+    const ring = new Mesh(
+      new RingGeometry(chuckRadius * 0.3, chuckRadius * 0.56, 48),
+      new MeshStandardMaterial({ color: '#cfd2d6', roughness: 0.5, envMap, envMapIntensity: 0.25 }),
+    );
+    ring.position.z = options.hubBaseZ - 0.0006;
+    const groove = new Mesh(new RingGeometry(chuckRadius * 0.2, chuckRadius * 0.3, 40), metal('#3a3d44', 0.4));
+    groove.position.z = options.hubBaseZ - 0.0006;
+
+    this.rotor.add(column, chuck, ring, groove, pads, shaft);
     this.group.add(stator, this.rotor);
     this.apply();
   }

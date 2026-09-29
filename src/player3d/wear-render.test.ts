@@ -184,3 +184,80 @@ describe('safe zones (PRD §11.6 test 9, as drawn)', () => {
     expect(checked).toBeGreaterThan(100);
   });
 });
+
+describe('slot wear (top-loading deck)', () => {
+  const slotLines = (level: number, seed = seedFor(7)) => {
+    const plan = planWear({ ...empty, seed, level }, SPECS, DEFAULT_LAYOUT, ZONES);
+    return plan.layers.shell.groups.flatMap((g) => g.scratches);
+  };
+
+  test('a new disc has none; a played one has vertical slide lines', () => {
+    expect(slotLines(0)).toHaveLength(0);
+    const lines = slotLines(0.8);
+    expect(lines.length).toBeGreaterThan(40);
+    for (const line of lines) {
+      // Within a few degrees of vertical: the slide direction.
+      expect(Math.abs(Math.abs(line.angle) - Math.PI / 2)).toBeLessThan(0.12);
+    }
+  });
+
+  test('more play only adds lines: every line at a lower level is still there at a higher one', () => {
+    const low = slotLines(0.3);
+    const high = slotLines(0.9);
+    expect(high.length).toBeGreaterThan(low.length);
+    for (const line of low) expect(high).toContainEqual(line);
+  });
+
+  test('the slide lines and edge scuffs stay out of the safe zones', () => {
+    const plan = planWear({ ...empty, seed: seedFor(9), level: 1 }, SPECS, DEFAULT_LAYOUT, ZONES);
+    const shellZones = ZONES.filter((z) => z.surface === 'shell').map((z) => ({
+      x0: z.x * SPECS.shell.width,
+      y0: z.y * SPECS.shell.height,
+      x1: (z.x + z.w) * SPECS.shell.width,
+      y1: (z.y + z.h) * SPECS.shell.height,
+    }));
+    for (const g of plan.layers.shell.groups.filter((g) => g.surface === 'shell')) {
+      for (const s of g.scratches) {
+        for (const z of shellZones) {
+          for (let k = 0; k <= 10; k++) {
+            const x = s.x0 + ((s.x1 - s.x0) * k) / 10;
+            const y = s.y0 + ((s.y1 - s.y0) * k) / 10;
+            expect(rectDistance(x, y, z)).toBeGreaterThan(0);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('shutter track wear', () => {
+  const track = { u0: 0.02, v0: 0.36, u1: 0.38, v1: 0.93 };
+  const layout = { ...DEFAULT_LAYOUT, slideTracks: [track] };
+
+  test('none without a track (LIT) or on a new disc', () => {
+    const lit = planWear({ ...empty, seed: seedFor(3), level: 1 }, SPECS);
+    const withTrack = planWear({ ...empty, seed: seedFor(3), level: 1 }, SPECS, layout);
+    const count = (p: typeof lit) => p.layers.shell.groups.flatMap((g) => g.scratches).length;
+    expect(count(withTrack)).toBeGreaterThan(count(lit) + 100);
+    expect(count(planWear({ ...empty, seed: seedFor(3), level: 0 }, SPECS, layout))).toBe(0);
+  });
+
+  test('its lines are vertical and inside the track', () => {
+    const lit = planWear({ ...empty, seed: seedFor(4), level: 1 }, SPECS).layers.shell.groups.flatMap((g) => g.scratches);
+    const all = planWear({ ...empty, seed: seedFor(4), level: 1 }, SPECS, layout).layers.shell.groups.flatMap((g) => g.scratches);
+    const trackLines = all.filter((s) => !lit.some((l) => l.x0 === s.x0 && l.y0 === s.y0));
+    expect(trackLines.length).toBeGreaterThan(100);
+    for (const s of trackLines) {
+      expect(s.x0).toBe(s.x1);
+      for (const [x, y] of [
+        [s.x0, s.y0],
+        [s.x1, s.y1],
+      ]) {
+        expect(x / SPECS.shell.width).toBeGreaterThanOrEqual(track.u0 - 1e-9);
+        expect(x / SPECS.shell.width).toBeLessThanOrEqual(track.u1 + 1e-9);
+        expect(y / SPECS.shell.height).toBeGreaterThanOrEqual(track.v0 - 1e-9);
+        expect(y / SPECS.shell.height).toBeLessThanOrEqual(track.v1 + 1e-9);
+      }
+    }
+  });
+});

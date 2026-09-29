@@ -7,17 +7,24 @@
  * and audited. No window.confirm or alert: publishing is confirmed in the page, with a reason.
  */
 import './admin-releases.css';
+import { MAX_IMAGE_STICKERS, MAX_SHUTTER_IMAGE_STICKERS } from '../convex/releasesLogic';
 import type { Id } from '../convex/_generated/dataModel';
-import type { DiscDesign, LoadedArt, ShellSuggestion, SleeveStill, SpinLoopResult } from './admin-releases-3d';
+import type { DiscDesign, DiscSticker, LoadedArt, ShellSuggestion, SleeveStill, SpinLoopResult } from './admin-releases-3d';
 import type { DraftRow, PortalBackend, ReleaseState } from './admin-releases-backend';
 import { assembleReleaseZip, type GenericBundleIndex } from './admin-releases-zip';
 import { convexErrorMessage } from './convex';
 
 type ThreeModule = typeof import('./admin-releases-3d');
+/** An image sticker's own fields, read and written loosely: `packages/minidisc`'s `DiscSticker` owns the real shape. */
+type StickerFields = { kind: 'image'; src: string; area: 'shutter' | 'shell'; x: number; y: number; size: number; rotation: number };
+const asSticker = (fields: StickerFields): DiscSticker => fields as unknown as DiscSticker;
+const stickerFields = (sticker: DiscSticker): StickerFields => sticker as unknown as StickerFields;
 
 const STEPS = ['NEW', 'AUDIO', 'COVER', 'CASING', 'RENDER', 'BUNDLE', 'PUBLISH'] as const;
 const MAX_MP3_BYTES = 80 * 1024 * 1024;
 const MAX_COVER_BYTES = 25 * 1024 * 1024;
+/** Same cap as the cover (releasesLogic UPLOAD_RULES.sticker). */
+const MAX_STICKER_BYTES = MAX_COVER_BYTES;
 const MIN_COVER_PX = 1024;
 const RECOMMENDED_COVER_PX = 1500;
 /** Where the site build puts the generic release bundle (scripts/stage-release-bundle.mjs). */
@@ -104,7 +111,23 @@ function zoneLabel(at: Date): string {
   return `${zone}, UTC${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
 }
 
-type Look = Pick<DiscDesign, 'shell' | 'shellTint' | 'labelStyle' | 'labelText'>;
+type Look = Pick<DiscDesign, 'shell' | 'shellTint' | 'labelStyle' | 'labelText' | 'discFinish'>;
+
+/** The slide cover on the shell's left side (the label plate) and the spinning disc, as the portal names them. */
+const COVER_CHOICES: [DiscDesign['labelStyle'], string][] = [
+  ['metal', 'STEEL'],
+  ['metal-dark', 'BLACK STEEL'],
+  ['tinted', 'SHELL COLOUR'],
+  ['sticker', 'STICKER'],
+  ['none', 'NONE'],
+];
+const DISC_CHOICES: [NonNullable<DiscDesign['discFinish']>, string][] = [
+  ['print', 'ART PRINT'],
+  ['vinyl', 'BLACK VINYL'],
+  ['rainbow', 'RAINBOW'],
+  ['silver', 'SILVER'],
+  ['gold', 'GOLD'],
+];
 type TrackEdit = { id: Id<'tracks'>; title: string; durationSeconds: number; hasAudio: boolean; removed: boolean };
 
 /** Mounts the portal into `root`. Returns nothing; everything it needs comes from `backend`. */
@@ -123,12 +146,19 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
   let look: Look | null = null;
   let lookDirty = false;
   let suggestion: ShellSuggestion | null = null;
+  /** Each shell's own disc finish, for the DISC picker when the design names none. */
+  let presetDisc: Record<string, string> = {};
   let sleeveOn = false;
   let preview: ReturnType<ThreeModule['createCasingPreview']> | null = null;
   /** The rack art rendered in this browser and not uploaded yet: the sleeve still, and the optional loop. */
   let render: { still: SleeveStill; loop: SpinLoopResult | null } | null = null;
   let withLoop = false;
   let spriteTimer = 0;
+  /** Image stickers (`design.stickers`, kind `image`), matched to their file for the REMOVE button; edited locally
+   * (position, size, rotation, area) and only written back to the server on SAVE CASING, like `look`. */
+  let stickers: { file: Id<'_storage'>; sticker: DiscSticker }[] = [];
+  /** Every other sticker kind (text, advisory, badge), carried through unedited: the portal has no UI for them. */
+  let otherStickers: DiscSticker[] = [];
 
   root.innerHTML = `
     <div class="rp">
@@ -219,6 +249,8 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     render = null;
     tracks = [];
     tracksDirty = false;
+    stickers = [];
+    otherStickers = [];
     stopSprite();
     for (let i = 1; i < STEPS.length; i++) section(i).innerHTML = '';
     wizard.hidden = true;
@@ -243,6 +275,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       return;
     }
     syncTracks();
+    syncStickers();
     step = atStep ?? firstOpenStep();
     renderAll();
     wizard.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -252,6 +285,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     if (!state) return;
     state = await backend.get(state.slug);
     if (!tracksDirty) syncTracks();
+    syncStickers();
     renderAll();
     void loadDrafts();
   }
@@ -259,6 +293,19 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
   function syncTracks() {
     tracks = (state?.tracks ?? []).map((t) => ({ id: t.id, title: t.title, durationSeconds: t.durationSeconds, hasAudio: t.hasAudio, removed: false }));
     tracksDirty = false;
+  }
+
+  /** Rebuilds `stickers`/`otherStickers` from the saved design (drops unsaved slider drags: SAVE CASING first). */
+  function syncStickers() {
+    const files = state?.stickerFiles ?? [];
+    const all = (state?.design?.stickers ?? []) as DiscSticker[];
+    otherStickers = all.filter((sticker) => stickerFields(sticker).kind !== 'image');
+    stickers = all
+      .filter((sticker) => stickerFields(sticker).kind === 'image')
+      .flatMap((sticker) => {
+        const match = files.find((f) => f.url === stickerFields(sticker).src);
+        return match ? [{ file: match.file, sticker }] : [];
+      });
   }
 
   // ── Steps ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -641,10 +688,12 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       tracks: s.tracks.map((t) => ({ n: t.position, title: t.title, durationSec: t.durationSeconds })),
       coverArt: src,
       discArt: undefined,
+      stickers: [...otherStickers, ...stickers.map((entry) => entry.sticker)],
       shell: current.shell,
       shellTint: current.shellTint,
       labelStyle: current.labelStyle,
       labelText: current.labelText,
+      discFinish: current.discFinish,
     };
   }
 
@@ -680,17 +729,20 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
             <p class="admin-sub">SHELL</p>
             <div class="rp-swatches" role="radiogroup" aria-label="Shell"></div>
             <p class="rp-tint"></p>
-            <p class="admin-sub">LABEL</p>
-            <div class="rp-labels" role="radiogroup" aria-label="Label style">
-              ${(['metal', 'sticker', 'none'] as const)
-                .map((style) => `<button type="button" class="secondary-btn mini-btn" role="radio" data-label="${style}">${style.toUpperCase()}</button>`)
-                .join('')}
+            <p class="admin-sub">SLIDE COVER</p>
+            <div class="rp-labels" role="radiogroup" aria-label="Slide cover">
+              ${COVER_CHOICES.map(([style, name]) => `<button type="button" class="secondary-btn mini-btn" role="radio" data-label="${style}">${name}</button>`).join('')}
+            </div>
+            <p class="admin-sub">DISC</p>
+            <div class="rp-discs" role="radiogroup" aria-label="Disc finish">
+              ${DISC_CHOICES.map(([finish, name]) => `<button type="button" class="secondary-btn mini-btn" role="radio" data-disc="${finish}">${name}</button>`).join('')}
             </div>
             <label class="field"><span>Label text (optional, one line each)</span><textarea class="rp-label-text" maxlength="160" rows="3" placeholder="${escapeHtml(`${s.title}\n${s.artist ?? ''}`)}"></textarea></label>
             <div class="admin-actions"><button type="button" class="primary-btn rp-save-look">SAVE CASING</button></div>
             <p class="admin-status rp-look-status" role="status" aria-live="polite"></p>
           </div>
-        </div>`;
+        </div>
+        <div class="rp-stickers"></div>`;
       void setupCasing();
     } else updateCasingControls();
   }
@@ -711,8 +763,9 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     suggestion ??= mod.suggestShell(loaded.cover);
     const saved = state.design;
     look ??= saved
-      ? { shell: saved.shell, shellTint: saved.shellTint, labelStyle: saved.labelStyle, labelText: saved.labelText }
-      : { shell: suggestion.shell, shellTint: suggestion.tint, labelStyle: 'sticker', labelText: undefined };
+      ? { shell: saved.shell, shellTint: saved.shellTint, labelStyle: saved.labelStyle, labelText: saved.labelText, discFinish: saved.discFinish }
+      : { shell: suggestion.shell, shellTint: suggestion.tint, labelStyle: 'sticker', labelText: undefined, discFinish: undefined };
+    presetDisc = Object.fromEntries(mod.SHELL_PRESET_LIST.map((preset) => [preset.id, preset.disc]));
     const swatches = $('.rp-swatches', el);
     swatches.innerHTML = mod.SHELL_PRESET_LIST.map(
       (preset) => `<button type="button" class="rp-swatch" role="radio" data-shell="${preset.id}" aria-label="${escapeHtml(preset.label)}">
@@ -732,6 +785,10 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-label]');
       if (button) changeLook({ labelStyle: button.dataset.label as Look['labelStyle'] });
     });
+    $('.rp-discs', el).addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-disc]');
+      if (button) changeLook({ discFinish: button.dataset.disc as Look['discFinish'] });
+    });
     let typing = 0;
     $<HTMLTextAreaElement>('.rp-label-text', el).addEventListener('input', (event) => {
       const value = (event.target as HTMLTextAreaElement).value;
@@ -739,6 +796,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       typing = window.setTimeout(() => changeLook({ labelText: value.trim() ? value : undefined }), 350);
     });
     $('.rp-save-look', el).addEventListener('click', () => void saveLook());
+    wireStickers(el);
     $('.rp-sleeve', el).addEventListener('click', (event) => {
       sleeveOn = !sleeveOn;
       (event.currentTarget as HTMLElement).setAttribute('aria-pressed', String(sleeveOn));
@@ -790,6 +848,11 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     for (const button of el.querySelectorAll<HTMLElement>('[data-label]')) {
       button.setAttribute('aria-checked', String(button.dataset.label === look.labelStyle));
     }
+    // No finish chosen: the shell's own disc (the gold-disc shell's gold, otherwise the art print).
+    const disc = look.discFinish ?? presetDisc[look.shell] ?? 'print';
+    for (const button of el.querySelectorAll<HTMLElement>('[data-disc]')) {
+      button.setAttribute('aria-checked', String(button.dataset.disc === disc));
+    }
     const tint = $('.rp-tint', el);
     if (tint) {
       tint.innerHTML = look.shellTint
@@ -805,14 +868,17 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       const saved = state?.designHash ? `Saved (revision ${state.designRev}).` : 'Not saved yet.';
       setStatus(status, lookDirty ? `Unsaved changes. ${saved}` : saved, lookDirty ? 'warn' : state?.designHash ? 'ok' : '');
     }
+    renderStickers();
   }
 
   async function saveLook() {
     if (!state || !look) return;
     const status = $('.rp-look-status', section(3));
-    // Keep whatever else the saved design carries (accents, stickers, theme); the server fills in the facts.
+    // Keep whatever else the saved design carries (accents, theme); the server fills in the facts. Stickers are
+    // the local `stickers`/`otherStickers` draft, not whatever the last save happened to carry.
     const kept: Record<string, unknown> = { ...(state.design ?? {}) };
     for (const fact of ['v', 'slug', 'title', 'artist', 'year', 'tracks', 'coverArt', 'discArt']) delete kept[fact];
+    kept.stickers = [...otherStickers, ...stickers.map((entry) => entry.sticker)];
     setStatus(status, 'Saving…');
     try {
       const result = await backend.saveDesign({ slug: state.slug, design: { ...kept, ...look } });
@@ -822,6 +888,160 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       setStatus($('.rp-look-status', section(3)), `Saved (revision ${result.designRev}).${result.changed ? ' Render the rack art and the bundle again.' : ''}`, 'ok');
     } catch (error) {
       setStatus(status, errorText(error), 'error');
+    }
+  }
+
+  // ── Stickers (any shape PNG, or JPEG/WebP, on the slide cover or the plastic shell) ─────────────────────
+
+  /** Delegated listeners on the stable `.rp-stickers` container, wired once; `renderStickers` only replaces its content. */
+  function wireStickers(el: HTMLElement) {
+    const root = $('.rp-stickers', el);
+    root.addEventListener('change', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.matches('.rp-sticker-file')) {
+        const input = target as HTMLInputElement;
+        const area = ($('.rp-sticker-add-area', root) as HTMLSelectElement).value as StickerFields['area'];
+        if (input.files?.[0]) void uploadSticker(input.files[0], area);
+        input.value = '';
+        return;
+      }
+      if (target.matches('.rp-sticker-field') && target.tagName === 'SELECT') {
+        const card = target.closest<HTMLElement>('[data-i]');
+        if (!card) return;
+        const i = Number(card.dataset.i);
+        const value = (target as HTMLSelectElement).value as StickerFields['area'];
+        stickers[i] = { ...stickers[i], sticker: asSticker({ ...stickerFields(stickers[i].sticker), area: value }) };
+        lookDirty = true;
+        renderStickers();
+        updateCasingControls();
+        showPreview();
+      }
+    });
+    root.addEventListener('input', (event) => {
+      const input = event.target as HTMLElement;
+      if (!input.matches('.rp-sticker-field') || input.tagName !== 'INPUT') return;
+      const card = input.closest<HTMLElement>('[data-i]');
+      if (!card) return;
+      const i = Number(card.dataset.i);
+      const field = (input as HTMLInputElement).dataset.field as 'x' | 'y' | 'size' | 'rotation';
+      const value = Number((input as HTMLInputElement).value);
+      stickers[i] = { ...stickers[i], sticker: asSticker({ ...stickerFields(stickers[i].sticker), [field]: value }) };
+      const readout = input.closest('label')?.querySelector('.rp-sticker-readout');
+      if (readout) readout.textContent = field === 'rotation' ? `${value.toFixed(0)}°` : value.toFixed(2);
+      lookDirty = true;
+      showPreview();
+    });
+    root.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.rp-sticker-remove');
+      if (button?.dataset.file) void removeStickerCard(button.dataset.file as Id<'_storage'>);
+    });
+  }
+
+  const stickerCard = (entry: { file: Id<'_storage'>; sticker: DiscSticker }, i: number) => {
+    const f = stickerFields(entry.sticker);
+    const range = (field: 'x' | 'y' | 'size' | 'rotation', label: string, min: number, max: number, value: number, digits: number) => `
+      <label class="field">
+        <span>${label} <span class="rp-sticker-readout">${field === 'rotation' ? `${value.toFixed(0)}°` : value.toFixed(digits)}</span></span>
+        <input type="range" class="rp-sticker-field" data-field="${field}" min="${min}" max="${max}" step="${field === 'rotation' ? 1 : 0.01}" value="${value}">
+      </label>`;
+    return `<div class="rp-sticker" data-i="${i}">
+      <div class="rp-sticker-thumb"><img src="${escapeHtml(f.src)}" alt="Sticker ${i + 1}" loading="lazy"></div>
+      <div class="rp-sticker-fields">
+        <label class="field"><span>Area</span>
+          <select class="rp-sticker-field" data-field="area">
+            <option value="shutter" ${f.area === 'shutter' ? 'selected' : ''}>SLIDE COVER</option>
+            <option value="shell" ${f.area === 'shell' ? 'selected' : ''}>PLASTIC SHELL</option>
+          </select>
+        </label>
+        ${range('x', 'X', 0, 1, f.x, 2)}
+        ${range('y', 'Y', 0, 1, f.y, 2)}
+        ${range('size', 'Size', 0.05, 1, f.size, 2)}
+        ${range('rotation', 'Rotation', -180, 180, f.rotation, 0)}
+      </div>
+      <button type="button" class="secondary-btn mini-btn rp-sticker-remove" data-file="${escapeHtml(entry.file)}">REMOVE</button>
+    </div>`;
+  };
+
+  /** Rebuilds the stickers panel's content (not `.rp-stickers` itself, so its delegated listeners stay wired). */
+  function renderStickers() {
+    const root = section(3).querySelector<HTMLElement>('.rp-stickers');
+    if (!root || !state) return;
+    if (!state.designHash) {
+      root.innerHTML = '<p class="admin-sub">STICKERS</p><p class="admin-sub">Save the casing once (above), then add stickers.</p>';
+      return;
+    }
+    const onShutter = stickers.filter((entry) => stickerFields(entry.sticker).area === 'shutter').length;
+    const atTotal = stickers.length >= MAX_IMAGE_STICKERS;
+    const atShutter = onShutter >= MAX_SHUTTER_IMAGE_STICKERS;
+    root.innerHTML = `
+      <p class="admin-sub">STICKERS · ${stickers.length}/${MAX_IMAGE_STICKERS} · ${onShutter}/${MAX_SHUTTER_IMAGE_STICKERS} ON THE SLIDE COVER</p>
+      <p class="admin-sub">Any shape PNG (keeps its shape) or JPEG/WebP, on the slide cover or anywhere on the plastic shell. Drag the sliders, then SAVE CASING.</p>
+      <div class="rp-sticker-add">
+        <select class="rp-sticker-add-area" ${atTotal ? 'disabled' : ''}>
+          <option value="shutter" ${atShutter ? 'disabled' : ''}>SLIDE COVER</option>
+          <option value="shell">PLASTIC SHELL</option>
+        </select>
+        <label class="secondary-btn mini-btn rp-sticker-add-pick">ADD STICKER
+          <input type="file" accept="image/png,image/jpeg,image/webp" class="rp-sticker-file" ${atTotal ? 'disabled' : ''} hidden>
+        </label>
+      </div>
+      <progress class="rp-sticker-progress" max="1" value="0" hidden></progress>
+      <p class="admin-status rp-sticker-status" role="status" aria-live="polite"></p>
+      <div class="rp-sticker-list">
+        ${stickers.length ? stickers.map(stickerCard).join('') : '<p class="rp-empty">No stickers yet.</p>'}
+      </div>`;
+  }
+
+  async function uploadSticker(file: File, area: StickerFields['area']) {
+    if (!state) return;
+    const status = $('.rp-sticker-status', section(3));
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return setStatus(status, 'Use a PNG, JPEG or WebP image.', 'error');
+    if (file.size > MAX_STICKER_BYTES) return setStatus(status, `${mb(file.size)} is over the ${mb(MAX_STICKER_BYTES)} limit.`, 'error');
+    if (stickers.length >= MAX_IMAGE_STICKERS) return setStatus(status, `A release has at most ${MAX_IMAGE_STICKERS} stickers.`, 'error');
+    if (area === 'shutter' && stickers.filter((entry) => stickerFields(entry.sticker).area === 'shutter').length >= MAX_SHUTTER_IMAGE_STICKERS) {
+      return setStatus(status, `The slide cover has at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers.`, 'error');
+    }
+    const bar = $<HTMLProgressElement>('.rp-sticker-progress', section(3));
+    bar.hidden = false;
+    setStatus(status, 'Uploading…');
+    try {
+      const id = await backend.upload(state.slug, file, file.type, (fraction) => (bar.value = fraction));
+      setStatus(status, 'Checking…');
+      await backend.attachSticker({ slug: state.slug, file: id, area });
+      art = null;
+      await refresh();
+      await reloadStickerArt();
+      setStatus($('.rp-sticker-status', section(3)), 'Sticker added.', 'ok');
+    } catch (error) {
+      bar.hidden = true;
+      setStatus(status, errorText(error), 'error');
+    }
+  }
+
+  async function removeStickerCard(file: Id<'_storage'>) {
+    if (!state) return;
+    const status = $('.rp-sticker-status', section(3));
+    setStatus(status, 'Removing…');
+    try {
+      await backend.removeSticker({ slug: state.slug, file });
+      art = null;
+      await refresh();
+      await reloadStickerArt();
+      setStatus($('.rp-sticker-status', section(3)), 'Sticker removed.', 'ok');
+    } catch (error) {
+      setStatus(status, errorText(error), 'error');
+    }
+  }
+
+  /** Reloads the 3D preview's art after a sticker was added or removed (`art` was cleared for it). */
+  async function reloadStickerArt() {
+    if (!look) return;
+    try {
+      const mod = await loadThree();
+      await ensureArt(mod);
+      showPreview();
+    } catch (error) {
+      setStatus($('.rp-sticker-status', section(3)), errorText(error, 'The preview could not reload; the change was still saved.'), 'warn');
     }
   }
 
@@ -1014,6 +1234,24 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     return new Uint8Array(await response.arrayBuffer());
   }
 
+  /** Every image sticker's bytes the design names, keyed by its `src` (the uploaded URL), for `assembleReleaseZip`. */
+  async function stickerBytesMap(design: DiscDesign): Promise<Map<string, Uint8Array>> {
+    const srcs = ((design.stickers ?? []) as DiscSticker[])
+      .map(stickerFields)
+      .filter((sticker) => sticker.kind === 'image')
+      .map((sticker) => sticker.src);
+    const map = new Map<string, Uint8Array>();
+    await Promise.all(
+      srcs.map(async (src) => {
+        if (map.has(src)) return;
+        const response = await fetch(src);
+        if (!response.ok) throw new Error(`A sticker image could not be downloaded (HTTP ${response.status}).`);
+        map.set(src, new Uint8Array(await response.arrayBuffer()));
+      }),
+    );
+    return map;
+  }
+
   async function buildBundle(button: HTMLButtonElement) {
     const s = state;
     if (!s?.design || !s.designHash) return;
@@ -1043,7 +1281,16 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       );
       setStatus(status, 'Zipping…');
       const version = `${index.version}+r${s.designRev}`;
-      const { zip, sha256 } = await assembleReleaseZip({ index, files, design: s.design as DiscDesign, cover: await coverBytes(), releaseId: s.releaseId, version });
+      const zipDesign = s.design as DiscDesign;
+      const { zip, sha256 } = await assembleReleaseZip({
+        index,
+        files,
+        design: zipDesign,
+        cover: await coverBytes(),
+        stickers: await stickerBytesMap(zipDesign),
+        releaseId: s.releaseId,
+        version,
+      });
       setStatus(status, `Uploading ${mb(zip.length)}…`);
       const blob = new Blob([zip as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
       const id = await backend.upload(s.slug, blob, 'application/zip', (fraction) => (bar.value = 0.4 + fraction * 0.6));

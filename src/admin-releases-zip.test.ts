@@ -134,6 +134,36 @@ describe('assembleReleaseZip', () => {
     );
     await expect(assembleReleaseZip({ ...base, files, cover: new Uint8Array([1, 2, 3]) })).rejects.toThrow(/not a PNG/);
   });
+
+  test('image stickers ship beside the cover, rewritten to their shipped name; missing bytes is a clear error', async () => {
+    const stickerUrl = 'https://x.convex.cloud/api/storage/sticker1';
+    const withSticker = validateDesign({
+      ...(design.design as DiscDesign),
+      stickers: [{ kind: 'image', src: stickerUrl, area: 'shutter', x: 0.5, y: 0.5, size: 0.3, rotation: 10 }],
+    });
+    if (!withSticker.ok) throw new Error(withSticker.errors.join());
+    const stickerBytes = new Uint8Array([...PNG_HEAD, 5, 5, 5]);
+
+    const result = await assembleReleaseZip({
+      index,
+      files,
+      design: withSticker.design,
+      cover,
+      stickers: new Map([[stickerUrl, stickerBytes]]),
+      releaseId: 'k',
+      version: '1.0.0',
+    });
+    const zip = readZip(result.zip);
+    expect([...zip.keys()]).toEqual(['assets/boot.js', 'design/cover.png', 'design/design.json', 'design/sticker-0.png', 'index.html', 'manifest.json']);
+    expect([...zip.get('design/sticker-0.png')!]).toEqual([...stickerBytes]);
+    const shipped = JSON.parse(zip.get('design/design.json')!.toString());
+    expect(shipped.stickers).toEqual([{ kind: 'image', src: 'sticker-0.png', area: 'shutter', x: 0.5, y: 0.5, size: 0.3, rotation: 10 }]);
+    expect(validateDesign(shipped).ok).toBe(true);
+
+    await expect(
+      assembleReleaseZip({ index, files, design: withSticker.design, cover, releaseId: 'k', version: '1.0.0' }),
+    ).rejects.toThrow(/bytes were not given/);
+  });
 });
 
 describe('portal helpers', () => {

@@ -18,6 +18,8 @@ import { isAdminUser, requireAdmin } from './lib/auth';
 import { fail } from './lib/errors';
 import {
   BUNDLE_VERSION,
+  MAX_IMAGE_STICKERS,
+  MAX_SHUTTER_IMAGE_STICKERS,
   MAX_TRACK_TITLE,
   MAX_TRACKS,
   SHA256_HEX,
@@ -91,12 +93,14 @@ async function factsFor(ctx: Pick<QueryCtx, 'db' | 'storage'>, product: Product)
   const tracks = await tracksOf(ctx, product._id);
   const coverUrl = product.coverFile ? await ctx.storage.getUrl(product.coverFile) : null;
   if (!coverUrl || tracks.length === 0) return null;
+  const stickerUrls = await Promise.all((product.stickerFiles ?? []).map((id) => ctx.storage.getUrl(id)));
   return {
     slug: product.slug,
     title: product.name,
     artist: product.artist ?? '',
     year: product.year ?? new Date().getUTCFullYear(),
     coverUrl,
+    stickerUrls: stickerUrls.filter((url): url is string => Boolean(url)),
     tracks: tracks.map((track) => ({ n: track.position, title: track.title, durationSec: track.durationSeconds })),
   };
 }
@@ -125,7 +129,16 @@ async function referencedFiles(ctx: Pick<QueryCtx, 'db'>): Promise<Set<string>> 
     if (track.originalFile) ids.add(track.originalFile);
   }
   for (const product of await ctx.db.query('products').collect()) {
-    for (const id of [product.downloadFile, product.coverFile, product.bundleFile, product.rack?.spriteWebp, product.rack?.spritePng, product.rack?.still, product.rack?.stillWebp]) {
+    for (const id of [
+      product.downloadFile,
+      product.coverFile,
+      product.bundleFile,
+      product.rack?.spriteWebp,
+      product.rack?.spritePng,
+      product.rack?.still,
+      product.rack?.stillWebp,
+      ...(product.stickerFiles ?? []),
+    ]) {
       if (id) ids.add(id);
     }
   }
@@ -337,6 +350,8 @@ export const get = query({
         hasAudio: Boolean(track.streamFile),
       })),
       coverUrl: await url(product.coverFile),
+      // Pairs the portal matches against `design.stickers[].src` (an image sticker's own file, for its REMOVE button).
+      stickerFiles: await Promise.all((product.stickerFiles ?? []).map(async (file) => ({ file, url: (await url(file))! }))),
       design: (product.design as DiscDesign | undefined) ?? null,
       designHash: product.designHash ?? null,
       designRev: product.designRev ?? 0,
@@ -591,6 +606,98 @@ export const recordCover = internalMutation({
       height: args.height,
     });
     return coverUrl;
+  },
+});
+
+const stickerArgs = {
+  slug: v.string(),
+  file: v.id('_storage'),
+  /** `shutter`: the slide lid. `shell`: anywhere on the plastic cover. */
+  area: v.union(v.literal('shutter'), v.literal('shell')),
+};
+
+/**
+ * A `design.stickers[]` entry read loosely: `design` is `v.any()` at rest, and `buildDesign` (not this file)
+ * is the one place that validates its shape against `packages/minidisc`'s `DiscSticker`.
+ */
+type StickerRecord = Record<string, unknown>;
+
+/**
+ * Adds an image sticker (any shape PNG, alpha kept, or JPEG/WebP): needs the tracks and the cover first, like the
+ * casing itself. Appends a `design.stickers` entry (kind `image`) centred at its area's middle, quarter width, no
+ * rotation; the admin drags the sliders and saves the casing to place it. At most `MAX_SHUTTER_IMAGE_STICKERS` on
+ * the slide cover, `MAX_IMAGE_STICKERS` in all.
+ */
+export const attachSticker = action({
+  args: stickerArgs,
+  handler: async (ctx, args): Promise<{ url: string; file: Id<'_storage'> }> => {
+    const actorUserId: Id<'users'> = await ctx.runQuery(internal.releases.adminUserId, {});
+    return await attaching(ctx, [args.file], async () => {
+      await inspect(ctx, args.file, 'sticker');
+      return await ctx.runMutation(internal.releases.recordSticker, { ...args, actorUserId });
+    });
+  },
+});
+
+export const recordSticker = internalMutation({
+  args: { ...stickerArgs, actorUserId: v.id('users') },
+  handler: async (ctx, args) => {
+    const product = await productBySlug(ctx, args.slug);
+    requireDraft(product);
+    await requireUnused(ctx, [args.file]);
+    const files = product.stickerFiles ?? [];
+    if (files.length >= MAX_IMAGE_STICKERS) fail('INVALID_INPUT', `A release has at most ${MAX_IMAGE_STICKERS} stickers.`);
+    const existing = (((product.design as { stickers?: StickerRecord[] } | undefined)?.stickers ?? []) as StickerRecord[]);
+    const onShutter = existing.filter((s) => s.kind === 'image' && s.area === 'shutter').length;
+    if (args.area === 'shutter' && onShutter >= MAX_SHUTTER_IMAGE_STICKERS) {
+      fail('INVALID_INPUT', `The slide cover has at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers.`);
+    }
+    const url = await ctx.storage.getUrl(args.file);
+    if (!url) fail('NOT_FOUND', 'The upload was not found. Upload the file again.');
+    const facts = await factsFor(ctx, product);
+    if (!facts) fail('INVALID_INPUT', 'Upload the tracks and the cover before stickers.');
+    // `factsFor` reads `product.stickerFiles`, which does not carry `args.file` yet (it is patched in below).
+    const sticker: StickerRecord = { kind: 'image', src: url, area: args.area, x: 0.5, y: 0.5, size: 0.25, rotation: 0 };
+    const result = buildDesign(
+      { ...(product.design ?? {}), stickers: [...existing, sticker] },
+      { ...facts, stickerUrls: [...facts.stickerUrls, url] },
+    );
+    if (!result.ok) fail('INVALID_INPUT', `Could not place the sticker: ${result.errors.slice(0, 8).join('; ')}`);
+    const hash = await designHash(result.design);
+    await ctx.db.patch(product._id, {
+      stickerFiles: [...files, args.file],
+      design: result.design,
+      designHash: hash,
+      designRev: (product.designRev ?? 0) + 1,
+    });
+    await audit(ctx, args.actorUserId, 'release.sticker.add', product.slug, { stickers: existing.length }, { stickers: existing.length + 1, area: args.area });
+    return { url, file: args.file };
+  },
+});
+
+/** Drops one sticker: its `design.stickers` entry and its file, with the casing re-saved and re-hashed. */
+export const removeSticker = mutation({
+  args: { slug: v.string(), file: v.id('_storage') },
+  handler: async (ctx, { slug, file }) => {
+    const admin = await requireAdmin(ctx);
+    const product = await productBySlug(ctx, slug);
+    requireDraft(product);
+    const files = product.stickerFiles ?? [];
+    if (!files.includes(file)) fail('INVALID_INPUT', 'That sticker is not on this release.');
+    const url = await ctx.storage.getUrl(file);
+    const design = product.design as (Record<string, unknown> & { stickers?: StickerRecord[] }) | undefined;
+    const existing = design?.stickers ?? [];
+    const kept = existing.filter((s) => !(s.kind === 'image' && s.src === url));
+    const nextDesign: DiscDesign | null = design ? ({ ...design, stickers: kept.length > 0 ? kept : undefined } as DiscDesign) : null;
+    await ctx.db.patch(product._id, {
+      stickerFiles: files.filter((id) => id !== file),
+      ...(nextDesign
+        ? { design: nextDesign, designHash: await designHash(nextDesign), designRev: (product.designRev ?? 0) + 1 }
+        : {}),
+    });
+    await ctx.storage.delete(file);
+    await audit(ctx, admin._id, 'release.sticker.remove', product.slug, { stickers: existing.length }, { stickers: kept.length });
+    return null;
   },
 });
 

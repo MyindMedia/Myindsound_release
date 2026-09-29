@@ -34,7 +34,8 @@ const SEAT_AT = 1.8;
 
 /**
  * Cartridge flies from wherever it floats in the inspector → slot → seat (1.8 s) → spin-up, timed to the drive
- * recording (`disc-sounds.json`): the spindle clamps on the loading clunk, then the disc starts turning a beat
+ * recording (`disc-sounds.json`): the spindle clamps on the loading clunk, the metal shutter slides down to open
+ * the disc to the laser (generated cartridges), then the disc starts turning a beat
  * before its motor is heard and follows the whine up, and playback starts as it reaches full speed (5.4 s).
  * Reduced motion (or no GSAP) seats the cartridge immediately.
  */
@@ -50,6 +51,7 @@ export function runInsertSequence(
 
   if (instant || scene.reducedMotion || !gsap) {
     deck.seatCartridge();
+    deck.setShutterOpen(1);
     deck.setSpindleEngaged(true, true);
     deck.forceDiscRpm(PLAY_RPM);
     hooks.onInserted();
@@ -59,6 +61,10 @@ export function runInsertSequence(
   }
 
   const cart = deck.cartridge;
+  // The shutter rides closed until the hub is clamped, then slides down to open the disc to the laser, well
+  // before the disc starts turning (the spin-up curve holds at 0 rpm for its first 2.55 s).
+  const shutter = { open: 0 };
+  deck.setShutterOpen(0);
   // Clear the top face before moving into depth, so the cartridge never cuts through the front.
   const hoverY = deck.bodyTop + deck.cartridgeHeight / 2 + 0.03;
   const camera = { dolly: scene.getDolly(), look: scene.getLookOffset() };
@@ -97,6 +103,11 @@ export function runInsertSequence(
       SEAT_AT,
     )
     .call(() => deck.setSpindleEngaged(true), null, SEAT_AT + spinUp.clampAt - 0.2)
+    .to(
+      shutter,
+      { open: 1, duration: 0.55, ease: 'power2.inOut', onUpdate: () => deck.setShutterOpen(shutter.open) },
+      SEAT_AT + spinUp.clampAt + 0.15,
+    )
     .call(() => hooks.onReady(), null, SEAT_AT + spinUp.duration - SPIN_LEAD_SECONDS);
 
   return { cancel: () => tl.kill() };
@@ -147,7 +158,8 @@ export interface EjectHooks {
 export const EJECT_SPIN_DOWN_SECONDS = DISC_SOUNDS.spinDown.duration;
 
 /**
- * Spin-down (about 3 s) → unload sound (the drive's load sound): the spindle drops on its first clunk, the
+ * Spin-down (about 3 s) → the shutter slides back up over the stopped disc → unload sound (the drive's load
+ * sound): the spindle drops on its first clunk, the
  * door opens, and the spring pops the cartridge out of the slot on the big clunk → it flies forward into the
  * inspector with one full turn (about 5.2 s in all; 2.4 s less from a still disc).
  * Reduced motion (or no GSAP) presents it immediately, without the unload.
@@ -164,6 +176,7 @@ export function runEjectSequence(
 
   if (scene.reducedMotion || !gsap) {
     deck.forceDiscRpm(0);
+    deck.setShutterOpen(0);
     deck.setSpindleEngaged(false, true);
     deck.seatCartridge();
     inspector.takeCartridge();
@@ -195,8 +208,11 @@ export function runEjectSequence(
   };
 
   const tl = gsap.timeline();
+  // The disc has stopped: the shutter slides back up over it before the catch lets the cartridge go.
+  const shutter = { open: 1 };
   // The spindle drops clear of the hub on the unclamp clunk, then the door opens.
-  tl.call(() => hooks.onUnload(), null, unloadAt)
+  tl.to(shutter, { open: 0, duration: 0.4, ease: 'power2.inOut', onUpdate: () => deck.setShutterOpen(shutter.open) }, unloadAt + 0.15)
+    .call(() => hooks.onUnload(), null, unloadAt)
     .to(
       camera,
       { dolly: 1.3, look: 0.45, duration: 0.9, ease: 'sine.inOut', onUpdate: applyCamera },

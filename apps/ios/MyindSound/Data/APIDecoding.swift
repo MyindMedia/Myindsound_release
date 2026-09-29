@@ -108,8 +108,17 @@ enum APIDecoding {
             trackCount: value["trackCount"]?.int,
             leaderboardSize: value["leaderboardSize"]?.int,
             design: disc,
-            rack: rack(value["rack"])
+            rack: rack(value["rack"]),
+            credits: credits(value["credits"])
         )
+    }
+
+    /// `[{ role, name }]`; rows missing either are skipped.
+    static func credits(_ value: JSONValue?) -> [ReleaseCredit] {
+        (value?.array ?? []).compactMap { row in
+            guard let role = row["role"]?.string, let name = row["name"]?.string, !role.isEmpty, !name.isEmpty else { return nil }
+            return ReleaseCredit(role: role, name: name)
+        }
     }
 
     // MARK: app.context

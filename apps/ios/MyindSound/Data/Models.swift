@@ -90,8 +90,16 @@ struct LibraryRelease: Identifiable, Equatable {
     var design: DiscDesign? = nil
     /// The rack's rendered sleeve still (portal releases; nil for LIT, whose render is built in: `RackRender.builtIn`).
     var rack: RackRender? = nil
+    /// Liner-note credits (`credits: [{ role, name }]`), when the release has them.
+    var credits: [ReleaseCredit] = []
 
     var id: String { slug }
+}
+
+/// One liner-note line: "Produced by" · "Name".
+struct ReleaseCredit: Equatable, Hashable {
+    var role: String
+    var name: String
 }
 
 struct LibrarySnapshot: Equatable {

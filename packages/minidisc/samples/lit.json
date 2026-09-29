@@ -14,7 +14,7 @@
     { "n": 7, "title": "Faith", "durationSec": 183 }
   ],
   "coverArt": "lit/cover.png",
-  "shell": "clear-pink",
+  "shell": "clear",
   "labelStyle": "sticker",
   "labelText": "LIT\nLIVING IN TRUTH\nTHA MYIND",
   "accent": "#FF3DA8",

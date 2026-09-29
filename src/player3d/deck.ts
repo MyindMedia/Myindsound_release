@@ -21,6 +21,8 @@ import {
 import { curveAt } from './audio-math';
 import { addCartridgeDetail, paperGrainNormal, type DetailQuality } from './cartridge-detail';
 import geometry from './geometry.json';
+import { PLAY_RPM } from './insert-sequence';
+import { LaserPod } from './laser-pod';
 import { Spindle } from './spindle';
 import type { Bounds } from './scene';
 import { DeckLcd } from './lcd';
@@ -160,6 +162,8 @@ export interface CartridgeBuilderInput {
 export interface CartridgeBuild {
   /** Objects that turn with the disc. */
   spinning: Object3D[];
+  /** The metal shutter: 0 closed, 1 slid down clear of the disc for the laser (generated cartridges). */
+  setShutter?(open: number): void;
   /** The mesh the pointer picks up to drag and turn the cartridge. */
   hitTarget: Object3D;
 }
@@ -179,6 +183,8 @@ export class Deck {
   readonly glare: MeshBasicMaterial;
   private discs: Object3D[] = [];
   private readonly spindle: Spindle;
+  private readonly laserPod: LaserPod;
+  private shutter: ((open: number) => void) | null = null;
   private readonly lcd: DeckLcd;
   private rpm = 0;
   private rpmTarget = 0;
@@ -224,7 +230,8 @@ export class Deck {
     );
     const tray = plane(
       geometry.tray.rect,
-      new MeshBasicMaterial({ map: textures.tray, transparent: true, color: new Color(0.82, 0.84, 0.86) }),
+      // Dimmed so the laser pod standing on it reads first.
+      new MeshBasicMaterial({ map: textures.tray, transparent: true, color: new Color(0.42, 0.44, 0.47) }),
       -BODY_DEPTH + 0.008,
     );
     this.group.add(backplate, tray);
@@ -283,6 +290,17 @@ export class Deck {
     });
     this.group.add(this.spindle.group);
 
+    // The laser pod around it: the drive mechanism seen through the window when the deck is empty, its pickup
+    // tracking the playback position under the disc.
+    this.laserPod = new LaserPod({
+      x: discX,
+      y: discY,
+      floorZ: -BODY_DEPTH + 0.009,
+      turntableRadius: geometry.disc.hub.plate * geometry.disc.radius * 0.82,
+      environment: this.environment,
+    });
+    this.group.add(this.laserPod.group);
+
     this.lcd = new DeckLcd(LCD_RECT, { z: -LCD_DEPTH, environment: this.environment });
     this.group.add(this.lcd.group);
 
@@ -319,6 +337,7 @@ export class Deck {
         quality: this.quality,
       });
       this.discs.push(...built.spinning);
+      this.shutter = built.setShutter ?? null;
       this.cartridge.position.set(c.x, c.y, CART_SEATED_Z);
       this.cartridge.userData.seated = new Vector3(c.x, c.y, CART_SEATED_Z);
       this.group.add(this.cartridge);
@@ -523,6 +542,16 @@ export class Deck {
     this.spindle.setEngaged(engaged, immediate);
   }
 
+  /** Slide the cartridge's metal shutter: 0 closed, 1 open (down, clear of the disc). No-op without one. */
+  setShutterOpen(open: number): void {
+    this.shutter?.(Math.max(0, Math.min(1, open)));
+  }
+
+  /** Where the laser pod's pickup reads: 0 the start of the disc (inner edge), 1 its end (outer edge). */
+  setPickupProgress(progress: number, immediate = false): void {
+    this.laserPod.setProgress(progress, immediate);
+  }
+
   /** What the status display shows; redrawn only when it changes. */
   setLcd(content: LcdContent): void {
     this.lcd.set(content);
@@ -545,6 +574,7 @@ export class Deck {
     const angle = ((this.rpm * Math.PI * 2) / 60) * dt * this.spinScale;
     for (const disc of this.discs) disc.rotation.z -= angle;
     this.spindle.update(dt, angle);
+    this.laserPod.update(dt, this.rpm / PLAY_RPM);
 
     for (const key of this.keys.values()) {
       // Fast in (80 ms feel), slightly slower out.

@@ -11,7 +11,7 @@ import type { WearInput, WearZone } from '../../../src/player3d/wear-render';
 import { DiscWrap, type SleevePrints } from '../../../src/player3d/wrap';
 import { buildCartridge, type BuildOptions, type BuiltCartridge, type DesignArt } from './cartridge';
 import { canvas, drawCover, srgbTexture } from './canvas';
-import { designArtRefs, resolveTheme, type DiscDesign } from './design';
+import { designArtRefs, imageStickers, resolveTheme, type DiscDesign } from './design';
 import { backCoverPrint, spinePrint } from './prints';
 
 export type { DesignArt } from './cartridge';
@@ -36,6 +36,10 @@ export interface LoadedArt extends DesignArt {
   disc: HTMLImageElement;
   /** The backdrop image (the cover unless the theme names another). */
   backdrop: HTMLImageElement;
+  /** The uploaded label image (`labelArt`), if any. */
+  label?: HTMLImageElement;
+  /** Image stickers' art, by their `src`. */
+  stickers: Record<string, HTMLImageElement>;
 }
 
 /** Loads every image the design refers to, relative to `base` (the design.json URL). */
@@ -44,8 +48,15 @@ export async function loadDesignArt(design: DiscDesign, base?: string): Promise<
   const images = new Map<string, Promise<HTMLImageElement>>();
   for (const ref of designArtRefs(design)) images.set(ref, loadImage(resolveArtUrl(ref, base)));
   const get = (ref: string) => images.get(ref)!;
-  const [cover, disc, backdrop] = await Promise.all([get(design.coverArt), get(design.discArt ?? design.coverArt), get(theme.backdrop.image)]);
-  return { cover, disc, backdrop };
+  const [cover, disc, backdrop, label] = await Promise.all([
+    get(design.coverArt),
+    get(design.discArt ?? design.coverArt),
+    get(theme.backdrop.image),
+    design.labelArt ? get(design.labelArt) : Promise.resolve(undefined),
+  ]);
+  const stickers: Record<string, HTMLImageElement> = {};
+  for (const sticker of imageStickers(design)) stickers[sticker.src] = await get(sticker.src);
+  return { cover, disc, backdrop, label, stickers };
 }
 
 /** LIT's cartridge rectangle and disc, in the cartridge's own space (deck.ts `buildCartridge`). */

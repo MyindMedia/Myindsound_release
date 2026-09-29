@@ -138,6 +138,8 @@ export interface ReleaseZipInput {
   /** The saved design (from `releases.get`); its cover URL is rewritten to the shipped file. */
   design: DiscDesign;
   cover: Uint8Array;
+  /** Every image sticker's bytes (`design.stickers[]`, kind `image`), keyed by its current `src` (the uploaded URL). */
+  stickers?: Map<string, Uint8Array>;
   releaseId: string;
   version: string;
 }
@@ -151,13 +153,33 @@ export async function assembleReleaseZip(input: ReleaseZipInput): Promise<{ zip:
   if (!ext) throw new Error('The cover is not a PNG, JPEG or WebP image.');
   const coverName = `cover.${ext}`;
   const coverRef = input.design.coverArt;
-  const rewrite = (ref: string | undefined) => (ref === undefined ? undefined : ref === coverRef ? coverName : null);
+
+  // Image stickers ship beside the cover, each under its own name; `stickerNames` maps its `src` (the uploaded
+  // URL) to that name, so the "art other than its cover" check below can wave them through too.
+  const stickers = ((input.design.stickers ?? []) as { kind: string; src?: string }[]).filter((s) => s.kind === 'image');
+  const stickerNames = new Map<string, string>();
+  const stickerEntries: ZipEntry[] = [];
+  stickers.forEach((sticker, i) => {
+    const bytes = sticker.src ? input.stickers?.get(sticker.src) : undefined;
+    if (!sticker.src || !bytes) throw new Error('The design names a sticker image, but its bytes were not given.');
+    const stickerExt = imageExtension(bytes.slice(0, 12));
+    if (!stickerExt) throw new Error('A sticker image is not a PNG, JPEG or WebP image.');
+    const name = `sticker-${i}.${stickerExt}`;
+    stickerNames.set(sticker.src, name);
+    stickerEntries.push({ name: `design/${name}`, data: bytes });
+  });
+
+  const rewrite = (ref: string | undefined) =>
+    ref === undefined ? undefined : ref === coverRef ? coverName : stickerNames.has(ref) ? stickerNames.get(ref)! : null;
   const art = [input.design.discArt, input.design.theme?.backdropImage, input.design.theme?.backdrop?.image];
   if (art.some((ref) => rewrite(ref) === null)) throw new Error('The design names art other than its cover.');
   const shipped: DiscDesign = {
     ...input.design,
     coverArt: coverName,
     discArt: rewrite(input.design.discArt) ?? undefined,
+    stickers: (input.design.stickers as { kind: string; src?: string }[] | undefined)?.map((sticker) =>
+      sticker.kind === 'image' && sticker.src ? { ...sticker, src: stickerNames.get(sticker.src) } : sticker,
+    ) as DiscDesign['stickers'],
     theme: input.design.theme
       ? {
           ...input.design.theme,
@@ -192,6 +214,7 @@ export async function assembleReleaseZip(input: ReleaseZipInput): Promise<{ zip:
     { name: 'manifest.json', data: encoder.encode(`${JSON.stringify(manifest, null, 2)}\n`) },
     { name: 'design/design.json', data: encoder.encode(`${JSON.stringify(shipped, null, 2)}\n`) },
     { name: `design/${coverName}`, data: input.cover },
+    ...stickerEntries,
   ];
   for (const { path } of index.files) {
     if (path === 'manifest.json' || path.startsWith('design/')) continue;

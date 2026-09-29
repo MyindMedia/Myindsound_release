@@ -25,7 +25,7 @@ import { cartridgeBuilder, loadDesignArt, makeSleevePrints, resolveArtUrl, type 
 import type { WearInput } from '../../src/player3d/wear-render';
 import { PlayerApp, type PlayerMoment } from '../../src/player3d/player-app';
 import type { PlayerScene } from '../../src/player3d/scene';
-import { canLoadCopy, editionOf, lendLine, sleeveModeRequested, type Copy } from '../lit/copy';
+import { canLoadCopy, editionOf, lendLine, sleeveModeRequested, playerModeRequested, resumeFromPlayback, type Copy } from '../lit/copy';
 import manifest from './bundle.json';
 
 /** Where the zip's design lives, next to index.html. */
@@ -76,6 +76,8 @@ async function loadRelease(overrides: BootOverrides): Promise<{ design: DiscDesi
     ...design,
     coverArt: resolve(design.coverArt),
     discArt: design.discArt ? resolve(design.discArt) : undefined,
+    labelArt: design.labelArt ? resolve(design.labelArt) : undefined,
+    stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolve(sticker.src) } : sticker)),
     theme: design.theme
       ? {
           ...design.theme,
@@ -149,7 +151,19 @@ export async function bootRelease(bridge: MyindBridge & { start?(): void }, root
   const { design, art } = await releaseReady;
   const theme = resolveTheme(design);
   const owned = context?.ownership === 'owned';
+  // The app's player (the now playing bar): straight to the deck with the disc that's playing, no sleeve or film.
+  const playerMode = playerModeRequested(window.location.search);
+  let resume: ReturnType<typeof resumeFromPlayback>;
+  if (playerMode) {
+    try {
+      const [tracks, playback] = await Promise.all([bridge.getTracks(), bridge.getPlaybackState()]);
+      resume = resumeFromPlayback(tracks, playback);
+    } catch (err) {
+      console.warn('player mode: no playback state:', codeOf(err));
+    }
+  }
   const sleeved =
+    !playerMode &&
     sleeveModeRequested(window.location.search) &&
     Boolean(context?.unwrapped) &&
     (context?.ownership === 'owned' || context?.ownership === 'lent');
@@ -189,8 +203,9 @@ export async function bootRelease(bridge: MyindBridge & { start?(): void }, root
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   app = new PlayerApp(root, new BridgeTrackSource(bridge), {
-    wrapped: context ? !context.unwrapped : false,
+    wrapped: !playerMode && context ? !context.unwrapped : false,
     sleeved,
+    resume,
     canLoadFromSleeve: () => canLoadCopy(copy),
     handoff: false,
     createEngine: (events) => new BridgeAudioEngine(bridge, events),
@@ -223,6 +238,8 @@ export async function bootRelease(bridge: MyindBridge & { start?(): void }, root
       }),
     onSceneReady: (parts) => {
       scene = parts.scene;
+      // The app's CoreMotion feed (ReleaseHostController): the deck leans only as the phone tilts.
+      (window as unknown as { __myindTilt?: (x: number, y: number) => void }).__myindTilt = (x, y) => scene?.setDeviceTilt(x, y);
       stamp();
     },
   });

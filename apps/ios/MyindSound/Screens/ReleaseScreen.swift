@@ -152,7 +152,7 @@ struct ReleaseScreen: View {
         } else {
             app.audio.load(release: release, tracks: list, startAt: index, lendId: context?.lend?.lendId)
         }
-        app.showPlayer = true
+        app.openPlayer()
     }
 }
 

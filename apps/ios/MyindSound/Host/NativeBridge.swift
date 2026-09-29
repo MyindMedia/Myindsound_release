@@ -251,6 +251,8 @@ final class NativeBridge: NSObject {
         }
         guard let release else { throw BridgeError(.notFound, "Release not in your library") }
         if isThisRelease {
+            // The player page resuming the disc that's already running here: leave it running, no re-seek hiccup.
+            if audio.index == index, audio.isPlaying, let startAt, abs(startAt - audio.elapsed) < 1.5 { return }
             audio.play(trackAt: index, startAt: startAt)
         } else {
             // The bundle reports its own cartridge load (cartridgeLoaded), so the engine doesn't record one.

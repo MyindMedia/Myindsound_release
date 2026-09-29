@@ -5,11 +5,13 @@ import WebKit
 /// One release experience in a WKWebView (PRD §10.1 BUN-3, §10.3 NAT-1..4). Owns the web view, the scheme
 /// handler, the bridge and the load state. Lives in `HostPool`, so the most recently played release can be
 /// loaded before the fan opens it (NAT-4) and shown with no wait.
-/// How the release opens: the full experience (the sealed package on a new copy, RACK-3, else the deck), or the
-/// rack's sleeve mode for an unwrapped copy (the printed card sleeve without film, `index.html?mode=sleeve`).
+/// How the release opens: the full experience (the sealed package on a new copy, RACK-3, else the deck), the
+/// rack's sleeve mode for an unwrapped copy (the printed card sleeve without film, `index.html?mode=sleeve`), or
+/// the player (`?mode=player`): the deck with the disc that's playing already in it, at its track and place.
 enum HostMode: String, Equatable {
     case full
     case sleeve
+    case player
 }
 
 @MainActor
@@ -55,7 +57,7 @@ final class ReleaseHostController: NSObject {
 
     /// The entry URL for a bundle entry in this mode.
     nonisolated static func entryURL(slug: String, entry: String, mode: HostMode) -> URL {
-        URL(string: "\(BridgeContract.scheme)://\(slug)/\(entry)\(mode == .sleeve ? "?mode=sleeve" : "")")!
+        URL(string: "\(BridgeContract.scheme)://\(slug)/\(entry)\(mode == .full ? "" : "?mode=\(mode.rawValue)")")!
     }
 
     /// Sleeve mode's LOAD key: the same as a tap on the sleeve (the bundle ignores it when the copy can't load).
@@ -200,6 +202,7 @@ final class ReleaseHostController: NSObject {
     }
 
     func teardown() {
+        tilt.stop()
         readyTimer?.cancel()
         urlObservation?.invalidate()
         urlObservation = nil
@@ -231,6 +234,12 @@ final class ReleaseHostController: NSObject {
 
     private func updateLifecycle() {
         bridge?.setForeground(presented && appActive)
+        // The deck leans with the phone only while it's on screen (DeviceTilt).
+        if presented && appActive && webView != nil { tilt.start() } else { tilt.stop() }
+    }
+
+    @ObservationIgnored private lazy var tilt = DeviceTilt { [weak self] x, y in
+        self?.webView?.evaluateJavaScript("window.__myindTilt && window.__myindTilt(\(x), \(y)); void 0", completionHandler: nil)
     }
 
     func setLayout(size: CGSize, regular: Bool) {
@@ -375,12 +384,21 @@ extension ReleaseHostController: WKNavigationDelegate, WKUIDelegate, UIScrollVie
 
 // MARK: - Pool (NAT-4)
 
-/// Keeps one warm host: the most recently played release, loaded in the background after the library
-/// refreshes, so OPEN DECK shows it at once. At most one extra web view; dropped on a memory warning.
+/// Keeps a few warm hosts, so a tap on the rack (or OPEN DECK) lands on a page that is already built: the most
+/// recently played release, then the rack's copies in order, each in the mode the rack opens it in. A web view off
+/// the window runs no animation frames and never reaches `ready`, so warm pages are parked in the window, behind the
+/// app's own views (never seen, never touched), until a WebViewSlot takes them. Three on phones with 6 GB or more,
+/// one below; all dropped on a memory warning.
 @MainActor
 final class HostPool {
     private unowned let app: AppModel
-    private var warm: ReleaseHostController?
+    /// Built and waiting, most wanted first.
+    private var warm: [ReleaseHostController] = []
+    /// The page on screen (the focus view or the full screen host).
+    private var active: ReleaseHostController?
+    private var parkingLot: UIView?
+
+    private let capacity = ProcessInfo.processInfo.physicalMemory >= 6 * 1024 * 1024 * 1024 ? 3 : 1
 
     init(app: AppModel) {
         self.app = app
@@ -389,23 +407,30 @@ final class HostPool {
         }
     }
 
-    /// The host for `slug` in `mode`: the warm one if it matches, else a new one.
+    /// The host for `slug` in `mode`: a warm one if it matches, else a new one.
     func controller(for slug: String, mode: HostMode = .full) -> ReleaseHostController {
-        if let warm, warm.slug == slug, warm.mode == mode {
-            if case .failed = warm.phase { dropWarm() } else { return warm }
+        if let index = warm.firstIndex(where: { $0.slug == slug && $0.mode == mode }) {
+            let hit = warm.remove(at: index)
+            if case .failed = hit.phase {
+                hit.teardown()
+            } else {
+                retire(active)
+                active = hit
+                return hit
+            }
         }
-        dropWarm()
+        retire(active)
         let controller = ReleaseHostController(slug: slug, app: app, mode: mode)
-        warm = controller
+        active = controller
         return controller
     }
 
-    /// After a close: the page is torn down (CONTRACT.md §4 `close`) and a fresh one warms up behind it.
+    /// After a close: the page is torn down (CONTRACT.md §4 `close`) and the pool refills behind it.
     func closed(_ controller: ReleaseHostController) {
-        if warm === controller { warm = nil }
+        if active === controller { active = nil }
         controller.teardown()
         Task {
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .seconds(1))
             self.prewarm()
         }
     }
@@ -413,20 +438,60 @@ final class HostPool {
     func prewarm() {
         // Never inside the unit test host.
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
-        // The most recently played copy, else the newest one on the rack; in the mode the rack opens it in, so a
-        // tap lifts straight into a page that is already built (NAT-4).
         let playable = { (release: LibraryRelease) in
             (release.ownership == .owned || release.ownership == .lent) && release.bundle != nil
         }
         let lastPlayed = UserDefaults.standard.string(forKey: AudioEngine.lastPlayedKey).flatMap { app.release(slug: $0) }
-        guard warm == nil, let release = lastPlayed.flatMap({ playable($0) ? $0 : nil }) ?? app.ownedReleases.first(where: playable) else { return }
-        let controller = ReleaseHostController(slug: release.slug, app: app, mode: app.rackMode(slug: release.slug))
-        warm = controller
-        Task { await controller.start() }
+        var wanted: [LibraryRelease] = []
+        for release in [lastPlayed].compactMap({ $0 }) + app.ownedReleases where playable(release) {
+            if !wanted.contains(where: { $0.slug == release.slug }) { wanted.append(release) }
+        }
+        for release in wanted.prefix(capacity) {
+            let mode = app.rackMode(slug: release.slug)
+            let taken = warm.contains { $0.slug == release.slug && $0.mode == mode } || (active?.slug == release.slug && active?.mode == mode)
+            guard !taken, warm.count < capacity else { continue }
+            let controller = ReleaseHostController(slug: release.slug, app: app, mode: mode)
+            warm.append(controller)
+            Task {
+                await controller.start()
+                self.park(controller)
+            }
+        }
+    }
+
+    /// In the window, behind everything, at the window's size (the focus view's size), so the page runs its frames.
+    private func park(_ controller: ReleaseHostController) {
+        guard warm.contains(where: { $0 === controller }), let webView = controller.webView, webView.superview == nil,
+              let lot = lot() else { return }
+        webView.frame = lot.bounds
+        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        lot.addSubview(webView)
+    }
+
+    private func lot() -> UIView? {
+        if let parkingLot, parkingLot.window != nil { return parkingLot }
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow } ?? UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.windows.first }.first
+        guard let window else { return nil }
+        let lot = UIView(frame: window.bounds)
+        lot.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        lot.isUserInteractionEnabled = false
+        lot.accessibilityElementsHidden = true
+        window.insertSubview(lot, at: 0)
+        parkingLot = lot
+        return lot
+    }
+
+    private func retire(_ controller: ReleaseHostController?) {
+        guard let controller else { return }
+        controller.teardown()
+        if active === controller { active = nil }
     }
 
     private func dropWarm() {
-        warm?.teardown()
-        warm = nil
+        for controller in warm { controller.teardown() }
+        warm = []
     }
 }

@@ -389,7 +389,9 @@ export class DiscWrap {
     const card = (map: Texture | null): MeshStandardMaterial => {
       const material = new MeshStandardMaterial({
         map,
-        color: map ? '#ffffff' : '#181320',
+        // Printed card, not a lightbox: its whites held at 0.83 so under the inspector's key they stay under the
+        // bloom threshold and read as ink on card (the gallery still, sleeve-still.ts, renders the same card).
+        color: map ? '#d4d4d4' : '#181320',
         roughness: 0.78,
         metalness: 0,
         envMap: options.environment,

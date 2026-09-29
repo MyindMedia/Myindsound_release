@@ -79,6 +79,8 @@ if (designPath) {
     ...design,
     coverArt: rewrite(design.coverArt),
     discArt: rewrite(design.discArt),
+    labelArt: rewrite(design.labelArt),
+    stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: rewrite(sticker.src) } : sticker)),
     theme: design.theme
       ? {
           ...design.theme,

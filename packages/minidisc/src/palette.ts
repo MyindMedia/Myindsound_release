@@ -15,7 +15,7 @@ export interface Swatch {
 
 export interface ShellSuggestion {
   shell: ShellPresetId;
-  /** For hues the presets don't cover (greens, cyans, oranges): the clear shell, tinted this colour. */
+  /** For hues the presets don't cover (cyans): the clear shell, tinted this colour. */
   tint?: string;
   /** The key colour the choice was made on. */
   key: Swatch;
@@ -164,8 +164,12 @@ export function shellForColour(r: number, g: number, b: number): { shell: ShellP
   const s = chroma(r, g, b);
   if (!isSaturated(r, g, b)) return l > 0.7 ? { shell: 'clear' } : { shell: 'smoke-black' };
   if (h >= 345 || h < 20) return { shell: 'red' };
+  // Bright oranges get the orange shell (23); darker ones, browns, stay red.
+  if (h < 38) return l > 0.35 && s > 0.45 ? { shell: 'orange' } : { shell: 'red' };
   if (h < 50) return l > 0.4 && s > 0.45 ? { shell: 'smoke-gold' } : { shell: 'red' };
   if (h < 72) return { shell: 'smoke-gold' };
+  if (h < 100) return { shell: 'lime' };
+  if (h < 165) return { shell: 'green' };
   if (h < 195) return { shell: 'clear', tint: toHex(r, g, b) };
   if (h < 262) return { shell: 'blue' };
   if (h < 300) return { shell: 'purple' };

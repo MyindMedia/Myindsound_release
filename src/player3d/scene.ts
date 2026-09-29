@@ -51,6 +51,8 @@ export class PlayerScene {
   private tiltVelocity = new Vector2();
   private dragging = false;
   private tiltEnabled = true;
+  /** The app feeds the phone's own tilt (setDeviceTilt): then that alone moves the deck, no sway, no drag lean. */
+  private deviceTilt = false;
   private lowPower = false;
   private idleThrottle = false;
   private sinceRender = 0;
@@ -127,6 +129,18 @@ export class PlayerScene {
   }
 
   /** Off while the cartridge is out for inspection: the deck settles to rest and drags go to the inspector. */
+  /**
+   * The phone's tilt from the app (CoreMotion through the host, -1..1 each way, re-centred on how it's held). Once
+   * it arrives the deck moves only with the phone: the idle sway and the drag lean stop.
+   */
+  setDeviceTilt(x: number, y: number): void {
+    this.deviceTilt = true;
+    this.dragging = false;
+    if (!this.tiltEnabled) return;
+    const clamp = (v: number) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0);
+    this.tiltTarget.set(clamp(x), clamp(y));
+  }
+
   setTiltEnabled(enabled: boolean): void {
     this.tiltEnabled = enabled;
     if (!enabled) {
@@ -219,7 +233,7 @@ export class PlayerScene {
     let startX = 0;
     let startY = 0;
     canvas.addEventListener('pointerdown', (event) => {
-      if (!this.tiltEnabled) return;
+      if (!this.tiltEnabled || this.deviceTilt) return;
       this.dragging = true;
       startX = event.clientX;
       startY = event.clientY;
@@ -244,7 +258,7 @@ export class PlayerScene {
       return;
     }
     const target = this.tiltTarget.clone();
-    if (this.coarsePointer && !this.dragging && this.tiltEnabled) {
+    if (this.coarsePointer && !this.dragging && this.tiltEnabled && !this.deviceTilt) {
       target.set(Math.sin(elapsed * 0.31) * 0.35, Math.sin(elapsed * 0.23 + 1.2) * 0.25);
     }
     // Critically damped spring toward the pointer target.

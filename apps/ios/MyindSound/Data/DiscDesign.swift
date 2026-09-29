@@ -69,6 +69,9 @@ struct RackRender: Equatable {
     var stillURL: URL
     /// The same render as WebP (smaller; iOS decodes it natively). Tried first, the PNG is the fallback.
     var stillWebpURL: URL? = nil
+    /// The cartridge on its own, as the deck shows it (`renderSleeveStill` with `cartridge`): the now playing
+    /// thumbnail. Nil until the portal publishes one (`rack.cartUrl`).
+    var cartURL: URL? = nil
 
     /// Where to load the still from, best first.
     var candidates: [URL] { [stillWebpURL, stillURL].compactMap { $0 } }
@@ -77,7 +80,7 @@ struct RackRender: Equatable {
     /// `Resources/RackStills/<slug>-sleeve.webp`, copied from packages/minidisc/shots (`dev/stills.html`).
     static func builtIn(slug: String, bundle: Bundle = .main) -> RackRender? {
         guard slug == "lit", let url = bundle.url(forResource: "\(slug)-sleeve", withExtension: "webp") else { return nil }
-        return RackRender(stillURL: url)
+        return RackRender(stillURL: url, cartURL: bundle.url(forResource: "\(slug)-cart", withExtension: "webp"))
     }
 }
 
@@ -85,8 +88,9 @@ struct RackRender: Equatable {
 /// the sleeve's printed front lands in the same place in every image (its `face`, packages/minidisc/shots/
 /// *-sleeve.json; docs/app-v1/API.md). Stickers, the loan tag and the sealed film are laid over this rectangle.
 enum RackStill {
-    /// The printed front, as fractions of the (square) image, origin top left.
-    static let face = CGRect(x: 0.0720, y: 0.0747, width: 0.8343, height: 0.8579)
+    /// The printed front, as fractions of the (square) image, origin top left: `face` in the stills'
+    /// `<slug>-sleeve.json` (renderSleeveStill, square on, the live sleeve's opening frame).
+    static let face = CGRect(x: 0.0630, y: 0.0954, width: 0.8740, height: 0.8546)
 
     /// `face` in an image drawn `side` points square.
     static func face(side: CGFloat) -> CGRect {
@@ -138,6 +142,6 @@ extension APIDecoding {
             return url
         }
         guard let still = url("stillUrl") else { return nil }
-        return RackRender(stillURL: still, stillWebpURL: url("stillWebpUrl"))
+        return RackRender(stillURL: still, stillWebpURL: url("stillWebpUrl"), cartURL: url("cartWebpUrl") ?? url("cartUrl"))
     }
 }

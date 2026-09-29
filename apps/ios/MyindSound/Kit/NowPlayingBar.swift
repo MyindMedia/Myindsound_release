@@ -20,6 +20,8 @@ struct NowPlayingBar: View {
     var onClose: (() -> Void)? = nil
     /// A generated disc's cover, printed on the disc (nil: LIT's disc art).
     var discArt: URL? = nil
+    /// The loaded cartridge as the 3D deck shows it (AppModel.cartridgeStill). Shown instead of the drawn disc.
+    var cartridge: URL? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -64,14 +66,19 @@ struct NowPlayingBar: View {
     private var art: some View {
         ZStack {
             MSColor.panelSolid
-            Image("MiniDiscShell")
-                .resizable()
-                .scaledToFit()
-            SpinningDisc(spinning: isPlaying && !reduceMotion, art: discArt)
-                .frame(
-                    width: MSComponent.NowPlaying.artSizePhone * HUDSurface.nowPlayingDiscScale,
-                    height: MSComponent.NowPlaying.artSizePhone * HUDSurface.nowPlayingDiscScale
-                )
+            if let cartridge {
+                CartridgeThumb(url: cartridge)
+                    .padding(2)
+            } else {
+                Image("MiniDiscShell")
+                    .resizable()
+                    .scaledToFit()
+                SpinningDisc(spinning: isPlaying && !reduceMotion, art: discArt)
+                    .frame(
+                        width: MSComponent.NowPlaying.artSizePhone * HUDSurface.nowPlayingDiscScale,
+                        height: MSComponent.NowPlaying.artSizePhone * HUDSurface.nowPlayingDiscScale
+                    )
+            }
         }
         .frame(width: MSComponent.NowPlaying.artSizePhone, height: MSComponent.NowPlaying.artSizePhone)
         .clipped()
@@ -205,5 +212,23 @@ struct SpinningDisc: View {
         MSColor.ink.ignoresSafeArea()
         NowPlayingBar(title: "01 · L.I.T. (Living In Truth)", tag: "Preview", elapsed: "0:01", duration: "0:30", progress: 0.05, isPlaying: true, onClose: {})
             .padding(.horizontal, 8)
+    }
+}
+
+/// The loaded cartridge's still (transparent PNG/WebP), fitted whole.
+private struct CartridgeThumb: View {
+    let url: URL
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(uiImage: image).resizable().interpolation(.high).scaledToFit()
+            }
+        }
+        .task(id: url) {
+            image = ArtImageLoader.cached(url, maxPixel: 256)
+            if image == nil { image = await ArtImageLoader.image(url, maxPixel: 256) }
+        }
     }
 }

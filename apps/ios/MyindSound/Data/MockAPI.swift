@@ -78,7 +78,9 @@ final class MockAPI: MyindAPI {
     )
 
     /// Sample copies for the other rack states. Titles other than LIT, C-WALK and The Source are samples. The
-    /// generated ones carry the sample designs and sleeve stills from packages/minidisc (Debug builds, DevDiscs).
+    /// generated ones carry the sample designs and sleeve stills from packages/minidisc (Debug builds, DevDiscs),
+    /// and each its own bundle (dist-bundles/<slug>-1.0.0.zip, `node scripts/build-bundle.mjs release --design
+    /// packages/minidisc/samples/<slug>.json`), so a tap opens the live 3D sleeve rather than the flat still.
     static func sample(
         _ slug: String, _ title: String, edition: Int?, ownership: Ownership, lend: LendInfo? = nil, accent: String,
         design: DiscDesign? = nil, rack: RackRender? = nil, bundle: BundleInfo? = nil
@@ -95,14 +97,15 @@ final class MockAPI: MyindAPI {
 
     static let cWalk = sample(
         "c-walk", "C-WALK", edition: 64, ownership: .owned, accent: "#FF8C00",
-        design: DevDiscs.design("c-walk"), rack: DevDiscs.rack("c-walk")
+        design: DevDiscs.design("c-walk"), rack: DevDiscs.rack("c-walk"), bundle: BundleStore.devZip(slug: "c-walk")
     )
     /// Out on loan, so its tile shows the loan tag over the render.
     static let reflections = sample(
         "reflections", "Reflections", edition: 212, ownership: .owned,
         lend: LendInfo(lendId: "mock-lend-out", playsAllowed: 10, playsUsed: 4, expiresAt: Date().addingTimeInterval(4 * 86_400),
                        status: "active", endReason: nil, role: .lender),
-        accent: "#9FD8FF", design: DevDiscs.design("reflections"), rack: DevDiscs.rack("reflections")
+        accent: "#9FD8FF", design: DevDiscs.design("reflections"), rack: DevDiscs.rack("reflections"),
+        bundle: BundleStore.devZip(slug: "reflections")
     )
     /// A generated disc with its own bundle (dist-bundles/blood-1.0.0.zip, embedded in Debug), so a tap opens its
     /// 3D sleeve and the deck plays it over its album art.
@@ -111,10 +114,12 @@ final class MockAPI: MyindAPI {
         design: DevDiscs.design("blood"), rack: DevDiscs.rack("blood"), bundle: BundleStore.devZip(slug: "blood")
     )
     static let cook = sample(
-        "cook", "Let Him Cook", edition: 3, ownership: .lent,
+        // The slug matches its bundle's manifest (BundleStore checks it), so this is `let-him-cook`, not `cook`.
+        "let-him-cook", "Let Him Cook", edition: 3, ownership: .lent,
         lend: LendInfo(lendId: "mock-lend-in", playsAllowed: 10, playsUsed: 6, expiresAt: Date().addingTimeInterval(5 * 86_400),
                        status: "active", endReason: nil, role: .borrower),
-        accent: "#FDB913", design: DevDiscs.design("let-him-cook"), rack: DevDiscs.rack(anyOf: ["let-him-cook", "blood"])
+        accent: "#FDB913", design: DevDiscs.design("let-him-cook"), rack: DevDiscs.rack(anyOf: ["let-him-cook", "blood"]),
+        bundle: BundleStore.devZip(slug: "let-him-cook")
     )
 
     /// Different play time per copy, so the rack's scuffs differ (seconds heard, seed).
@@ -122,7 +127,7 @@ final class MockAPI: MyindAPI {
         "c-walk": (40 * 180, "0a1b2c3d4e5f60718293a4b5c6d7e8f9"),
         "reflections": (420 * 180, "f0e1d2c3b4a5968778695a4b3c2d1e0f"),
         "blood": (160 * 180, "1234abcd5678ef901234abcd5678ef90"),
-        "cook": (90 * 180, "9f8e7d6c5b4a39281706f5e4d3c2b1a0"),
+        "let-him-cook": (90 * 180, "9f8e7d6c5b4a39281706f5e4d3c2b1a0"),
     ]
 
     /// What the server would send: computeWear on the sample inputs (packages/wear-swift).

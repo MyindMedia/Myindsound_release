@@ -4,7 +4,9 @@ import SwiftUI
 /// backdrop (the shared element), then crossfades into the release's own three.js sleeve (ARCH-1: the same renderer
 /// as the site, opened in sleeve mode for an unwrapped copy), where the fan turns it, zooms and double-taps to
 /// reset. The tile's sleeve is the rendered still (the disc inside), so the move is of that still and the
-/// crossfade goes from it into the live 3D sleeve. A tap on the sleeve, or LOAD DISC, slides the sleeve off and
+/// crossfade goes from it into the live 3D sleeve. The still is rendered as the live sleeve's opening frame
+/// (renderSleeveStill), and its stickers fade off during the lift, so the zoom lands on exactly what the 3D view
+/// then shows. A tap on the sleeve, or LOAD DISC, slides the sleeve off and
 /// inserts the disc into the deck. Closing fades back to the still and it drops back into its slot.
 ///
 /// A copy that has never been unwrapped opens the full experience instead (RACK-3: the film peels once).
@@ -13,6 +15,8 @@ struct RackFocusView: View {
     let release: LibraryRelease
     let controller: ReleaseHostController?
     let namespace: Namespace.ID
+    /// The info key: the disc's details sheet (RACK-4).
+    let onDetails: () -> Void
 
     @Environment(AppModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
@@ -24,6 +28,8 @@ struct RackFocusView: View {
     /// The web view is showing (crossfaded in over the printed sleeve).
     @State private var showHost = false
     @State private var closing = false
+    /// The stickers over the still fade out during the zoom (and back in on the way home).
+    @State private var overlaysShown = true
 
     private var context: ReleaseContext? { app.contexts[release.slug] }
     private var state: RackTileState { RackTileState(release: release, context: context) }
@@ -79,7 +85,7 @@ struct RackFocusView: View {
     /// page is ready (NAT-3), when it crossfades into the live 3D sleeve.
     private func printedSleeve(layout: FocusLayout, size: CGSize) -> some View {
         let frame = layout.sleeveFrame(rendered: app.rackRender(slug: release.slug) != nil)
-        return RackSleeve(release: release, state: state)
+        return RackSleeve(release: release, state: state, overlayOpacity: overlaysShown ? 1 : 0)
             .modifier(SharedSleeve(id: release.slug, namespace: namespace, enabled: !reduceMotion))
             .frame(width: frame.width, height: frame.height)
             .position(x: frame.midX, y: frame.midY)
@@ -115,14 +121,16 @@ struct RackFocusView: View {
         Binding(get: { controller?.sheet != nil }, set: { if !$0 { controller?.sheetClosed() } })
     }
 
-    /// The lift (0.5 s) plays while the host starts; the crossfade waits for both.
+    /// The lift plays while the host starts (or is already built, warm); the crossfade waits for both.
     private func begin() async {
         if let controller {
             controller.setPresented(true)
             controller.setAppActive(scenePhase == .active)
             Task { await controller.start() }
         }
-        try? await Task.sleep(for: .seconds(reduceMotion ? 0.1 : 0.55))
+        withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.3)) { overlaysShown = false }
+        // The warm page is already built (HostPool parks it), so the live sleeve takes over as the zoom lands.
+        try? await Task.sleep(for: .seconds(reduceMotion ? 0.1 : 0.38))
         lifted = true
         crossfadeIfReady()
     }
@@ -131,7 +139,7 @@ struct RackFocusView: View {
 
     private func crossfadeIfReady() {
         guard lifted, !closing, !showHost, controller?.phase == .ready else { return }
-        withAnimation(.easeInOut(duration: 0.6)) { showHost = true }
+        withAnimation(.easeInOut(duration: 0.3)) { showHost = true }
     }
 
     // MARK: Close (the reverse move)
@@ -141,6 +149,7 @@ struct RackFocusView: View {
         closing = true
         let fade = reduceMotion ? 0.3 : 0.4
         withAnimation(.easeInOut(duration: fade)) { showHost = false }
+        withAnimation(.easeIn(duration: fade + 0.3)) { overlaysShown = true }
         Task {
             try? await Task.sleep(for: .seconds(fade))
             withAnimation(reduceMotion ? .easeInOut(duration: 0.6) : MSMotion.standardLarge) { app.closeFocus() }
@@ -163,10 +172,25 @@ struct RackFocusView: View {
                 .buttonStyle(HUDPressStyle())
                 .accessibilityLabel("Close")
                 Spacer()
+                if showsPanels {
+                    Button(action: onDetails) {
+                        Image(systemName: "info")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(MSColor.text.opacity(0.8))
+                            .frame(width: 34, height: 34)
+                            .background(Rectangle().fill(MSColor.ink.opacity(0.55)))
+                            .overlay(Rectangle().strokeBorder(MSColor.lineDim, lineWidth: MSShape.hairlineWidth))
+                            .frame(width: MSShape.minTouchTarget, height: MSShape.minTouchTarget)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(HUDPressStyle())
+                    .accessibilityLabel("Details, credits, offline and sharing")
+                    .transition(.opacity)
+                }
             }
             Spacer()
         }
-        .padding(.leading, MSSpace.space10)
+        .padding(.horizontal, MSSpace.space10)
         .padding(.top, 50)
     }
 
@@ -180,7 +204,7 @@ struct RackFocusView: View {
                     readout("Edition") {
                         if let edition { LCDView.inset(.edition(edition), width: 104) } else { ReadoutValue("PRESALE") }
                     }
-                    readout("Plays") { ReadoutValue(playTime) }
+                    readout("Plays") { ReadoutValue(DiscDetailsSheet.playTime(context?.wearInputs?.playSeconds)) }
                     readout("Wear") {
                         ReadoutValue(app.wearLevel(slug: release.slug).map { "\(Int(($0 * 100).rounded()))%" } ?? "--")
                     }
@@ -244,13 +268,6 @@ struct RackFocusView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Stickers: " + stickers.map(\.spoken).joined(separator: ", "))
         }
-    }
-
-    /// Total time heard on this copy (`wearInputs.stats.playSeconds`).
-    private var playTime: String {
-        guard let seconds = context?.wearInputs?.playSeconds else { return "--" }
-        let minutes = Int(seconds / 60)
-        return minutes >= 60 ? "\(minutes / 60)H \(String(format: "%02d", minutes % 60))M" : "\(minutes)M"
     }
 
     private func load() {

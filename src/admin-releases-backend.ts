@@ -20,6 +20,8 @@ export interface PortalBackend {
   attachTrackAudio(args: Args<'attachTrackAudio'>): Promise<Result<'attachTrackAudio'>>;
   setTracks(args: Args<'setTracks'>): Promise<Result<'setTracks'>>;
   attachCover(args: Args<'attachCover'>): Promise<Result<'attachCover'>>;
+  attachSticker(args: Args<'attachSticker'>): Promise<Result<'attachSticker'>>;
+  removeSticker(args: Args<'removeSticker'>): Promise<Result<'removeSticker'>>;
   saveDesign(args: Args<'saveDesign'>): Promise<Result<'saveDesign'>>;
   attachRackArt(args: Args<'attachRackArt'>): Promise<Result<'attachRackArt'>>;
   attachBundle(args: Args<'attachBundle'>): Promise<Result<'attachBundle'>>;
@@ -63,6 +65,8 @@ export function convexBackend(): PortalBackend {
     attachTrackAudio: (args) => convex.action(r.attachTrackAudio, args),
     setTracks: (args) => convex.mutation(r.setTracks, args),
     attachCover: (args) => convex.action(r.attachCover, args),
+    attachSticker: (args) => convex.action(r.attachSticker, args),
+    removeSticker: (args) => convex.mutation(r.removeSticker, args),
     saveDesign: (args) => convex.mutation(r.saveDesign, args),
     attachRackArt: (args) => convex.action(r.attachRackArt, args),
     attachBundle: (args) => convex.action(r.attachBundle, args),

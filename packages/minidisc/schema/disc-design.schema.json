@@ -29,7 +29,7 @@
     },
     "coverArt": { "type": "string", "minLength": 1, "description": "Relative to the design file, or absolute. Square, 1024 px or more." },
     "discArt": { "type": "string", "minLength": 1, "description": "Defaults to coverArt." },
-    "shell": { "type": "string", "enum": ["smoke-black", "clear", "clear-pink", "purple", "blue", "red", "smoke-gold"] },
+    "shell": { "type": "string", "enum": ["smoke-black", "clear", "clear-pink", "purple", "blue", "red", "smoke-gold", "jet-black", "frost", "slate", "ice-blue", "green", "lime", "orange", "rose", "lavender"] },
     "shellTint": { "$ref": "#/$defs/colour" },
     "shellWindow": {
       "type": "string",
@@ -37,11 +37,12 @@
       "default": "auto",
       "description": "auto: a clear window over the disc whenever the disc carries art (every generated release), the rest of the shell tinted; clear: the same, explicitly; tinted: the preset's plastic over the disc too; opaque: a solid shell hiding the disc (a blank disc)."
     },
-    "labelStyle": { "type": "string", "enum": ["metal", "sticker", "none"] },
+    "labelStyle": { "type": "string", "enum": ["metal", "metal-dark", "tinted", "sticker", "none"] },
     "labelText": { "type": "string", "maxLength": 160, "description": "Newline-separated lines; defaults to title and artist." },
+    "labelArt": { "type": "string", "minLength": 1, "description": "An uploaded image (PNG, JPEG or WebP) for the label on the metal shutter; replaces the printed label." },
     "accent": { "$ref": "#/$defs/colour" },
     "accent2": { "$ref": "#/$defs/colour" },
-    "discFinish": { "type": "string", "enum": ["print", "gold", "silver"] },
+    "discFinish": { "type": "string", "enum": ["print", "gold", "silver", "vinyl", "rainbow"] },
     "stickers": {
       "type": "array",
       "maxItems": 8,

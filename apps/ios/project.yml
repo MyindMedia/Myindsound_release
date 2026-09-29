@@ -139,7 +139,7 @@ targets:
           rm -rf "$DST"
           [ -d "$PKG/shots" ] || { echo "note: no packages/minidisc/shots; -mock shows printed sleeves"; exit 0; }
           mkdir -p "$DST/shots" "$DST/samples"
-          for f in "$PKG"/shots/*-sleeve.png "$PKG"/shots/*-sleeve.webp "$PKG"/shots/*-sleeve.json; do
+          for f in "$PKG"/shots/*-sleeve.png "$PKG"/shots/*-sleeve.webp "$PKG"/shots/*-sleeve.json "$PKG"/shots/*-cart.png "$PKG"/shots/*-cart.webp; do
             [ -f "$f" ] && cp "$f" "$DST/shots/"
           done
           for design in "$PKG"/samples/*.json; do

@@ -6,6 +6,8 @@ import SwiftUI
 struct RootView: View {
     @Environment(AppModel.self) private var app
     @State private var appliedLaunchScreen = false
+    /// The docked now playing bar and tab bar's height, handed to every page as scroll room (HUDPage).
+    @State private var bottomChrome: CGFloat = 0
 
     var body: some View {
         switch app.config.screen {
@@ -55,6 +57,7 @@ struct RootView: View {
                 }
             }
         }
+        .environment(\.hudBottomChrome, bottomChrome)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 if let track = app.audio.currentTrack, let loaded = app.audio.loaded {
@@ -65,11 +68,12 @@ struct RootView: View {
                         duration: Track.clock(app.audio.duration),
                         progress: app.audio.progress,
                         isPlaying: app.audio.isPlaying,
-                        onOpen: { app.showPlayer = true },
+                        onOpen: { app.openPlayer() },
                         onPrev: { app.audio.previous() },
                         onPlayPause: { app.audio.togglePlayPause() },
                         onNext: { app.audio.next() },
-                        discArt: app.design(slug: loaded.release.slug) == nil ? nil : app.coverArtURL(slug: loaded.release.slug)
+                        discArt: app.design(slug: loaded.release.slug) == nil ? nil : app.coverArtURL(slug: loaded.release.slug),
+                        cartridge: app.cartridgeStill(slug: loaded.release.slug)
                     )
                     // ios.css body.ios-app .mini-player: left/right 8, sitting on the tab bar.
                     .padding(.horizontal, MSComponent.NowPlaying.dockedLeft)
@@ -88,6 +92,7 @@ struct RootView: View {
                 }
                 HUDTabBar(selection: $app.tab)
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bottomChrome = $0 }
             // RACK-2: the focus view takes the whole screen; the bars come back with the grid.
             .opacity(app.rackFocus == nil ? 1 : 0)
             .allowsHitTesting(app.rackFocus == nil)
@@ -113,6 +118,8 @@ struct RootView: View {
         switch route {
         case .release(let slug): ReleaseScreen(slug: slug)
         case .leaderboard(let slug): LeaderboardScreen(slug: slug)
+        case .collectorTier: CollectorTierScreen()
+        case .placement(let slug): PlacementScreen(slug: slug)
         }
     }
 
@@ -161,7 +168,7 @@ struct RootView: View {
                 let chosen = LaunchScreen.slug.flatMap { app.release(slug: $0) }
                 guard let release = chosen ?? app.featuredRelease, let tracks = try? await app.loadTracks(slug: release.slug) else { return }
                 app.audio.load(release: release, tracks: tracks, startAt: 0, autoplay: false)
-                app.showPlayer = true
+                app.openPlayer()
             }
         default: app.tab = .library
         }

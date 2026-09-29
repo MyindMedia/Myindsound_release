@@ -15,7 +15,7 @@ final class DiscRenderTests: XCTestCase {
         XCTAssertGreaterThan(face.minY, 0)
         XCTAssertLessThan(face.maxX, 1)
         XCTAssertLessThan(face.maxY, 1)
-        // The printed front is square; the slight three-quarter view keeps its bounds within a few percent.
+        // The printed front is square and seen square on (the live sleeve's opening frame), so its bounds are too.
         XCTAssertEqual(face.width / face.height, 1, accuracy: 0.05)
         XCTAssertEqual(RackStill.face(side: 200), CGRect(x: face.minX * 200, y: face.minY * 200, width: face.width * 200, height: face.height * 200))
     }

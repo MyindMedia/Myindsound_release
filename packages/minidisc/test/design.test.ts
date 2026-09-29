@@ -8,6 +8,7 @@ import {
   assertDesign,
   catalogueNumber,
   designArtRefs,
+  placeImageSticker,
   formatDuration,
   resolveShellWindow,
   resolveTheme,
@@ -144,5 +145,50 @@ describe('resolveTheme and helpers', () => {
     expect(formatDuration(-3)).toBe('0:00');
     expect(catalogueNumber(valid())).toBe('MS-BLOOD-26');
     expect(catalogueNumber({ ...valid(), slug: 'let-him-cook', year: 2025 })).toBe('MS-LETHIMCOOK-25');
+  });
+});
+
+describe('image stickers (uploaded art on the slide cover or the shell)', () => {
+  const image = (area: 'shutter' | 'shell', extra: Record<string, unknown> = {}) => ({ kind: 'image', src: 'star.png', area, x: 0.5, y: 0.5, size: 0.3, ...extra });
+
+  it('validates the area, the place, the size and the turn', () => {
+    expect(validateDesign({ ...valid(), stickers: [image('shutter', { rotation: -170 })] }).ok).toBe(true);
+    expect(validateDesign({ ...valid(), stickers: [image('shell')] }).ok).toBe(true);
+    expect(validateDesign({ ...valid(), stickers: [image('lid' as 'shell')] }).ok).toBe(false);
+    expect(validateDesign({ ...valid(), stickers: [image('shell', { src: '' })] }).ok).toBe(false);
+    expect(validateDesign({ ...valid(), stickers: [image('shell', { size: 0.01 })] }).ok).toBe(false);
+    expect(validateDesign({ ...valid(), stickers: [image('shell', { rotation: 200 })] }).ok).toBe(false);
+  });
+
+  it('allows four on the slide cover, more on the shell up to eight in all', () => {
+    expect(validateDesign({ ...valid(), stickers: Array.from({ length: 4 }, () => image('shutter')) }).ok).toBe(true);
+    expect(validateDesign({ ...valid(), stickers: Array.from({ length: 5 }, () => image('shutter')) }).ok).toBe(false);
+    expect(validateDesign({ ...valid(), stickers: [...Array.from({ length: 4 }, () => image('shutter')), ...Array.from({ length: 4 }, () => image('shell'))] }).ok).toBe(true);
+  });
+
+  it('ships their art with the design', () => {
+    expect(designArtRefs({ ...valid(), stickers: [image('shell') as never] })).toContain('star.png');
+  });
+
+  it('keeps a sticker whole inside its area, however it is placed, sized or turned', () => {
+    const area = { x0: 0, y0: 0, x1: 2, y1: 1 };
+    const inside = (p: { x: number; y: number; width: number; height: number }, rotation: number) => {
+      const a = (rotation * Math.PI) / 180;
+      const hw = (Math.abs(Math.cos(a)) * p.width + Math.abs(Math.sin(a)) * p.height) / 2;
+      const hh = (Math.abs(Math.sin(a)) * p.width + Math.abs(Math.cos(a)) * p.height) / 2;
+      return p.x - hw >= area.x0 - 1e-9 && p.x + hw <= area.x1 + 1e-9 && p.y - hh >= area.y0 - 1e-9 && p.y + hh <= area.y1 + 1e-9;
+    };
+    for (const [x, y, size, rotation] of [[0, 0, 0.3, 0], [1, 1, 0.5, 45], [0.5, 0.5, 1, 90], [0.9, 0.1, 0.8, -30]]) {
+      const place = placeImageSticker({ x, y, size, rotation }, area, { width: 400, height: 200 });
+      expect(inside(place, rotation)).toBe(true);
+    }
+  });
+
+  it('keeps the art\'s own shape and its asked size when it fits', () => {
+    const place = placeImageSticker({ x: 0.5, y: 0.5, size: 0.25 }, { x0: 0, y0: 0, x1: 2, y1: 1 }, { width: 400, height: 200 });
+    expect(place.width).toBeCloseTo(0.5);
+    expect(place.height).toBeCloseTo(0.25);
+    expect(place.x).toBeCloseTo(1);
+    expect(place.y).toBeCloseTo(0.5);
   });
 });

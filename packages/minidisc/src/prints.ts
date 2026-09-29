@@ -20,7 +20,8 @@ import {
   rgba,
   type ArtSource,
 } from './canvas';
-import { catalogueNumber, formatDuration, resolveTheme, type DiscDesign, type DiscFinish, type DiscSticker } from './design';
+import { resolvePreset } from './presets';
+import { catalogueNumber, formatDuration, resolveTheme, type DiscDesign, type DiscFinish, type PrintedSticker } from './design';
 
 const INK = '#07070C';
 const CREAM = '#F5F1E6';
@@ -43,6 +44,10 @@ export function discPrint(art: ArtSource, finish: DiscFinish, holeRatio: number,
   ctx.clip();
   if (finish === 'print') {
     drawCover(ctx, art, 0, 0, size, size);
+  } else if (finish === 'vinyl') {
+    vinylFace(ctx, art, c, r, holeRatio, seed);
+  } else if (finish === 'rainbow') {
+    rainbowFace(ctx, art, c, r, seed);
   } else {
     const metal = ctx.createLinearGradient(0, 0, size, size);
     if (finish === 'gold') {
@@ -88,8 +93,99 @@ export function discPrint(art: ArtSource, finish: DiscFinish, holeRatio: number,
   return element;
 }
 
-/** The plate's proportions (label plate: about 2.6:1, like the references' shutter plates). */
-export const PLATE_ASPECT = 2.4;
+/**
+ * Black vinyl (refs 12, 14, 24): fine grooves, two soft sheen wedges where the key light rakes across them, a lead
+ * out band, and the art as a round centre label. The sheen is baked, so it turns with the disc as a real one does.
+ */
+function vinylFace(ctx: CanvasRenderingContext2D, art: ArtSource, c: number, r: number, holeRatio: number, seed: number): void {
+  const size = c * 2;
+  ctx.fillStyle = '#0a0a0c';
+  ctx.fillRect(0, 0, size, size);
+  const random = prng(seed);
+  const label = r * Math.max(0.46, holeRatio + 0.2);
+  // Grooves: alternating hairlines, a little denser and darker in the lead-out band near the label.
+  for (let radius = label + r * 0.03; radius < r * 0.985; radius += Math.max(1, size / 900)) {
+    const leadOut = radius < label + r * 0.07;
+    ctx.strokeStyle = `rgba(${random() < 0.5 ? '255,255,255' : '0,0,0'}, ${(leadOut ? 0.02 : 0.035) + random() * 0.04})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(c, c, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // Two sheen wedges opposite each other, the groove highlight.
+  for (const base of [-0.35, Math.PI - 0.35]) {
+    const wedge = ctx.createConicGradient(base, c, c);
+    wedge.addColorStop(0, 'rgba(255,255,255,0)');
+    wedge.addColorStop(0.05, 'rgba(210,214,224,0.16)');
+    wedge.addColorStop(0.1, 'rgba(255,255,255,0)');
+    wedge.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = wedge;
+    ctx.beginPath();
+    ctx.arc(c, c, r * 0.985, 0, Math.PI * 2);
+    ctx.arc(c, c, label + r * 0.03, 0, Math.PI * 2, true);
+    ctx.fill();
+  }
+  // The centre label: the art, clipped round, with a thin dark ring where it meets the vinyl.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c, c, label, 0, Math.PI * 2);
+  ctx.clip();
+  drawCover(ctx, art, c - label, c - label, label * 2, label * 2);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = Math.max(2, size * 0.004);
+  ctx.beginPath();
+  ctx.arc(c, c, label, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/**
+ * The data side of a pressed disc (refs 15, 26, 34): silver, with the diffraction spectrum fanned out in two
+ * opposite sweeps, and the art faint over it so each release keeps its own colour.
+ */
+function rainbowFace(ctx: CanvasRenderingContext2D, art: ArtSource, c: number, r: number, seed: number): void {
+  const size = c * 2;
+  ctx.fillStyle = '#c9ccd3';
+  ctx.fillRect(0, 0, size, size);
+  const spectrum = ['#ff3b6b', '#ffb13b', '#f6f24a', '#3bff8a', '#3bc8ff', '#5a3bff', '#ff3bd8'];
+  const sweep = ctx.createConicGradient(-Math.PI / 2 + 0.3, c, c);
+  const band = (from: number, to: number) => {
+    sweep.addColorStop(from, 'rgba(210,214,222,0)');
+    spectrum.forEach((colour, i) => sweep.addColorStop(from + ((to - from) * (i + 1)) / (spectrum.length + 1), colour));
+    sweep.addColorStop(to, 'rgba(210,214,222,0)');
+  };
+  band(0.02, 0.2);
+  band(0.52, 0.7);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = sweep;
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalAlpha = 0.28;
+  ctx.globalCompositeOperation = 'multiply';
+  drawCover(ctx, art, 0, 0, size, size);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  // The data area's edge and the clamping ring, pressed a shade darker.
+  const random = prng(seed);
+  for (let radius = r * 0.32; radius < r * 0.97; radius += 1.5) {
+    ctx.strokeStyle = `rgba(${random() < 0.5 ? '255,255,255' : '0,0,0'}, ${0.015 + random() * 0.03})`;
+    ctx.beginPath();
+    ctx.arc(c, c, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(40,44,52,0.35)';
+  ctx.lineWidth = Math.max(2, size * 0.006);
+  for (const ring of [0.32, 0.97]) {
+    ctx.beginPath();
+    ctx.arc(c, c, r * ring, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+/** Where the stamp sits on the plate (fractions, origin top left); the manifest's safe zone matches it. */
+export const STAMP_UV = { x: 0.6, y: 0.68, w: 0.37, h: 0.26 } as const;
+
+/** The shutter plate's proportions (refs 19, 33: 255 × 175 px, about 1.42:1). */
+export const PLATE_ASPECT = 1.42;
 
 export interface PlatePrint {
   map: HTMLCanvasElement;
@@ -99,21 +195,53 @@ export interface PlatePrint {
 }
 
 /** The metal shutter plate (02, 03) or the paper sticker plate (04, 06, 09, 10), with the label text. */
-export function platePrint(design: DiscDesign, width: number): PlatePrint {
+export function platePrint(design: DiscDesign, width: number, labelImage?: ArtSource): PlatePrint {
   const height = Math.round(width / PLATE_ASPECT);
+  if (labelImage) return imageLabel(labelImage, width, height, hashString(`${design.slug}:plate`));
   const theme = resolveTheme(design);
   const seed = hashString(`${design.slug}:plate`);
   const lines = (design.labelText ?? `${design.title}\n${design.artist}`).split('\n').map((l) => l.trim()).filter(Boolean);
-  const metal = design.labelStyle === 'metal';
+  const metal = design.labelStyle === 'metal' || design.labelStyle === 'metal-dark';
 
   let map: HTMLCanvasElement;
   let normal: CanvasTexture | null = null;
   let ink: string;
-  if (metal) {
+  if (design.labelStyle === 'none') {
     const brushed = brushedMetal(width, height, seed);
     map = brushed.map;
     normal = brushed.normal;
     ink = '#14141a';
+  } else if (design.labelStyle === 'metal-dark') {
+    // Black anodised (17, 24): the same brushing, dyed down, with light ink.
+    const brushed = brushedMetal(width, height, seed);
+    map = brushed.map;
+    normal = brushed.normal;
+    const dctx = map.getContext('2d')!;
+    dctx.globalCompositeOperation = 'multiply';
+    dctx.fillStyle = '#2a2c31';
+    dctx.fillRect(0, 0, width, height);
+    dctx.globalCompositeOperation = 'source-over';
+    ink = '#d9dce2';
+  } else if (metal) {
+    const brushed = brushedMetal(width, height, seed);
+    map = brushed.map;
+    normal = brushed.normal;
+    ink = '#14141a';
+  } else if (design.labelStyle === 'tinted') {
+    // Frosted plastic in the shell's own colour (26, 32, 33): a moulded cover, not a stuck-on label.
+    const [element, ctx] = canvas(width, height);
+    const shell = resolvePreset(design.shell, design.shellTint).gel;
+    ctx.fillStyle = shell;
+    ctx.fillRect(0, 0, width, height);
+    const frost = ctx.createLinearGradient(0, 0, width, height);
+    frost.addColorStop(0, 'rgba(255,255,255,0.22)');
+    frost.addColorStop(0.6, 'rgba(255,255,255,0.08)');
+    frost.addColorStop(1, 'rgba(0,0,0,0.18)');
+    ctx.fillStyle = frost;
+    ctx.fillRect(0, 0, width, height);
+    grain(ctx, 22, seed);
+    ink = luminance(shell) > 0.4 ? INK : CREAM;
+    map = element;
   } else {
     const [element, ctx] = canvas(width, height);
     const fill = theme.accent;
@@ -131,6 +259,8 @@ export function platePrint(design: DiscDesign, width: number): PlatePrint {
     grain(ctx, 14, seed);
   }
   const ctx = map.getContext('2d')!;
+  // No label: the bare shutter, brushed steel with nothing printed on it.
+  if (design.labelStyle === 'none') return { map, normal, stampInk: '#a8102c' };
   const pad = width * 0.06;
   ctx.fillStyle = ink;
   ctx.textBaseline = 'alphabetic';
@@ -142,22 +272,47 @@ export function platePrint(design: DiscDesign, width: number): PlatePrint {
   ctx.fillStyle = rgba(ink, 0.85);
   const second = (lines[1] ?? design.artist).toUpperCase();
   ctx.fillText(second, pad, height * 0.46 + titleSize * 0.62);
-  ctx.font = `500 ${Math.round(height * 0.095)}px ${MONO}`;
   ctx.fillStyle = rgba(ink, 0.6);
   const foot = lines.slice(2).join('  ·  ') || `MD ${String(design.tracks.length).padStart(2, '0')} · DIGITAL AUDIO · ${design.year}`;
+  // The footer shares its line with the edition stamp (STAMP_UV, right side): it shrinks to end before the
+  // stamp's zone, so the two never print over each other.
+  fitFont(ctx, foot.toUpperCase(), 500, MONO, height * 0.095, width * STAMP_UV.x - pad * 1.4);
   ctx.fillText(foot.toUpperCase(), pad, height * 0.87);
   // A hairline frame, as a printed plate has.
   ctx.strokeStyle = rgba(ink, metal ? 0.35 : 0.28);
   ctx.lineWidth = Math.max(1, width * 0.004);
   ctx.strokeRect(pad * 0.45, pad * 0.45, width - pad * 0.9, height - pad * 0.9);
-  return { map, normal, stampInk: metal ? ink : '#a8102c' };
+  return { map, normal, stampInk: design.labelStyle === 'metal' ? ink : '#a8102c' };
+}
+
+/**
+ * The release's own label image (`labelArt`) as a printed paper sticker: the image fills the label (cover fit,
+ * centred), with the paper's sheen along the top and its grain, so it reads as printed, not as a screen.
+ */
+function imageLabel(image: ArtSource, width: number, height: number, seed: number): PlatePrint {
+  const [map, ctx] = canvas(width, height);
+  const iw = (image as { naturalWidth?: number; width: number }).naturalWidth || image.width;
+  const ih = (image as { naturalHeight?: number; height: number }).naturalHeight || image.height;
+  const scale = Math.max(width / Math.max(1, iw), height / Math.max(1, ih));
+  const dw = iw * scale;
+  const dh = ih * scale;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image as CanvasImageSource, (width - dw) / 2, (height - dh) / 2, dw, dh);
+  const sheen = ctx.createLinearGradient(0, 0, 0, height);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.1)');
+  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+  sheen.addColorStop(1, 'rgba(0,0,0,0.1)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, width, height);
+  grain(ctx, 10, seed);
+  return { map, normal: null, stampInk: '#a8102c' };
 }
 
 /** Wording is descriptive, not a trademark: the black-and-white parental-style box. */
 const ADVISORY_LINES = ['ADVISORY', 'EXPLICIT CONTENT'];
 
 /** A sticker, drawn at `width` px; the height follows the kind. */
-export function stickerPrint(sticker: DiscSticker, design: DiscDesign, width: number): HTMLCanvasElement {
+export function stickerPrint(sticker: PrintedSticker, design: DiscDesign, width: number): HTMLCanvasElement {
   const theme = resolveTheme(design);
   if (sticker.kind === 'badge') {
     const [element, ctx] = canvas(width, width);
@@ -210,15 +365,17 @@ export function stickerPrint(sticker: DiscSticker, design: DiscDesign, width: nu
 }
 
 /**
- * The shell's moulding as a height map → normal map: the mould's edge ridge, the shutter's slide groove on the
- * left, the recess the label plate sits in, an embossed "INSERT THIS END" arrow along the top, the vent
- * slots. Screw wells are cut by the detail layer, not drawn here.
+ * The clear top shell's moulding as a height map → normal map: the mould's edge ridge, the shutter's slide
+ * groove on the left, the recess the plate sits in, the write-protect opening lower right, and (opaque shells
+ * only, where no frame shows through) INSERT THIS END along the bottom. The frame's own moulding is
+ * moulding.ts's. Screw wells are cut by the detail layer, not drawn here.
  */
 export function shellNormal(
-  design: DiscDesign,
+  _design: DiscDesign,
   plate: { x: number; y: number; w: number; h: number } | null,
   size: number,
   window: { u: number; v: number; ru: number } | null = null,
+  opaque = false,
 ): CanvasTexture {
   const w = size;
   const h = Math.round(size / SHELL_ASPECT);
@@ -251,26 +408,24 @@ export function shellNormal(
     ctx.roundRect(plate.x * w - w * 0.006, plate.y * h - w * 0.006, plate.w * w + w * 0.012, plate.h * h + w * 0.012, w * 0.014);
     ctx.fill();
   }
-  // Embossed arrow and text along the top edge.
-  ctx.fillStyle = '#9a9a9a';
-  ctx.font = `600 ${Math.round(h * 0.026)}px ${MONO}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('INSERT THIS END', w * 0.5, h * 0.062);
-  ctx.beginPath();
-  ctx.moveTo(w * 0.5, h * 0.028);
-  ctx.lineTo(w * 0.515, h * 0.046);
-  ctx.lineTo(w * 0.485, h * 0.046);
-  ctx.closePath();
-  ctx.fill();
-  // The write-protect tab's opening, lower left (cartridge.ts places the tab there).
+  // An opaque shell has no moulded frame showing (moulding.ts), so its own face carries the insert mark: along
+  // the bottom edge, arrow down, as the deck loads from the top.
+  if (opaque) {
+    ctx.fillStyle = '#9a9a9a';
+    ctx.font = `600 ${Math.round(h * 0.022)}px ${MONO}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('INSERT THIS END', w * 0.6, h * 0.935);
+    ctx.beginPath();
+    ctx.moveTo(w * 0.6, h * 0.978);
+    ctx.lineTo(w * 0.588, h * 0.958);
+    ctx.lineTo(w * 0.612, h * 0.958);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // The write-protect tab's opening, lower right (cartridge.ts places the tab there).
   ctx.fillStyle = '#666666';
-  ctx.fillRect(w * 0.075, h * (1 - 0.105), w * 0.075, h * 0.05);
-  // Vent slots bottom right, a mould number bottom left.
-  for (let i = 0; i < 4; i++) ctx.fillRect(w * (0.82 + i * 0.03), h * 0.925, w * 0.014, h * 0.04);
-  ctx.font = `500 ${Math.round(h * 0.02)}px ${MONO}`;
-  ctx.textAlign = 'left';
-  ctx.fillText(`MYIND · ${design.year}`, w * 0.17, h * 0.945);
+  ctx.fillRect(w * 0.848, h * 0.937, w * 0.075, h * 0.04);
   ctx.filter = 'blur(1px)';
   ctx.drawImage(height, 0, 0);
   ctx.filter = 'none';
@@ -278,11 +433,11 @@ export function shellNormal(
 }
 
 /** The inside of the shell, seen through clear plastic: dark moulded plastic with ribs, bosses and the cavity. */
-export function chassisPrint(size: number, discCentre: { u: number; v: number; ru: number }, seed: number): HTMLCanvasElement {
+export function chassisPrint(size: number, discCentre: { u: number; v: number; ru: number }, seed: number, colour = '#14151b'): HTMLCanvasElement {
   const w = size;
   const h = Math.round(size / SHELL_ASPECT);
   const [element, ctx] = canvas(w, h);
-  ctx.fillStyle = '#14151b';
+  ctx.fillStyle = colour;
   ctx.fillRect(0, 0, w, h);
   const random = prng(seed);
   // Ribs radiating from the corners, and a lattice.

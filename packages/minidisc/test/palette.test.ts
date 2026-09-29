@@ -62,13 +62,15 @@ describe('shellForColour (synthetic swatches)', () => {
     ['gold', [253, 185, 19], 'smoke-gold'],
     ['mustard', [200, 170, 40], 'smoke-gold'],
     ['dark brown', [90, 50, 20], 'red'],
+    ['orange', [240, 120, 20], 'orange'],
+    ['acid lime', [170, 220, 30], 'lime'],
+    ['emerald', [30, 200, 90], 'green'],
   ];
   for (const [name, [r, g, b], shell] of cases) {
     it(`${name} → ${shell}`, () => expect(shellForColour(r, g, b).shell).toBe(shell));
   }
 
-  it('greens and cyans get the clear shell tinted the colour', () => {
-    expect(shellForColour(30, 200, 90)).toEqual({ shell: 'clear', tint: '#1EC85A' });
+  it('cyans get the clear shell tinted the colour', () => {
     expect(shellForColour(20, 210, 200).shell).toBe('clear');
     expect(shellForColour(20, 210, 200).tint).toBeDefined();
   });

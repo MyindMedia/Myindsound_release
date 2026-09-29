@@ -641,6 +641,18 @@ export class PlayerApp {
     this.hud.frame.replaceChildren(image);
   }
 
+  /** How far through the whole disc playback is (the laser pod's pickup position); parked at the start when empty. */
+  private discProgress(): number {
+    if (['booting', 'ejected', 'ejecting', 'inserting'].includes(this.state.status) || this.tracks.length === 0) return 0;
+    let total = 0;
+    let before = 0;
+    this.tracks.forEach((track, index) => {
+      total += track.durationSeconds;
+      if (index < this.state.trackIndex) before += track.durationSeconds;
+    });
+    return total > 0 ? (before + this.engine.currentTime) / total : 0;
+  }
+
   private startFallbackLoop(): void {
     let last = performance.now();
     const loop = (now: number) => {
@@ -662,6 +674,7 @@ export class PlayerApp {
     this.city?.update(dt, elapsed);
     this.keys?.update();
     this.wrap?.update(dt);
+    deck.setPickupProgress(this.discProgress());
     deck.update(dt);
     if (this.lcdFlash && performance.now() > this.lcdFlash.until) this.lcdFlash = null;
     const note = this.state.status === 'ejected' ? this.lcdNote : null;

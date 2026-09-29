@@ -9,7 +9,7 @@ import { ensureFonts, createMiniDisc, type DiscDesign, type LoadedArt, type Mini
 import { createStudioEnvironment } from './player3d/cartridge-detail';
 
 export { SHELL_PRESET_LIST, ensureFonts, loadDesignArt, renderSleeveStill, renderSpinLoop, suggestShell, validateDesign } from '../packages/minidisc/src/index';
-export type { DiscDesign, LoadedArt, ShellPreset, ShellSuggestion, SleeveStill, SpinLoopResult } from '../packages/minidisc/src/index';
+export type { DiscDesign, DiscSticker, LoadedArt, ShellPreset, ShellSuggestion, SleeveStill, SpinLoopResult } from '../packages/minidisc/src/index';
 
 export interface CasingPreview {
   /** Rebuilds the cartridge for this design (disposing the last one). */

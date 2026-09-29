@@ -15,6 +15,8 @@ import {
   checkRackParts,
   publishProblems,
   refreshDesign,
+  MAX_IMAGE_STICKERS,
+  MAX_SHUTTER_IMAGE_STICKERS,
   type ReleaseFacts,
   type SpriteMeta,
   type UploadPurpose,
@@ -35,6 +37,8 @@ type Release = {
   createdAt: number;
   tracks: Track[];
   cover: string | null;
+  /** Uploaded sticker image files, storage-id-shaped local keys (see `files`). */
+  stickers: string[];
   design: DiscDesign | null;
   designHash: string | null;
   designRev: number;
@@ -72,6 +76,7 @@ export function mockBackend(): PortalBackend {
       artist: row.artist,
       year: row.year,
       coverUrl,
+      stickerUrls: row.stickers.map((id) => urlOf(id)!),
       tracks: row.tracks.map((t) => ({ n: t.position, title: t.title, durationSec: t.durationSeconds })),
     };
   };
@@ -148,6 +153,7 @@ export function mockBackend(): PortalBackend {
           hasAudio: Boolean(t.file),
         })),
         coverUrl: urlOf(row.cover),
+        stickerFiles: row.stickers.map((id) => ({ file: id as Id<'_storage'>, url: urlOf(id)! })),
         design: row.design,
         designHash: row.designHash,
         designRev: row.designRev,
@@ -177,6 +183,7 @@ export function mockBackend(): PortalBackend {
         createdAt: Date.now(),
         tracks: [],
         cover: null,
+        stickers: [],
         design: null,
         designHash: null,
         designRev: 0,
@@ -236,6 +243,53 @@ export function mockBackend(): PortalBackend {
       row.cover = args.file;
       await sync(row);
       return { coverUrl: urlOf(row.cover)!, ...size };
+    },
+    async attachSticker(args) {
+      const row = draft(args.slug);
+      await check(args.file, 'sticker');
+      if (row.stickers.length >= MAX_IMAGE_STICKERS) {
+        files.delete(args.file);
+        return fail(`A release has at most ${MAX_IMAGE_STICKERS} stickers.`);
+      }
+      const existing = ((row.design?.stickers ?? []) as { kind: string; area?: string }[]).filter((s) => s.kind === 'image');
+      if (args.area === 'shutter' && existing.filter((s) => s.area === 'shutter').length >= MAX_SHUTTER_IMAGE_STICKERS) {
+        files.delete(args.file);
+        return fail(`The slide cover has at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers.`);
+      }
+      const f = facts(row);
+      if (!f) {
+        files.delete(args.file);
+        return fail('Upload the tracks and the cover before stickers.');
+      }
+      row.stickers.push(args.file);
+      const url = urlOf(args.file)!;
+      const sticker = { kind: 'image', src: url, area: args.area, x: 0.5, y: 0.5, size: 0.25, rotation: 0 };
+      // `facts()` read `row.stickers` before the push above, so it does not carry `url` yet either.
+      const result = buildDesign({ ...(row.design ?? {}), stickers: [...(row.design?.stickers ?? []), sticker] }, { ...f, stickerUrls: [...f.stickerUrls, url] });
+      if (!result.ok) {
+        row.stickers.pop();
+        files.delete(args.file);
+        return fail(`Could not place the sticker: ${result.errors.slice(0, 8).join('; ')}`);
+      }
+      row.design = result.design;
+      row.designHash = await designHash(result.design);
+      row.designRev += 1;
+      return { url, file: args.file as Id<'_storage'> };
+    },
+    async removeSticker(args) {
+      const row = draft(args.slug);
+      if (!row.stickers.includes(args.file)) fail('That sticker is not on this release.');
+      const url = urlOf(args.file);
+      row.stickers = row.stickers.filter((id) => id !== args.file);
+      const existing = (row.design?.stickers ?? []) as { kind: string; src?: string }[];
+      const kept = existing.filter((s) => !(s.kind === 'image' && s.src === url));
+      if (row.design) {
+        row.design = { ...row.design, stickers: kept.length > 0 ? (kept as DiscDesign['stickers']) : undefined };
+        row.designHash = await designHash(row.design);
+        row.designRev += 1;
+      }
+      files.delete(args.file);
+      return null;
     },
     async saveDesign(args) {
       const row = draft(args.slug);

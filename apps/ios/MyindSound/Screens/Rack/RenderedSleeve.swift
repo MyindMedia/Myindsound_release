@@ -55,12 +55,13 @@ struct RenderedSleeve: View {
     var stickers: [RackSticker]
     var wear: WearDescriptor?
     var accent: Color
+    var overlayOpacity: Double = 1
 
     @State private var image: CGImage?
     @State private var failed = false
 
     init(release: LibraryRelease, render: RackRender, state: RackTileState, edition: Int?, stickers: [RackSticker],
-         wear: WearDescriptor?, accent: Color) {
+         wear: WearDescriptor?, accent: Color, overlayOpacity: Double = 1) {
         self.release = release
         self.render = render
         self.state = state
@@ -68,6 +69,7 @@ struct RenderedSleeve: View {
         self.stickers = stickers
         self.wear = wear
         self.accent = accent
+        self.overlayOpacity = overlayOpacity
         // Already decoded (scrolled back, or the focus view's copy of the tile): no placeholder frame.
         _image = State(initialValue: RackStillLoader.cached(render))
     }
@@ -89,6 +91,7 @@ struct RenderedSleeve: View {
                     )
                     .frame(width: face.width, height: face.height)
                     .offset(x: face.minX, y: face.minY)
+                    .opacity(overlayOpacity)
                 }
                 .frame(width: side, height: side)
                 .frame(width: box.width, height: box.height, alignment: .bottom)

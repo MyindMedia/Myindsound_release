@@ -79,6 +79,11 @@ export interface WearLayout {
   window: { cx: number; cy: number; rx: number; ry: number };
   /** The visible disc in its square art: outer radius and hub radius as fractions of the square's side. */
   disc: { outer: number; inner: number };
+  /**
+   * Where a shutter slides on the shell's face, in shell fractions (u right, v down): the plate drags dense
+   * vertical wear along its whole run. None on LIT's cartridge.
+   */
+  slideTracks?: readonly { u0: number; v0: number; u1: number; v1: number }[];
 }
 
 export const DEFAULT_LAYOUT: WearLayout = {
@@ -104,6 +109,49 @@ const SPECK_MIN = 0.00025;
 const SPECK_RANGE = 0.0006;
 /** Soft blobs per scuff, so a patch is organic rather than a disc. */
 const SCUFF_BLOBS = 9;
+/** Slot wear at full level: vertical slide hairlines on the shell's face, and scuffs on its insertion edge. */
+const SLIDE_LINES = 90;
+const SLIDE_SCUFFS = 14;
+/** Wear along a shutter's slide track at full level. */
+const TRACK_LINES = 140;
+
+/** A segment's [t0, t1] pieces outside every zone (grown by `margin`), for the slide lines. */
+function avoidZones(x0: number, y0: number, x1: number, y1: number, zones: readonly Rect[], margin: number): [number, number][] {
+  let pieces: [number, number][] = [[0, 1]];
+  for (const z of zones) {
+    const next: [number, number][] = [];
+    for (const [a, b] of pieces) {
+      // Parametric entry and exit of the grown rectangle (Liang-Barsky), then keep what lies outside it.
+      let lo = a;
+      let hi = b;
+      const dx = x1 - x0;
+      const dy = y1 - y0;
+      let inside = true;
+      for (const [pp, q] of [
+        [-dx, x0 - (z.x0 - margin)],
+        [dx, z.x1 + margin - x0],
+        [-dy, y0 - (z.y0 - margin)],
+        [dy, z.y1 + margin - y0],
+      ]) {
+        if (pp === 0) {
+          if (q < 0) inside = false;
+          continue;
+        }
+        const t = q / pp;
+        if (pp < 0) lo = Math.max(lo, t);
+        else hi = Math.min(hi, t);
+      }
+      if (!inside || lo >= hi) {
+        next.push([a, b]);
+        continue;
+      }
+      if (lo > a) next.push([a, lo]);
+      if (hi < b) next.push([hi, b]);
+    }
+    pieces = next;
+  }
+  return pieces.filter(([a, b]) => b - a > 0.01);
+}
 
 export type Clip =
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
@@ -349,6 +397,119 @@ export function planWear(
       g.dust.push({ x, y, r, strength });
     }
   }
+
+  // Slot wear. The deck loads from the top, so every play slides the cartridge in bottom edge first and out
+  // again: the slot's guides and door drag long vertical hairlines up the faces (densest in the side bands the
+  // guides run in), and the insertion edge collects scuffs. Renderer-only and seeded like the dust: a fixed
+  // sequence per surface that `level` reveals a prefix of, so more play only ever adds marks and the wear
+  // descriptor's contract (packages/wear, the Swift port) is unchanged. Kept out of the safe zones.
+  const slot = Math.max(0, Math.min(1, d.level));
+  for (const [surface, lines, scuffs] of [
+    ['shell', SLIDE_LINES, SLIDE_SCUFFS],
+    ['label', Math.round(SLIDE_LINES * 0.35), 0],
+  ] as const) {
+    const m = mapping[surface];
+    const layer = m.layer;
+    const random = prng(d.seed, `slot:${surface}`);
+    const scale = pxPerWorld(layer);
+    const shown = Math.floor(lines * Math.pow(slot, 0.8));
+    const clip = clips[surface];
+    const zonesHere = keepOut[layer];
+    for (let i = 0; i < lines; i++) {
+      // Every draw happens whether or not the line shows, so line N is the same line at any level.
+      const band = random();
+      const u = band < 0.35 ? 0.03 + random() * 0.2 : band < 0.7 ? 0.77 + random() * 0.2 : 0.05 + random() * 0.9;
+      const length = 0.18 + random() * 0.77;
+      const bottom = 0.99 - random() * 0.12;
+      const slant = (random() - 0.5) * 0.012;
+      const strength = 0.2 + random() * 0.6;
+      const cluster = random() < 0.35 ? 1 + Math.floor(random() * 3) : 0;
+      const spacing = 0.002 + random() * 0.004;
+      if (i >= shown) continue;
+      for (let c = 0; c <= cluster; c++) {
+        const cu = u + c * spacing;
+        const [x0, y0] = m.map(cu + slant, Math.max(0.01, bottom - length));
+        const [x1, y1] = m.map(cu, bottom);
+        const width = (HAIRLINE_MIN + HAIRLINE_DEPTH * strength * 0.6) * scale;
+        const angle = Math.atan2(y1 - y0, x1 - x0);
+        for (const [a, b] of avoidZones(x0, y0, x1, y1, zonesHere, width * 4)) {
+          for (const [t0, t1] of clipSegment(x0 + (x1 - x0) * a, y0 + (y1 - y0) * a, x0 + (x1 - x0) * b, y0 + (y1 - y0) * b, clip)) {
+            const sx0 = x0 + (x1 - x0) * a;
+            const sy0 = y0 + (y1 - y0) * a;
+            const sx1 = x0 + (x1 - x0) * b;
+            const sy1 = y0 + (y1 - y0) * b;
+            group(surface).scratches.push({
+              x0: sx0 + (sx1 - sx0) * t0,
+              y0: sy0 + (sy1 - sy0) * t0,
+              x1: sx0 + (sx1 - sx0) * t1,
+              y1: sy0 + (sy1 - sy0) * t1,
+              width,
+              strength: strength * (c ? 0.6 : 1),
+              angle,
+            });
+          }
+        }
+      }
+    }
+    // Scuffs: smeared up from the insertion (bottom) edge, and lighter ones where fingers grip the top.
+    const scuffRandom = prng(d.seed, `slotscuff:${surface}`);
+    const scuffShown = Math.floor(scuffs * slot);
+    for (let i = 0; i < scuffs; i++) {
+      const top = scuffRandom() < 0.3;
+      const u = 0.06 + scuffRandom() * 0.88;
+      const v = top ? 0.01 + scuffRandom() * 0.05 : 0.94 + scuffRandom() * 0.05;
+      const r = (0.025 + scuffRandom() * 0.04) * m.sx;
+      const intensity = (top ? 0.35 : 0.6) * (0.5 + scuffRandom() * 0.5);
+      const blobRandom = prng(d.seed, `slotscuff:${surface}:${i}`);
+      if (i >= scuffShown) continue;
+      const [x, y] = m.map(u, v);
+      if (zonesHere.some((z) => x > z.x0 - r && x < z.x1 + r && y > z.y0 - r && y < z.y1 + r)) continue;
+      const blobs: Blob[] = [];
+      for (let k = 0; k < SCUFF_BLOBS; k++) {
+        // Stacked along the slide: each blob a little further up (or down, at the top edge) the face.
+        const along = blobRandom() * 1.6 * r * (top ? 1 : -1);
+        blobs.push({
+          x: x + (blobRandom() - 0.5) * r * 0.7,
+          y: y + along,
+          r: r * (0.25 + blobRandom() * 0.25),
+          strength: intensity * (0.4 + blobRandom() * 0.6),
+        });
+      }
+      group(surface).scuffs.push({ x, y, rx: r, ry: r * 1.8, strength: intensity, blobs });
+    }
+  }
+
+  // Track wear: where a shutter slides, its plate drags a dense run of short vertical lines along the whole
+  // track, the tell of a disc that has been in and out of a deck many times. Same prefix rule as above.
+  (layout.slideTracks ?? []).forEach((track, index) => {
+    const m = mapping.shell;
+    const random = prng(d.seed, `track:${index}`);
+    const scale = pxPerWorld('shell');
+    const shown = Math.floor(TRACK_LINES * Math.pow(slot, 0.7));
+    for (let i = 0; i < TRACK_LINES; i++) {
+      const u = track.u0 + random() * (track.u1 - track.u0);
+      const span = track.v1 - track.v0;
+      const length = span * (0.12 + random() * 0.6);
+      const v0 = track.v0 + random() * (span - length);
+      // Fine and faint: they are hairlines in the plastic, not a coating over the disc.
+      const strength = (0.25 + random() * 0.55) * 0.55;
+      if (i >= shown) continue;
+      const [x0, y0] = m.map(u, v0);
+      const [x1, y1] = m.map(u, v0 + length);
+      const width = (HAIRLINE_MIN + HAIRLINE_DEPTH * strength * 0.5) * scale;
+      for (const [a, b] of avoidZones(x0, y0, x1, y1, keepOut.shell, width * 4)) {
+        group('shell').scratches.push({
+          x0: x0 + (x1 - x0) * a,
+          y0: y0 + (y1 - y0) * a,
+          x1: x0 + (x1 - x0) * b,
+          y1: y0 + (y1 - y0) * b,
+          width,
+          strength,
+          angle: Math.atan2(y1 - y0, x1 - x0),
+        });
+      }
+    }
+  });
 
   const layers = {} as Record<WearLayerName, LayerPlan>;
   for (const name of ['shell', 'label', 'disc'] as const) {
@@ -693,6 +854,8 @@ export interface CartridgeWearOptions {
   /** The deck's quality tier: 'low' (coarse pointer, BUN-0a) keeps every layer at or under 1024 px. */
   quality: 'high' | 'low';
   anisotropy?: number;
+  /** Where a shutter slides on the face (WearLayout.slideTracks). */
+  slideTracks?: WearLayout['slideTracks'];
 }
 
 /** Roughness map baseline (the coat's own roughness) and how far a full-strength scuff raises it, in 0..255. */
@@ -709,10 +872,15 @@ export class CartridgeWear {
   readonly spinning: Object3D[];
   private readonly shellMesh: Mesh;
   private readonly labelMesh: Mesh;
+  /** The label's wear overlay, so a cartridge whose label rides on a moving part (the shutter) can carry it. */
+  get labelObject(): Mesh {
+    return this.labelMesh;
+  }
   private readonly discMesh: Mesh;
   private readonly materials: Record<Mode, ShaderMaterial>;
   private readonly specs: Record<WearLayerName, LayerSpec>;
   private readonly zones: readonly WearZone[];
+  private readonly layout: WearLayout;
   private readonly anisotropy: number;
   private readonly coat: MeshStandardMaterial | null;
   private readonly coatRoughness: number;
@@ -741,6 +909,7 @@ export class CartridgeWear {
       disc: spec(disc.radius * 2, disc.radius * 2, max),
     };
     this.zones = options.safeZones ?? [];
+    this.layout = options.slideTracks ? { ...DEFAULT_LAYOUT, slideTracks: options.slideTracks } : DEFAULT_LAYOUT;
     this.anisotropy = options.anisotropy ?? 4;
 
     const shellUniforms = input.shellMaterial.uniforms;
@@ -802,7 +971,7 @@ export class CartridgeWear {
       this.setCoatRoughness(null);
       return;
     }
-    const plan = planWear(d, this.specs, DEFAULT_LAYOUT, this.zones);
+    const plan = planWear(d, this.specs, this.layout, this.zones);
     const layers = (this.layers ??= {
       shell: new Layer(this.specs.shell, this.anisotropy),
       label: new Layer(this.specs.label, this.anisotropy),

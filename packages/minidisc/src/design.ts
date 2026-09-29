@@ -9,13 +9,40 @@
 export const DISC_DESIGN_VERSION = 1;
 
 /** The shell presets, taken from the design catalogue's references (internal look-dev only). */
-export const SHELL_PRESET_IDS = ['smoke-black', 'clear', 'clear-pink', 'purple', 'blue', 'red', 'smoke-gold'] as const;
+export const SHELL_PRESET_IDS = [
+  'smoke-black',
+  'clear',
+  'clear-pink',
+  'purple',
+  'blue',
+  'red',
+  'smoke-gold',
+  'jet-black',
+  'frost',
+  'slate',
+  'ice-blue',
+  'green',
+  'lime',
+  'orange',
+  'rose',
+  'lavender',
+] as const;
 export type ShellPresetId = (typeof SHELL_PRESET_IDS)[number];
 
-export const LABEL_STYLES = ['metal', 'sticker', 'none'] as const;
+/**
+ * The slide cover on the shell's left side, which carries the label. `metal`: brushed steel (refs 18, 19, 30).
+ * `metal-dark`: black anodised steel (17, 24). `tinted`: frosted plastic in the shell's own colour (26, 32, 33).
+ * `sticker`: a printed paper label on the plate (20, 23). `none`: the bare shell.
+ */
+export const LABEL_STYLES = ['metal', 'metal-dark', 'tinted', 'sticker', 'none'] as const;
 export type LabelStyle = (typeof LABEL_STYLES)[number];
 
-export const DISC_FINISHES = ['print', 'gold', 'silver'] as const;
+/**
+ * The spinning disc. `print`: the cover art edge to edge. `gold` / `silver`: a metal pressing tinted by the art
+ * (18, 30). `vinyl`: black grooved disc with the art as a centre label (12, 14, 24). `rainbow`: silver data side
+ * with the diffraction bands, the art faint over it (15, 26, 34).
+ */
+export const DISC_FINISHES = ['print', 'gold', 'silver', 'vinyl', 'rainbow'] as const;
 export type DiscFinish = (typeof DISC_FINISHES)[number];
 
 /**
@@ -38,7 +65,7 @@ export interface DiscTrack {
 }
 
 /** A small extra label on the shell, placed in shell UV space (origin top left, sizes as fractions of the width). */
-export interface DiscSticker {
+export interface PrintedSticker {
   kind: StickerKind;
   /** `text` and `badge`: what it says (`advisory` has fixed wording). */
   text?: string;
@@ -50,6 +77,41 @@ export interface DiscSticker {
   /** `#RRGGBB` fill and ink; defaults come from the design's accents. */
   fill?: string;
   ink?: string;
+}
+
+/** Where an image sticker goes: on the metal slide cover (it rides with it), or anywhere on the plastic shell. */
+export const STICKER_AREAS = ['shutter', 'shell'] as const;
+export type StickerArea = (typeof STICKER_AREAS)[number];
+/** At most this many image stickers on the slide cover. */
+export const MAX_SHUTTER_STICKERS = 4;
+
+/**
+ * An uploaded image stuck on the cartridge: any shape (a PNG keeps its alpha), always kept inside its area. Placed by
+ * its centre, as fractions of the area (origin top left); `size` is its width as a fraction of the area's width.
+ */
+export interface ImageSticker {
+  kind: 'image';
+  /** PNG, JPEG or WebP: relative to the design file, or absolute. */
+  src: string;
+  area: StickerArea;
+  x: number;
+  y: number;
+  /** 0.05..1 of the area's width. */
+  size: number;
+  /** Degrees, -180..180. */
+  rotation?: number;
+}
+
+export type DiscSticker = PrintedSticker | ImageSticker;
+
+/** The design's image stickers, in order. */
+export function imageStickers(design: DiscDesign): ImageSticker[] {
+  return (design.stickers ?? []).filter((sticker): sticker is ImageSticker => sticker.kind === 'image');
+}
+
+/** The design's printed stickers (text, advisory, badge), in order. */
+export function printedStickers(design: DiscDesign): PrintedSticker[] {
+  return (design.stickers ?? []).filter((sticker): sticker is PrintedSticker => sticker.kind !== 'image');
 }
 
 /** The player's backdrop behind the deck: the cover art, blurred and dimmed, unless another image is given. */
@@ -92,6 +154,11 @@ export interface DiscDesign {
   labelStyle: LabelStyle;
   /** Printed on the label plate; defaults to the title (line 1) and artist (line 2). */
   labelText?: string;
+  /**
+   * An uploaded image for the label on the metal shutter (PNG, JPEG or WebP; relative to the design file, or
+   * absolute). When set it fills the label, as a printed sticker, in place of the printed title and artist.
+   */
+  labelArt?: string;
   /** `#RRGGBB` accents for the prints; default gold and cream. */
   accent?: string;
   accent2?: string;
@@ -159,6 +226,7 @@ export function validateDesign(value: unknown): ValidationResult {
   };
   path('coverArt');
   path('discArt', true);
+  path('labelArt', true);
 
   if (typeof d.shell !== 'string' || !(SHELL_PRESET_IDS as readonly string[]).includes(d.shell)) {
     fail('shell', `must be one of ${SHELL_PRESET_IDS.join(', ')}`);
@@ -187,10 +255,28 @@ export function validateDesign(value: unknown): ValidationResult {
   if (d.stickers !== undefined) {
     if (!Array.isArray(d.stickers)) fail('stickers', 'must be an array');
     else if (d.stickers.length > MAX_STICKERS) fail('stickers', `must have ${MAX_STICKERS} entries or fewer`);
+    else if (d.stickers.filter((s) => (s as ImageSticker).kind === 'image' && (s as ImageSticker).area === 'shutter').length > MAX_SHUTTER_STICKERS) {
+      fail('stickers', `must have ${MAX_SHUTTER_STICKERS} image stickers or fewer on the slide cover`);
+    }
     else {
-      d.stickers.forEach((sticker, i) => {
+      d.stickers.forEach((raw, i) => {
         const at = `stickers[${i}]`;
-        if (!isRecord(sticker)) return fail(at, 'must be an object');
+        if (!isRecord(raw)) return fail(at, 'must be an object');
+        if (raw.kind === 'image') {
+          const sticker = raw as unknown as ImageSticker;
+          if (typeof sticker.src !== 'string' || sticker.src.trim().length === 0) fail(`${at}.src`, 'must be a non-empty path or URL');
+          if (!(STICKER_AREAS as readonly unknown[]).includes(sticker.area)) fail(`${at}.area`, `must be one of ${STICKER_AREAS.join(', ')}`);
+          for (const key of ['x', 'y'] as const) {
+            const n = sticker[key];
+            if (!isFinite(n) || n < 0 || n > 1) fail(`${at}.${key}`, 'must be a number in 0..1');
+          }
+          if (!isFinite(sticker.size) || sticker.size < 0.05 || sticker.size > 1) fail(`${at}.size`, 'must be a number in 0.05..1');
+          if (sticker.rotation !== undefined && (!isFinite(sticker.rotation) || Math.abs(sticker.rotation) > 180)) {
+            fail(`${at}.rotation`, 'must be a number in -180..180');
+          }
+          return;
+        }
+        const sticker = raw;
         if (!(STICKER_KINDS as readonly unknown[]).includes(sticker.kind)) fail(`${at}.kind`, `must be one of ${STICKER_KINDS.join(', ')}`);
         if (sticker.text !== undefined && (typeof sticker.text !== 'string' || sticker.text.length > 40)) {
           fail(`${at}.text`, 'must be a string of 40 characters or fewer');
@@ -279,7 +365,13 @@ export function resolveShellWindow(design: DiscDesign): Exclude<ShellWindow, 'au
 /** Every art file a design refers to, deduplicated, as written (relative paths are relative to the design file). */
 export function designArtRefs(design: DiscDesign): string[] {
   const theme = resolveTheme(design);
-  const refs = [design.coverArt, design.discArt ?? design.coverArt, theme.backdrop.image];
+  const refs = [
+    design.coverArt,
+    design.discArt ?? design.coverArt,
+    theme.backdrop.image,
+    ...(design.labelArt ? [design.labelArt] : []),
+    ...imageStickers(design).map((sticker) => sticker.src),
+  ];
   return [...new Set(refs)];
 }
 
@@ -292,4 +384,36 @@ export function formatDuration(seconds: number): string {
 /** The catalogue number printed on the back: `MS-<SLUG>-<year>`. */
 export function catalogueNumber(design: DiscDesign): string {
   return `MS-${design.slug.toUpperCase().replace(/[^A-Z0-9]+/g, '')}-${String(design.year).slice(-2).padStart(2, '0')}`;
+}
+
+/**
+ * Where an image sticker lands in its area (world units): `size` of the area's width, the art's own aspect, shrunk
+ * until its rotated bounds fit, and its centre moved in just far enough to keep the whole sticker inside the area.
+ */
+export function placeImageSticker(
+  sticker: Pick<ImageSticker, 'x' | 'y' | 'size' | 'rotation'>,
+  area: { x0: number; y0: number; x1: number; y1: number },
+  art: { width: number; height: number },
+): { x: number; y: number; width: number; height: number } {
+  const areaW = area.x1 - area.x0;
+  const areaH = area.y1 - area.y0;
+  let width = Math.max(0.05, Math.min(1, sticker.size)) * areaW;
+  let height = (width * art.height) / Math.max(1, art.width);
+  const angle = ((sticker.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(angle));
+  const sin = Math.abs(Math.sin(angle));
+  const boundsW = cos * width + sin * height;
+  const boundsH = sin * width + cos * height;
+  const fit = Math.min(1, areaW / boundsW, areaH / boundsH);
+  width *= fit;
+  height *= fit;
+  const halfW = (boundsW * fit) / 2;
+  const halfH = (boundsH * fit) / 2;
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  return {
+    x: clamp(area.x0 + sticker.x * areaW, area.x0 + halfW, area.x1 - halfW),
+    y: clamp(area.y1 - sticker.y * areaH, area.y0 + halfH, area.y1 - halfH),
+    width,
+    height,
+  };
 }

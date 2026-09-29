@@ -13,6 +13,7 @@
 		124ABB64CF8CE4FB758175BA /* ReleaseHostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE3B90C4A6414EA8EF5CA94F /* ReleaseHostTests.swift */; };
 		146D9A82D03FA2C443CB8D38 /* HUDBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF49DAE152235CD62BFD6C0 /* HUDBackdrop.swift */; };
 		1601A426E82A754E442CD3CE /* KeyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 765D2C56D9976BB4A3EC9ED3 /* KeyButton.swift */; };
+		17ED263129665AB42418A9E9 /* DeviceTiltTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D390CEB7D8170A9E2BA3B725 /* DeviceTiltTests.swift */; };
 		1CD4F67DD701C2CF3986E702 /* DiscDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D65BE2BEF2BAF3FE54383 /* DiscDesign.swift */; };
 		1D1F1CEC9BC1A372D6E0871A /* HUDStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7223835FB49392F7690FA419 /* HUDStates.swift */; };
 		1D9EF9AA5FDDAD3F401587BE /* HUDIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4D74FED7EF3381437B292B /* HUDIcons.swift */; };
@@ -28,6 +29,7 @@
 		39C5945B8381DEF05B81C829 /* native-shim.js in Resources */ = {isa = PBXBuildFile; fileRef = 7A566267A88C6A880A2EC09D /* native-shim.js */; };
 		3AEE05808580EB9C954D2826 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F8B151DE0FAAD0B61B53F16E /* Assets.xcassets */; };
 		3C3173918A26F79BFA15C8ED /* AuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA71C49B8E161D5FF5D6FB69 /* AuthModel.swift */; };
+		3D01BCAB6CF1172569085E51 /* lit-cart.webp in Resources */ = {isa = PBXBuildFile; fileRef = B7366FC4495B3BD38F7CA954 /* lit-cart.webp */; };
 		42629C4065A167D75A7A33CC /* RackFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF3FAFDB591A50A9EBAAC5 /* RackFocusView.swift */; };
 		45924FC6D8E052A97352BEDA /* APIDecoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 023F95EA460A7F2FC7327AC5 /* APIDecoding.swift */; };
 		4707C72DCCFB6EB7E444D6A9 /* HUDList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5E1BA31F2C234B9A56EF82 /* HUDList.swift */; };
@@ -39,6 +41,7 @@
 		5C7013501ABB2A970A82F554 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B65A2FAA37E5A5120CD7B5B3 /* JSONValue.swift */; };
 		5EBB52C65A585E3C63B439F6 /* LCDGlyphs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B7007122EC4C172D39CD54 /* LCDGlyphs.swift */; };
 		6077F9927226F9EE1C2407C4 /* DownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80A3E1A3CBC24D8629364F75 /* DownloadTests.swift */; };
+		60BD0A1870234D80AD0E89B2 /* DiscDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F7221B6C959DD836730C36 /* DiscDetails.swift */; };
 		61B9B7AC5D2FA3650552FD39 /* EncryptedAssetLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCDF42BAE939DC593F7B216B /* EncryptedAssetLoader.swift */; };
 		6216E56BE02A55506FF30D7B /* jetbrains-mono in Resources */ = {isa = PBXBuildFile; fileRef = 4E1E03BB0E7CA8B2604DF370 /* jetbrains-mono */; };
 		65C51B825E9320F4A3B2107A /* SleeveArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12374B0CA4984AD9C7ED1691 /* SleeveArt.swift */; };
@@ -70,11 +73,13 @@
 		B035517475C277D884E36CD5 /* NativeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82CE16B14635426F8CB5EAC5 /* NativeBridge.swift */; };
 		B17C5AFB989953F36A5EDB1A /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8716FAEA459C708CF24932F5 /* AudioEngine.swift */; };
 		B48545B530723D989EEA513C /* BootLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E24A0049F6BFA14034B30C6 /* BootLoader.swift */; };
+		B69819D6A840554BC1DF8B1D /* DeviceTilt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03CE4EF41A0D0639CFF9D1CB /* DeviceTilt.swift */; };
 		B9BF1C94040B66537E6D0895 /* ConvexAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93913D3269A78D01CAEB61D0 /* ConvexAPI.swift */; };
 		BC711D0F0962F7400BB53451 /* ConvexMobile in Frameworks */ = {isa = PBXBuildFile; productRef = F945DF67D7556C6D9B1B260C /* ConvexMobile */; };
 		C6AF294AB234CB05122A080B /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F71CECFF50685E5F5A8F7E /* DownloadManager.swift */; };
 		C888BB186E48C277C88BB71E /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 49367737A9D9D697A857C268 /* ClerkKit */; };
 		CC7859BAEFBD10ABEE78CCF1 /* traversal-bundle.zip in Resources */ = {isa = PBXBuildFile; fileRef = AF5EB22023D034F4ACC3152B /* traversal-bundle.zip */; };
+		D118FCBB1CFF8177F1BB7FCC /* AwardScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 187EDC8CFE317980ABFDE99E /* AwardScreens.swift */; };
 		D39E98007025C6EBB5F1440A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A47C0373ADC37A567100554 /* AppModel.swift */; };
 		D3FDDE244E5985DF5FB5D289 /* BundleSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFE9AD08F7A9A430912C273E /* BundleSchemeHandler.swift */; };
 		D44A779D8C7AAC562726CE28 /* PlayEventQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0976638A66C6F421411B5BB0 /* PlayEventQueue.swift */; };
@@ -102,6 +107,7 @@
 /* Begin PBXFileReference section */
 		023F95EA460A7F2FC7327AC5 /* APIDecoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIDecoding.swift; sourceTree = "<group>"; };
 		032DE6ED010DA3E2909DA84A /* HUDSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDSheet.swift; sourceTree = "<group>"; };
+		03CE4EF41A0D0639CFF9D1CB /* DeviceTilt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTilt.swift; sourceTree = "<group>"; };
 		063C684FB6731195FFBF38F0 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		06CB1053EAF93832DC28D4C4 /* MockAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPI.swift; sourceTree = "<group>"; };
 		08B820FB1DD83786AA8826C0 /* RackGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackGrid.swift; sourceTree = "<group>"; };
@@ -110,6 +116,7 @@
 		100A31C5F4941B5FD667568B /* lit-sleeve.webp */ = {isa = PBXFileReference; path = "lit-sleeve.webp"; sourceTree = "<group>"; };
 		12374B0CA4984AD9C7ED1691 /* SleeveArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleeveArt.swift; sourceTree = "<group>"; };
 		14B7007122EC4C172D39CD54 /* LCDGlyphs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LCDGlyphs.swift; sourceTree = "<group>"; };
+		187EDC8CFE317980ABFDE99E /* AwardScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AwardScreens.swift; sourceTree = "<group>"; };
 		250C76043745180AA55113A5 /* ClerkAuthBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClerkAuthBackend.swift; sourceTree = "<group>"; };
 		26CF3FAFDB591A50A9EBAAC5 /* RackFocusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackFocusView.swift; sourceTree = "<group>"; };
 		27725006455E1B11AB6D0829 /* RenderedSleeve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderedSleeve.swift; sourceTree = "<group>"; };
@@ -120,6 +127,7 @@
 		33767FE44F4D97E7BBD8F2B1 /* ReleaseHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseHostView.swift; sourceTree = "<group>"; };
 		3B1290D127AABC34B7729AED /* MyindSoundApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyindSoundApp.swift; sourceTree = "<group>"; };
 		3B5E1BA31F2C234B9A56EF82 /* HUDList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDList.swift; sourceTree = "<group>"; };
+		45F7221B6C959DD836730C36 /* DiscDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscDetails.swift; sourceTree = "<group>"; };
 		4633C3C2FDA56D8CAAB0CCA8 /* EncryptedAudioFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedAudioFile.swift; sourceTree = "<group>"; };
 		4A47C0373ADC37A567100554 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		4E1E03BB0E7CA8B2604DF370 /* jetbrains-mono */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "jetbrains-mono"; path = "../../packages/tokens/fonts/jetbrains-mono"; sourceTree = SOURCE_ROOT; };
@@ -159,6 +167,7 @@
 		AF5EB22023D034F4ACC3152B /* traversal-bundle.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "traversal-bundle.zip"; sourceTree = "<group>"; };
 		B4F8376BFF28AA18E8615FB0 /* APIDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIDecodingTests.swift; sourceTree = "<group>"; };
 		B65A2FAA37E5A5120CD7B5B3 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
+		B7366FC4495B3BD38F7CA954 /* lit-cart.webp */ = {isa = PBXFileReference; path = "lit-cart.webp"; sourceTree = "<group>"; };
 		C4FF5DF763AAB8A16812BD35 /* MyindSoundTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MyindSoundTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5D4F637AF6CEE6C4528F0BA /* LibraryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryScreen.swift; sourceTree = "<group>"; };
 		C708F1BB7255AA22BF17FC8B /* MyindAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyindAPI.swift; sourceTree = "<group>"; };
@@ -166,6 +175,7 @@
 		CD98F0A82F4474C449A1756B /* ReleaseScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseScreen.swift; sourceTree = "<group>"; };
 		CE067098ADA85586DC6C653B /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		CF4D74FED7EF3381437B292B /* HUDIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDIcons.swift; sourceTree = "<group>"; };
+		D390CEB7D8170A9E2BA3B725 /* DeviceTiltTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTiltTests.swift; sourceTree = "<group>"; };
 		D6C113B49E77EA0824AAA984 /* wear-swift */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "wear-swift"; path = "../../packages/wear-swift"; sourceTree = SOURCE_ROOT; };
 		DA21FAEB40C86415C40CE378 /* HUDTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDTabBar.swift; sourceTree = "<group>"; };
 		DBF49DAE152235CD62BFD6C0 /* HUDBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDBackdrop.swift; sourceTree = "<group>"; };
@@ -202,6 +212,7 @@
 			children = (
 				7D8C8060CAFFC8D186E16777 /* Fixtures */,
 				B4F8376BFF28AA18E8615FB0 /* APIDecodingTests.swift */,
+				D390CEB7D8170A9E2BA3B725 /* DeviceTiltTests.swift */,
 				2EF7B40F77F7E9A5B52101AB /* DiscRenderTests.swift */,
 				80A3E1A3CBC24D8629364F75 /* DownloadTests.swift */,
 				6959D0F80F41349596067CB0 /* LCDGlyphTests.swift */,
@@ -236,6 +247,7 @@
 		12B152F99EB4A8C0A0216289 /* Rack */ = {
 			isa = PBXGroup;
 			children = (
+				45F7221B6C959DD836730C36 /* DiscDetails.swift */,
 				26CF3FAFDB591A50A9EBAAC5 /* RackFocusView.swift */,
 				08B820FB1DD83786AA8826C0 /* RackGrid.swift */,
 				8795F092BA165713C92F575A /* RackRules.swift */,
@@ -262,6 +274,7 @@
 			isa = PBXGroup;
 			children = (
 				12B152F99EB4A8C0A0216289 /* Rack */,
+				187EDC8CFE317980ABFDE99E /* AwardScreens.swift */,
 				65FE46FA05C019299F5632E8 /* HUDPage.swift */,
 				7142D2033AA8F7BF9EC10FF8 /* KitGallery.swift */,
 				84C435886669C31ED25158CF /* LeaderboardScreen.swift */,
@@ -345,6 +358,7 @@
 				AB9C23CD0E30F37EFD045F42 /* BridgeProtocol.swift */,
 				FFE9AD08F7A9A430912C273E /* BundleSchemeHandler.swift */,
 				EE81E3D0F733E11164539F79 /* BundleStore.swift */,
+				03CE4EF41A0D0639CFF9D1CB /* DeviceTilt.swift */,
 				82CE16B14635426F8CB5EAC5 /* NativeBridge.swift */,
 				0AE2D44546D14D721B43F6F7 /* ReleaseHostController.swift */,
 				33767FE44F4D97E7BBD8F2B1 /* ReleaseHostView.swift */,
@@ -383,6 +397,7 @@
 		C2FBD21E59FF04DEE25E79E3 /* RackStills */ = {
 			isa = PBXGroup;
 			children = (
+				B7366FC4495B3BD38F7CA954 /* lit-cart.webp */,
 				100A31C5F4941B5FD667568B /* lit-sleeve.webp */,
 			);
 			path = RackStills;
@@ -551,6 +566,7 @@
 				3AEE05808580EB9C954D2826 /* Assets.xcassets in Resources */,
 				AB3A1BB29F60EEDCEC0929E0 /* inter in Resources */,
 				6216E56BE02A55506FF30D7B /* jetbrains-mono in Resources */,
+				3D01BCAB6CF1172569085E51 /* lit-cart.webp in Resources */,
 				385DB5654CA4DFFE5B04D2F7 /* lit-sleeve.webp in Resources */,
 				39C5945B8381DEF05B81C829 /* native-shim.js in Resources */,
 			);
@@ -598,7 +614,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n[ \"$CONFIGURATION\" = \"Debug\" ] || exit 0\nPKG=\"$SRCROOT/../../packages/minidisc\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevDiscs\"\nrm -rf \"$DST\"\n[ -d \"$PKG/shots\" ] || { echo \"note: no packages/minidisc/shots; -mock shows printed sleeves\"; exit 0; }\nmkdir -p \"$DST/shots\" \"$DST/samples\"\nfor f in \"$PKG\"/shots/*-sleeve.png \"$PKG\"/shots/*-sleeve.webp \"$PKG\"/shots/*-sleeve.json; do\n  [ -f \"$f\" ] && cp \"$f\" \"$DST/shots/\"\ndone\nfor design in \"$PKG\"/samples/*.json; do\n  [ -f \"$design\" ] || continue\n  name=\"$(basename \"$design\" .json)\"\n  cp \"$design\" \"$DST/samples/\"\n  [ -d \"$PKG/samples/$name\" ] && cp -R \"$PKG/samples/$name\" \"$DST/samples/\"\ndone\necho \"embedded $(ls \"$DST/shots\" | wc -l | tr -d ' ') dev disc render files\"\n";
+			shellScript = "set -e\n[ \"$CONFIGURATION\" = \"Debug\" ] || exit 0\nPKG=\"$SRCROOT/../../packages/minidisc\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/DevDiscs\"\nrm -rf \"$DST\"\n[ -d \"$PKG/shots\" ] || { echo \"note: no packages/minidisc/shots; -mock shows printed sleeves\"; exit 0; }\nmkdir -p \"$DST/shots\" \"$DST/samples\"\nfor f in \"$PKG\"/shots/*-sleeve.png \"$PKG\"/shots/*-sleeve.webp \"$PKG\"/shots/*-sleeve.json \"$PKG\"/shots/*-cart.png \"$PKG\"/shots/*-cart.webp; do\n  [ -f \"$f\" ] && cp \"$f\" \"$DST/shots/\"\ndone\nfor design in \"$PKG\"/samples/*.json; do\n  [ -f \"$design\" ] || continue\n  name=\"$(basename \"$design\" .json)\"\n  cp \"$design\" \"$DST/samples/\"\n  [ -d \"$PKG/samples/$name\" ] && cp -R \"$PKG/samples/$name\" \"$DST/samples/\"\ndone\necho \"embedded $(ls \"$DST/shots\" | wc -l | tr -d ' ') dev disc render files\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -613,6 +629,7 @@
 				B17C5AFB989953F36A5EDB1A /* AudioEngine.swift in Sources */,
 				8B4E04B85273877E4661EF3B /* AudioTap.swift in Sources */,
 				3C3173918A26F79BFA15C8ED /* AuthModel.swift in Sources */,
+				D118FCBB1CFF8177F1BB7FCC /* AwardScreens.swift in Sources */,
 				B48545B530723D989EEA513C /* BootLoader.swift in Sources */,
 				85CF114D6C59964E53ED4686 /* BridgeProtocol.swift in Sources */,
 				D3FDDE244E5985DF5FB5D289 /* BundleSchemeHandler.swift in Sources */,
@@ -621,7 +638,9 @@
 				B9BF1C94040B66537E6D0895 /* ConvexAPI.swift in Sources */,
 				3286C855A9EFF85086EE7A82 /* CornerTickFrame.swift in Sources */,
 				7E556580F214F31F4665B69A /* DevDiscs.swift in Sources */,
+				B69819D6A840554BC1DF8B1D /* DeviceTilt.swift in Sources */,
 				1CD4F67DD701C2CF3986E702 /* DiscDesign.swift in Sources */,
+				60BD0A1870234D80AD0E89B2 /* DiscDetails.swift in Sources */,
 				E354FE958ACD7E1076AC13D1 /* DownloadKeychain.swift in Sources */,
 				C6AF294AB234CB05122A080B /* DownloadManager.swift in Sources */,
 				61B9B7AC5D2FA3650552FD39 /* EncryptedAssetLoader.swift in Sources */,
@@ -678,6 +697,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				789A81351F90EF4D652E8AFA /* APIDecodingTests.swift in Sources */,
+				17ED263129665AB42418A9E9 /* DeviceTiltTests.swift in Sources */,
 				917B2C4148CA9FD7A7D71562 /* DiscRenderTests.swift in Sources */,
 				6077F9927226F9EE1C2407C4 /* DownloadTests.swift in Sources */,
 				8E60906F1EC724DC2201DBD1 /* LCDGlyphTests.swift in Sources */,
