@@ -576,6 +576,66 @@ export function stampPrint(edition: number, ink: string, width = 512, height = 2
   return element;
 }
 
+/** Where the back's technical label sits, in the back cap's UV as seen from the FRONT (u right, t down): the
+ * moulded label recess (moulding.ts `backHeight`), which is the lower left seen from behind. */
+export const BACK_LABEL_UV = { u0: 0.612, t0: 0.672, u1: 0.928, t1: 0.908 } as const;
+
+/**
+ * The back's technical label: a printed paper label in the recess, like a real MD's spec label, carrying the
+ * disc number (the copy's edition: the buyer's place in the purchase order, `No. 0020` for the 20th copy sold).
+ * `edition` null (a preview, the rack still, a copy with no number) prints the number blank.
+ */
+export function techLabelPrint(design: DiscDesign, edition: number | null, width = 768, height = 400): HTMLCanvasElement {
+  const [element, ctx] = canvas(width, height);
+  const ink = '#141418';
+  const pad = width * 0.05;
+  ctx.fillStyle = CREAM;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, width, height, width * 0.025);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(20,20,24,0.55)';
+  ctx.lineWidth = height * 0.008;
+  ctx.strokeRect(pad * 0.5, pad * 0.5, width - pad, height - pad);
+  ctx.fillStyle = ink;
+  ctx.textBaseline = 'alphabetic';
+  const left = pad * 1.3;
+  const right = width - pad * 1.3;
+  const number = edition === null ? '----' : String(Math.max(0, Math.trunc(edition))).padStart(4, '0');
+  // Header: the format on the left, the catalogue number on the right, a rule under both.
+  ctx.textAlign = 'left';
+  fitFont(ctx, 'MiniDisc  DIGITAL AUDIO', 700, MONO, height * 0.075, width * 0.5);
+  ctx.fillText('MiniDisc  DIGITAL AUDIO', left, height * 0.2);
+  ctx.textAlign = 'right';
+  fitFont(ctx, catalogueNumber(design), 500, MONO, height * 0.065, width * 0.3);
+  ctx.fillText(catalogueNumber(design), right, height * 0.2);
+  ctx.fillRect(left, height * 0.24, right - left, height * 0.008);
+  // The disc number, large.
+  ctx.textAlign = 'left';
+  ctx.font = `500 ${Math.round(height * 0.065)}px ${MONO}`;
+  ctx.fillText('DISC No.', left, height * 0.36);
+  fitFont(ctx, number, 800, MONO, height * 0.28, width * 0.5);
+  ctx.fillText(number, left, height * 0.63);
+  // A barcode on the right, seeded by the release and the number, with the copy's code under it.
+  const barW = width * 0.34;
+  barcode(ctx, right - barW, height * 0.29, barW, height * 0.3, hashString(`${design.slug}:${number}`), ink, CREAM);
+  ctx.fillStyle = ink;
+  ctx.textAlign = 'center';
+  const code = `${catalogueNumber(design)}-${number}`;
+  fitFont(ctx, code, 500, MONO, height * 0.05, barW);
+  ctx.fillText(code, right - barW / 2, height * 0.66);
+  // Title and artist, then the fine print.
+  ctx.textAlign = 'left';
+  const facts = `${design.title} / ${design.artist}`.toUpperCase();
+  fitFont(ctx, facts, 600, MONO, height * 0.07, right - left);
+  ctx.fillText(facts, left, height * 0.78);
+  const minutes = Math.ceil(design.tracks.reduce((sum, track) => sum + track.durationSec, 0) / 60);
+  const fine = `${design.tracks.length} TRACKS  ${minutes} MIN  STEREO  ${design.year}`;
+  fitFont(ctx, fine, 500, MONO, height * 0.05, right - left);
+  ctx.fillText(fine, left, height * 0.88);
+  grain(ctx, 6, hashString(`${design.slug}:techlabel`));
+  return element;
+}
+
 /** Built-in sticker emoji (`preset:<id>` for the emoji ones). */
 const PRESET_EMOJI: Record<string, string> = { fire: '🔥', heart: '❤️', star: '⭐', smiley: '😀', lightning: '⚡' };
 

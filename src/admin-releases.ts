@@ -804,12 +804,12 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
           <div class="rp-controls">
             <p class="admin-sub">SHELL</p>
             <div class="rp-swatches" role="radiogroup" aria-label="Shell"></div>
-            <p class="admin-sub">PLASTIC COLOUR <span class="rp-layer-note">the clear cover's tint</span></p>
-            <div class="rp-tints" role="radiogroup" aria-label="Plastic colour">
+            <p class="admin-sub">CLEAR CASE COLOUR <span class="rp-layer-note">the tint of the plastic case</span></p>
+            <div class="rp-tints" role="radiogroup" aria-label="Clear case colour">
               <button type="button" class="secondary-btn mini-btn" role="radio" data-tint="preset"><span class="rp-chip small rp-tint-preset-chip"></span>PRESET</button>
               <button type="button" class="secondary-btn mini-btn" role="radio" data-tint="cover" hidden><span class="rp-chip small rp-tint-cover-chip"></span>FROM COVER</button>
               <label class="secondary-btn mini-btn rp-colour-pick" data-tint-custom><span class="rp-chip small rp-tint-custom-chip"></span>CUSTOM
-                <input type="color" class="rp-colour-input rp-tint-custom" aria-label="Custom plastic colour">
+                <input type="color" class="rp-colour-input rp-tint-custom" aria-label="Custom clear case colour">
               </label>
             </div>
             <p class="admin-sub">DISC</p>

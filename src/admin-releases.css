@@ -767,11 +767,28 @@
   color: var(--orange);
 }
 
-/* Wide screens: the preview stays in view while the controls beside it scroll (sliders, PLACE). */
-@media (min-width: 761px) {
+/* The preview stays in view while the controls scroll (sliders, PLACE). Wide screens: beside the controls. */
+.rp-stage {
+  position: sticky;
+  top: calc(var(--nav-h, 85px) + 12px);
+  z-index: 3;
+}
+
+/* Phones: pinned above the controls, shorter, on the page's ink so the controls scroll under it cleanly. */
+@media (max-width: 760px) {
   .rp-stage {
-    position: sticky;
-    top: calc(var(--nav-h, 85px) + 12px);
+    top: var(--nav-h, 85px);
+    background: var(--bg-color, #07070c);
+    padding-bottom: 0.5rem;
+    box-shadow: 0 10px 18px -12px rgba(0, 0, 0, 0.9);
+  }
+  .rp-stage .rp-canvas {
+    aspect-ratio: auto;
+    height: 38vh;
+    height: 38svh;
+  }
+  .rp-stage .rp-stage-note {
+    display: none;
   }
 }
 

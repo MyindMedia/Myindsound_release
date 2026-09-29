@@ -16,6 +16,14 @@
         rel="stylesheet">
     <link rel="stylesheet" href="/theme.css">
     <style>
+        /* style.css makes html and body their own scroll boxes (overflow-x hidden, overflow-y auto), which stops
+           anything position: sticky from sticking (the release editor's 3D preview). Here the page scrolls as a
+           page, and `clip` still stops any sideways scroll without making a scroll box. */
+        html,
+        body {
+            overflow-x: clip !important;
+            overflow-y: visible !important;
+        }
         .admin-container {
             max-width: 1200px;
             margin: 6rem auto 2rem;

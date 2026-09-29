@@ -46,7 +46,7 @@ import { canvas, hashString, heightToNormal, srgbTexture, type ArtSource } from 
 import { imageStickers, placeImageSticker, printedStickers, resolveShellWindow, resolveSlideColor, type DiscDesign } from './design';
 import { resolvePreset, type ShellPreset } from './presets';
 import { BACK_HUB, LASER_WINDOW, SCREW_BORE, TONGUE_BOTTOM_T, backHeight, backSkin, buildMoulding, plasticSpeckle } from './moulding';
-import { PLATE_ASPECT, STAMP_UV, chassisPrint, discPrint, platePrint, shellNormal, stampPrint, stickerPrint } from './prints';
+import { BACK_LABEL_UV, PLATE_ASPECT, STAMP_UV, chassisPrint, discPrint, platePrint, shellNormal, stampPrint, stickerPrint, techLabelPrint } from './prints';
 
 /** The art the cartridge prints: the cover (sleeve) and the disc face (defaults to the cover). */
 export interface DesignArt {
@@ -871,6 +871,49 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
     back.alphaMap.needsUpdate = true;
   }
 
+  // ── The back's technical label: printed paper in the moulded recess (lower left seen from behind), with
+  // the disc number (the edition), blank until `setEdition` gives it one ────────────────────────────────────
+  const backLabelW = (BACK_LABEL_UV.u1 - BACK_LABEL_UV.u0) * w;
+  const backLabelH = (BACK_LABEL_UV.t1 - BACK_LABEL_UV.t0) * h;
+  const backLabelPx = quality === 'low' ? 512 : 1024;
+  const backLabelSize: [number, number] = [backLabelPx, Math.round((backLabelPx * backLabelH) / backLabelW)];
+  const backLabelTexture = tex(srgbTexture(techLabelPrint(design, null, ...backLabelSize), anisotropy));
+  const backLabel = new Mesh(
+    geo(new PlaneGeometry(backLabelW, backLabelH)),
+    keep(
+      new MeshStandardMaterial({
+        map: backLabelTexture,
+        emissiveMap: backLabelTexture,
+        color: new Color(0.74, 0.74, 0.74),
+        emissive: new Color(0.1, 0.1, 0.1),
+        roughness: 0.9,
+        normalMap: tex(paperGrainNormal()),
+        normalScale: new Vector2(0.3, 0.3),
+        envMap,
+        envMapIntensity: 0.12,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+      }),
+    ),
+  );
+  backLabel.name = 'back-label';
+  // Facing out of the back: turned half round, so it reads the right way from behind.
+  backLabel.rotation.y = Math.PI;
+  backLabel.position.set(
+    rect.x0 + ((BACK_LABEL_UV.u0 + BACK_LABEL_UV.u1) / 2) * w,
+    rect.y1 - ((BACK_LABEL_UV.t0 + BACK_LABEL_UV.t1) / 2) * h,
+    backZ - 0.0004,
+  );
+  backLabel.renderOrder = 4;
+  cartridge.add(backLabel);
+  let backLabelEdition: number | null = null;
+  const printBackLabel = (edition: number | null) => {
+    backLabelEdition = edition;
+    backLabelTexture.image = techLabelPrint(design, edition, ...backLabelSize);
+    backLabelTexture.needsUpdate = true;
+  };
+  document.fonts?.load(`700 32px 'JetBrains Mono'`).then(() => printBackLabel(backLabelEdition), () => {});
+
   // ── The edition stamp ────────────────────────────────────────────────────────────────────────────────
   const stampHost = plateRect ?? wearLabel;
   const stampUv = plateRect ? STAMP_UV : { x: 0, y: 0, w: 1, h: 1 };
@@ -889,6 +932,7 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
   };
   const setEdition = (edition: number | null) => {
     removeStamp();
+    if (edition !== backLabelEdition) printBackLabel(edition);
     if (edition === null) return;
     const texture = srgbTexture(stampPrint(edition, stampInk, 512, Math.round((512 * stampH) / stampW)), anisotropy);
     const material = new MeshStandardMaterial({
