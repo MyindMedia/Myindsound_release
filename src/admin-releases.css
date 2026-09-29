@@ -296,8 +296,16 @@
     radial-gradient(120% 80% at 50% 30%, rgba(159, 216, 255, 0.08), transparent 60%),
     radial-gradient(90% 60% at 50% 100%, rgba(255, 61, 168, 0.08), transparent 70%),
     #07070c;
-  touch-action: none;
+  /* A sideways drag turns the disc; an up or down swipe scrolls the page (on a phone the preview is most of the
+     screen, and with `none` the portal couldn't be scrolled past it). */
+  touch-action: pan-y;
   cursor: grab;
+}
+
+/* Opening a release or changing step scrolls here: land below the site's sticky nav, never under it. */
+.rp-wizard,
+.rp-steps {
+  scroll-margin-top: calc(var(--nav-h, 85px) + 16px);
 }
 
 .rp-canvas:active {
