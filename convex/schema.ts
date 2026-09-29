@@ -103,6 +103,8 @@ export default defineSchema({
     bundleDesignHash: v.optional(v.string()),
     /** Uploaded image stickers (PNG/JPEG/WebP), one file per `design.stickers[]` entry of kind `image`. At most 8. */
     stickerFiles: v.optional(v.array(v.id('_storage'))),
+    /** The slide cover's uploaded label image (PNG/JPEG/WebP): `design.labelImage.src` is its serving URL. */
+    labelFile: v.optional(v.id('_storage')),
   }).index('by_slug', ['slug']),
 
   /** The next edition number per product (ED-1). Only `fulfilment.record` and the ED-0 migration write it. */

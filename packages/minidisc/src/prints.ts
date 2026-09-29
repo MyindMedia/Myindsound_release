@@ -195,9 +195,8 @@ export interface PlatePrint {
 }
 
 /** The metal shutter plate (02, 03) or the paper sticker plate (04, 06, 09, 10), with the label text. */
-export function platePrint(design: DiscDesign, width: number, labelImage?: ArtSource): PlatePrint {
+export function platePrint(design: DiscDesign, width: number, slideColor = '#8b9097'): PlatePrint {
   const height = Math.round(width / PLATE_ASPECT);
-  if (labelImage) return imageLabel(labelImage, width, height, hashString(`${design.slug}:plate`));
   const theme = resolveTheme(design);
   const seed = hashString(`${design.slug}:plate`);
   const lines = (design.labelText ?? `${design.title}\n${design.artist}`).split('\n').map((l) => l.trim()).filter(Boolean);
@@ -206,27 +205,19 @@ export function platePrint(design: DiscDesign, width: number, labelImage?: ArtSo
   let map: HTMLCanvasElement;
   let normal: CanvasTexture | null = null;
   let ink: string;
-  if (design.labelStyle === 'none') {
+  if (design.labelStyle === 'none' || metal) {
+    // Printed straight onto the slide: the brushing only; the slide's own colour tints it (cartridge.ts), and the
+    // ink reads against that colour.
     const brushed = brushedMetal(width, height, seed);
     map = brushed.map;
     normal = brushed.normal;
-    ink = '#14141a';
-  } else if (design.labelStyle === 'metal-dark') {
-    // Black anodised (17, 24): the same brushing, dyed down, with light ink.
-    const brushed = brushedMetal(width, height, seed);
-    map = brushed.map;
-    normal = brushed.normal;
-    const dctx = map.getContext('2d')!;
-    dctx.globalCompositeOperation = 'multiply';
-    dctx.fillStyle = '#2a2c31';
-    dctx.fillRect(0, 0, width, height);
-    dctx.globalCompositeOperation = 'source-over';
-    ink = '#d9dce2';
-  } else if (metal) {
-    const brushed = brushedMetal(width, height, seed);
-    map = brushed.map;
-    normal = brushed.normal;
-    ink = '#14141a';
+    // The slide's colour dyes the metal here, under the ink, so the ink keeps its own colour on any slide.
+    const dye = map.getContext('2d')!;
+    dye.globalCompositeOperation = 'multiply';
+    dye.fillStyle = slideColor;
+    dye.fillRect(0, 0, width, height);
+    dye.globalCompositeOperation = 'source-over';
+    ink = luminance(slideColor) > 0.2 ? '#14141a' : '#d9dce2';
   } else if (design.labelStyle === 'tinted') {
     // Frosted plastic in the shell's own colour (26, 32, 33): a moulded cover, not a stuck-on label.
     const [element, ctx] = canvas(width, height);
@@ -282,30 +273,7 @@ export function platePrint(design: DiscDesign, width: number, labelImage?: ArtSo
   ctx.strokeStyle = rgba(ink, metal ? 0.35 : 0.28);
   ctx.lineWidth = Math.max(1, width * 0.004);
   ctx.strokeRect(pad * 0.45, pad * 0.45, width - pad * 0.9, height - pad * 0.9);
-  return { map, normal, stampInk: design.labelStyle === 'metal' ? ink : '#a8102c' };
-}
-
-/**
- * The release's own label image (`labelArt`) as a printed paper sticker: the image fills the label (cover fit,
- * centred), with the paper's sheen along the top and its grain, so it reads as printed, not as a screen.
- */
-function imageLabel(image: ArtSource, width: number, height: number, seed: number): PlatePrint {
-  const [map, ctx] = canvas(width, height);
-  const iw = (image as { naturalWidth?: number; width: number }).naturalWidth || image.width;
-  const ih = (image as { naturalHeight?: number; height: number }).naturalHeight || image.height;
-  const scale = Math.max(width / Math.max(1, iw), height / Math.max(1, ih));
-  const dw = iw * scale;
-  const dh = ih * scale;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image as CanvasImageSource, (width - dw) / 2, (height - dh) / 2, dw, dh);
-  const sheen = ctx.createLinearGradient(0, 0, 0, height);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.1)');
-  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
-  sheen.addColorStop(1, 'rgba(0,0,0,0.1)');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(0, 0, width, height);
-  grain(ctx, 10, seed);
-  return { map, normal: null, stampInk: '#a8102c' };
+  return { map, normal, stampInk: metal ? ink : '#a8102c' };
 }
 
 /** Wording is descriptive, not a trademark: the black-and-white parental-style box. */
@@ -606,4 +574,138 @@ export function stampPrint(edition: number, ink: string, width = 512, height = 2
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
   return element;
+}
+
+/** Built-in sticker emoji (`preset:<id>` for the emoji ones). */
+const PRESET_EMOJI: Record<string, string> = { fire: '🔥', heart: '❤️', star: '⭐', smiley: '😀', lightning: '⚡' };
+
+/**
+ * A built-in sticker (`preset:<id>`) or an emoji (`emoji:<emoji>`), drawn at `size` px square on a transparent
+ * canvas: die-cut, with the white vinyl edge round the art that real stickers have.
+ */
+export function drawnSticker(ref: string, size = 512): HTMLCanvasElement {
+  const [element, ctx] = canvas(size, size);
+  const c = size / 2;
+  const emoji = ref.startsWith('emoji:') ? ref.slice(6) : PRESET_EMOJI[ref.slice(7)];
+  if (emoji) {
+    // The glyph, then a white edge made by stamping it round in a ring underneath.
+    const [glyph, gctx] = canvas(size, size);
+    gctx.textAlign = 'center';
+    gctx.textBaseline = 'middle';
+    gctx.font = `${Math.round(size * 0.66)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    gctx.fillText(emoji, c, c * 1.04);
+    const [edge, ectx] = canvas(size, size);
+    const r = size * 0.035;
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      ectx.drawImage(glyph, Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ectx.globalCompositeOperation = 'source-in';
+    ectx.fillStyle = '#ffffff';
+    ectx.fillRect(0, 0, size, size);
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = size * 0.02;
+    ctx.drawImage(edge, 0, 0);
+    ctx.shadowColor = 'transparent';
+    ctx.drawImage(glyph, 0, 0);
+    return element;
+  }
+  const id = ref.slice(7);
+  const edge = size * 0.03;
+  const text = (label: string, font: number, y: number, fill: string, weight = 900) => {
+    ctx.fillStyle = fill;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    fitFont(ctx, label, weight, INTER, font, size * 0.78);
+    ctx.fillText(label, c, y);
+  };
+  const burst = (points: number, outer: number, inner: number) => {
+    ctx.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      const rr = i % 2 === 0 ? outer : inner;
+      const a = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+      ctx.lineTo(c + Math.cos(a) * rr, c + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+  };
+  const cut = (draw: () => void, fill: string) => {
+    // The white vinyl edge, then the colour inside it.
+    draw();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = size * 0.02;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.save();
+    ctx.translate(c, c);
+    ctx.scale(1 - (edge * 2) / size, 1 - (edge * 2) / size);
+    ctx.translate(-c, -c);
+    draw();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.restore();
+  };
+  switch (id) {
+    case 'advisory': {
+      const w = size * 0.92;
+      const h = size * 0.56;
+      const box = () => {
+        ctx.beginPath();
+        ctx.rect(c - w / 2, c - h / 2, w, h);
+      };
+      cut(box, '#0b0b0d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(c - w / 2 + edge * 2.2, c - h * 0.08, w - edge * 4.4, h * 0.33);
+      text('PARENTAL', size * 0.1, c - h * 0.3, '#ffffff');
+      text('ADVISORY', size * 0.1, c - h * 0.16, '#ffffff');
+      text('EXPLICIT CONTENT', size * 0.09, c + h * 0.085, '#0b0b0d');
+      return element;
+    }
+    case 'hot':
+      cut(() => burst(14, size * 0.47, size * 0.36), '#e8261f');
+      text('HOT', size * 0.26, c * 1.02, '#ffffff');
+      return element;
+    case 'new':
+      cut(() => burst(16, size * 0.47, size * 0.38), '#ffd23f');
+      text('NEW', size * 0.24, c * 1.02, '#111114');
+      return element;
+    case 'limited':
+      cut(() => {
+        ctx.beginPath();
+        ctx.arc(c, c, size * 0.46, 0, Math.PI * 2);
+      }, '#c9a227');
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = size * 0.012;
+      ctx.beginPath();
+      ctx.arc(c, c, size * 0.36, 0, Math.PI * 2);
+      ctx.stroke();
+      text('LIMITED', size * 0.12, c - size * 0.07, '#1a1406');
+      text('EDITION', size * 0.12, c + size * 0.08, '#1a1406');
+      return element;
+    case 'exclusive':
+      cut(() => {
+        ctx.beginPath();
+        ctx.roundRect(size * 0.04, size * 0.32, size * 0.92, size * 0.36, size * 0.05);
+      }, '#ff3da8');
+      text('EXCLUSIVE', size * 0.15, c, '#ffffff');
+      return element;
+    case 'bonus':
+      cut(() => {
+        ctx.beginPath();
+        ctx.roundRect(size * 0.05, size * 0.3, size * 0.9, size * 0.4, size * 0.2);
+      }, '#39c0ff');
+      text('BONUS TRACK', size * 0.12, c, '#07121a');
+      return element;
+    case 'remastered':
+      cut(() => {
+        ctx.beginPath();
+        ctx.arc(c, c, size * 0.46, 0, Math.PI * 2);
+      }, '#c8cdd4');
+      text('REMASTERED', size * 0.1, c, '#16181c');
+      return element;
+    default:
+      cut(() => burst(12, size * 0.45, size * 0.36), '#ffd23f');
+      text('★', size * 0.3, c, '#111114');
+      return element;
+  }
 }

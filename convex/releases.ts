@@ -94,6 +94,7 @@ async function factsFor(ctx: Pick<QueryCtx, 'db' | 'storage'>, product: Product)
   const coverUrl = product.coverFile ? await ctx.storage.getUrl(product.coverFile) : null;
   if (!coverUrl || tracks.length === 0) return null;
   const stickerUrls = await Promise.all((product.stickerFiles ?? []).map((id) => ctx.storage.getUrl(id)));
+  const labelUrl = product.labelFile ? await ctx.storage.getUrl(product.labelFile) : null;
   return {
     slug: product.slug,
     title: product.name,
@@ -101,6 +102,7 @@ async function factsFor(ctx: Pick<QueryCtx, 'db' | 'storage'>, product: Product)
     year: product.year ?? new Date().getUTCFullYear(),
     coverUrl,
     stickerUrls: stickerUrls.filter((url): url is string => Boolean(url)),
+    labelUrl,
     tracks: tracks.map((track) => ({ n: track.position, title: track.title, durationSec: track.durationSeconds })),
   };
 }
@@ -138,6 +140,7 @@ async function referencedFiles(ctx: Pick<QueryCtx, 'db'>): Promise<Set<string>> 
       product.rack?.still,
       product.rack?.stillWebp,
       ...(product.stickerFiles ?? []),
+      product.labelFile,
     ]) {
       if (id) ids.add(id);
     }
@@ -352,6 +355,8 @@ export const get = query({
       coverUrl: await url(product.coverFile),
       // Pairs the portal matches against `design.stickers[].src` (an image sticker's own file, for its REMOVE button).
       stickerFiles: await Promise.all((product.stickerFiles ?? []).map(async (file) => ({ file, url: (await url(file))! }))),
+      // The uploaded label image (`design.labelImage.src` when it is in use), or null.
+      labelUrl: await url(product.labelFile),
       design: (product.design as DiscDesign | undefined) ?? null,
       designHash: product.designHash ?? null,
       designRev: product.designRev ?? 0,
@@ -490,7 +495,16 @@ export const saveDesign = mutation({
     if (changed) await ctx.db.patch(product._id, { design: result.design, designHash: hash, designRev });
     const look = (design: unknown) => {
       const d = design as Partial<DiscDesign> | undefined;
-      return d ? { shell: d.shell ?? null, shellTint: d.shellTint ?? null, labelStyle: d.labelStyle ?? null, labelText: d.labelText ?? null } : null;
+      return d
+        ? {
+            shell: d.shell ?? null,
+            shellTint: d.shellTint ?? null,
+            slideColor: d.slideColor ?? null,
+            labelStyle: d.labelStyle ?? null,
+            labelText: d.labelText ?? null,
+            labelImage: Boolean(d.labelImage),
+          }
+        : null;
     };
     const auditId = await audit(
       ctx,
@@ -646,8 +660,9 @@ export const recordSticker = internalMutation({
     requireDraft(product);
     await requireUnused(ctx, [args.file]);
     const files = product.stickerFiles ?? [];
-    if (files.length >= MAX_IMAGE_STICKERS) fail('INVALID_INPUT', `A release has at most ${MAX_IMAGE_STICKERS} stickers.`);
     const existing = (((product.design as { stickers?: StickerRecord[] } | undefined)?.stickers ?? []) as StickerRecord[]);
+    // Every sticker counts towards the total, the drawn built-ins and emoji (no file) too.
+    if (Math.max(files.length, existing.length) >= MAX_IMAGE_STICKERS) fail('INVALID_INPUT', `A release has at most ${MAX_IMAGE_STICKERS} stickers.`);
     const onShutter = existing.filter((s) => s.kind === 'image' && s.area === 'shutter').length;
     if (args.area === 'shutter' && onShutter >= MAX_SHUTTER_IMAGE_STICKERS) {
       fail('INVALID_INPUT', `The slide cover has at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers.`);
@@ -697,6 +712,79 @@ export const removeSticker = mutation({
     });
     await ctx.storage.delete(file);
     await audit(ctx, admin._id, 'release.sticker.remove', product.slug, { stickers: existing.length }, { stickers: kept.length });
+    return null;
+  },
+});
+
+const labelArgs = { slug: v.string(), file: v.id('_storage') };
+
+/** Where a new label image goes: filling the label area, centred, square on. A replacement keeps the old placing. */
+const LABEL_PLACE = { x: 0.5, y: 0.5, size: 0.9, rotation: 0 };
+
+/**
+ * The slide cover's label image (any shape PNG, alpha kept, or JPEG/WebP): its own layer between the slide and the
+ * stickers (`design.labelImage`), so the printed label is not drawn while it is set. Needs a saved casing, like the
+ * stickers. A second upload replaces the first (same placing) and deletes the old file.
+ */
+export const attachLabel = action({
+  args: labelArgs,
+  handler: async (ctx, args): Promise<{ url: string; file: Id<'_storage'> }> => {
+    const actorUserId: Id<'users'> = await ctx.runQuery(internal.releases.adminUserId, {});
+    return await attaching(ctx, [args.file], async () => {
+      await inspect(ctx, args.file, 'label');
+      return await ctx.runMutation(internal.releases.recordLabel, { ...args, actorUserId });
+    });
+  },
+});
+
+export const recordLabel = internalMutation({
+  args: { ...labelArgs, actorUserId: v.id('users') },
+  handler: async (ctx, args) => {
+    const product = await productBySlug(ctx, args.slug);
+    requireDraft(product);
+    await requireUnused(ctx, [args.file]);
+    const url = await ctx.storage.getUrl(args.file);
+    if (!url) fail('NOT_FOUND', 'The upload was not found. Upload the file again.');
+    const facts = await factsFor(ctx, product);
+    if (!facts) fail('INVALID_INPUT', 'Upload the tracks and the cover before the label.');
+    const design = (product.design ?? {}) as Record<string, unknown> & { labelImage?: Record<string, unknown> };
+    const previous = design.labelImage;
+    const place = previous
+      ? { x: previous.x, y: previous.y, size: previous.size, rotation: previous.rotation ?? 0 }
+      : LABEL_PLACE;
+    const result = buildDesign({ ...design, labelImage: { src: url, ...place } }, { ...facts, labelUrl: url });
+    if (!result.ok) fail('INVALID_INPUT', `Could not place the label: ${result.errors.slice(0, 8).join('; ')}`);
+    await ctx.db.patch(product._id, {
+      labelFile: args.file,
+      design: result.design,
+      designHash: await designHash(result.design),
+      designRev: (product.designRev ?? 0) + 1,
+    });
+    if (product.labelFile && product.labelFile !== args.file) await ctx.storage.delete(product.labelFile);
+    await audit(ctx, args.actorUserId, 'release.label.set', product.slug, { labelFile: product.labelFile ?? null }, { labelFile: args.file });
+    return { url, file: args.file };
+  },
+});
+
+/** Drops the label image: its file, and `design.labelImage` (the printed label shows again), re-saved and re-hashed. */
+export const removeLabel = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const admin = await requireAdmin(ctx);
+    const product = await productBySlug(ctx, slug);
+    requireDraft(product);
+    if (!product.labelFile) fail('INVALID_INPUT', 'This release has no label image.');
+    const design = product.design as (Record<string, unknown> & { labelImage?: unknown }) | undefined;
+    const { labelImage: _dropped, ...rest } = design ?? {};
+    const nextDesign: DiscDesign | null = design ? (rest as unknown as DiscDesign) : null;
+    await ctx.db.patch(product._id, {
+      labelFile: undefined,
+      ...(nextDesign
+        ? { design: nextDesign, designHash: await designHash(nextDesign), designRev: (product.designRev ?? 0) + 1 }
+        : {}),
+    });
+    await ctx.storage.delete(product.labelFile);
+    await audit(ctx, admin._id, 'release.label.remove', product.slug, { labelFile: product.labelFile }, { labelFile: null });
     return null;
   },
 });

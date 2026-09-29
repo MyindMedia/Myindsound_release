@@ -259,6 +259,8 @@ describe('admin only', () => {
       await expect(caller.action(api.releases.attachCover, { slug: 'lit', file })).rejects.toThrow(/Admins only/);
       await expect(caller.action(api.releases.attachSticker, { slug: 'lit', file, area: 'shutter' })).rejects.toThrow(/Admins only/);
       await expect(caller.mutation(api.releases.removeSticker, { slug: 'lit', file })).rejects.toThrow(/Admins only/);
+      await expect(caller.action(api.releases.attachLabel, { slug: 'lit', file })).rejects.toThrow(/Admins only/);
+      await expect(caller.mutation(api.releases.removeLabel, { slug: 'lit' })).rejects.toThrow(/Admins only/);
       await expect(
         caller.action(api.releases.attachBundle, { slug: 'lit', version: '1.0.0', zip: file, sha256: '0'.repeat(64), designHash: 'x' }),
       ).rejects.toThrow(/Admins only/);
@@ -468,6 +470,85 @@ describe('drafts', () => {
     expect(state.stickerFiles.some((row) => row.file === first)).toBe(false);
     await expect(admin.mutation(api.releases.removeSticker, { slug: SLUG, file: first })).rejects.toThrow(/not on this release/);
     await admin.action(api.releases.attachSticker, { slug: SLUG, file: await store(t, png(300, 300)), area: 'shutter' });
+  });
+
+  test('label image: attach, replace (keeps its placing, deletes the old file), remove; non-images and non-admins refused', async () => {
+    const t = newTest();
+    await seed(t);
+    const { admin, saved } = await readyDraft(t);
+    const notImage = await store(t, mp3(1));
+    await expect(admin.action(api.releases.attachLabel, { slug: SLUG, file: notImage })).rejects.toThrow(/PNG, JPEG or WebP/);
+    expect(await exists(t, notImage)).toBe(false);
+    const stranger = await store(t, png(600, 200));
+    await expect(t.withIdentity(STRANGER).action(api.releases.attachLabel, { slug: SLUG, file: stranger })).rejects.toThrow(/Admins only/);
+    await expect(t.withIdentity(OWNER).mutation(api.releases.removeLabel, { slug: SLUG })).rejects.toThrow(/Admins only/);
+    await expect(admin.mutation(api.releases.removeLabel, { slug: SLUG })).rejects.toThrow(/no label image/);
+
+    const first = await store(t, png(600, 200));
+    const attached = await admin.action(api.releases.attachLabel, { slug: SLUG, file: first });
+    let state = await admin.query(api.releases.get, { slug: SLUG });
+    expect(state.labelUrl).toBe(attached.url);
+    expect(state.design?.labelImage).toEqual({ src: attached.url, x: 0.5, y: 0.5, size: 0.9, rotation: 0 });
+    expect(state.designHash).not.toBe(saved.designHash);
+
+    // Placed by the portal, then replaced: the new file keeps the placing, and the old one is deleted.
+    await admin.mutation(api.releases.saveDesign, {
+      slug: SLUG,
+      design: { ...DESIGN_LOOK, labelImage: { src: attached.url, x: 0.3, y: 0.7, size: 0.6, rotation: 12 } },
+    });
+    // Only the release's own label file can be the label image.
+    await expect(
+      admin.mutation(api.releases.saveDesign, { slug: SLUG, design: { ...DESIGN_LOOK, labelImage: { src: 'https://elsewhere.test/l.png', x: 0.5, y: 0.5, size: 0.5 } } }),
+    ).rejects.toThrow(/only the uploaded label image/);
+    const second = await store(t, jpeg(800, 300));
+    const replaced = await admin.action(api.releases.attachLabel, { slug: SLUG, file: second });
+    expect(await exists(t, first)).toBe(false);
+    state = await admin.query(api.releases.get, { slug: SLUG });
+    expect(state.design?.labelImage).toEqual({ src: replaced.url, x: 0.3, y: 0.7, size: 0.6, rotation: 12 });
+    // The file in use can't be attached again as something else.
+    await expect(admin.action(api.releases.attachSticker, { slug: SLUG, file: second, area: 'shell' })).rejects.toThrow(/already in use/);
+
+    const before = state.designHash;
+    await admin.mutation(api.releases.removeLabel, { slug: SLUG });
+    expect(await exists(t, second)).toBe(false);
+    state = await admin.query(api.releases.get, { slug: SLUG });
+    expect(state.labelUrl).toBeNull();
+    expect(state.design).not.toHaveProperty('labelImage');
+    expect(state.designHash).not.toBe(before);
+    const actions = (await t.run((ctx) => ctx.db.query('auditLog').collect())).map((row) => row.action);
+    expect(actions.filter((a) => a === 'release.label.set')).toHaveLength(2);
+    expect(actions.filter((a) => a === 'release.label.remove')).toHaveLength(1);
+  });
+
+  test('drawn stickers (built-ins, emoji) need no file; the slide colour is kept; the caps count them', async () => {
+    const t = newTest();
+    await seed(t);
+    const { admin } = await readyDraft(t);
+    const drawn = (src: string, area: 'shutter' | 'shell') => ({ kind: 'image', src, area, x: 0.5, y: 0.5, size: 0.3, rotation: 0 });
+    const result = await admin.mutation(api.releases.saveDesign, {
+      slug: SLUG,
+      design: { ...DESIGN_LOOK, slideColor: '#c9a227', stickers: [drawn('preset:hot', 'shutter'), drawn('emoji:🔥', 'shell'), drawn('preset:advisory', 'shell')] },
+    });
+    expect(result.design.slideColor).toBe('#c9a227');
+    expect(result.design.stickers?.map((s) => (s as { src: string }).src)).toEqual(['preset:hot', 'emoji:🔥', 'preset:advisory']);
+    const state = await admin.query(api.releases.get, { slug: SLUG });
+    expect(state.design?.slideColor).toBe('#c9a227');
+    expect(state.stickerFiles).toEqual([]);
+
+    const save = (stickers: unknown[], extra: Record<string, unknown> = {}) =>
+      admin.mutation(api.releases.saveDesign, { slug: SLUG, design: { ...DESIGN_LOOK, ...extra, stickers } });
+    await expect(save([drawn('preset:unknown', 'shell')])).rejects.toThrow(/not a built-in sticker/);
+    await expect(save([drawn('emoji:hello', 'shell')])).rejects.toThrow(/not a built-in sticker or a single emoji/);
+    await expect(save([drawn('https://elsewhere.test/s.png', 'shell')])).rejects.toThrow(/only an uploaded sticker image/);
+    await expect(save([], { slideColor: 'gold' })).rejects.toThrow(/slideColor/);
+    await expect(save(Array.from({ length: MAX_SHUTTER_IMAGE_STICKERS + 1 }, () => drawn('preset:new', 'shutter')))).rejects.toThrow(/slide cover/);
+    await expect(save(Array.from({ length: MAX_IMAGE_STICKERS + 1 }, () => drawn('emoji:⭐', 'shell')))).rejects.toThrow(/8 entries or fewer|at most 8/);
+
+    // Eight drawn stickers leave no room for an upload.
+    await save(Array.from({ length: MAX_IMAGE_STICKERS }, () => drawn('emoji:⭐', 'shell')));
+    const upload = await store(t, png(200, 200));
+    await expect(admin.action(api.releases.attachSticker, { slug: SLUG, file: upload, area: 'shell' })).rejects.toThrow(/at most 8 stickers/);
+    expect(await exists(t, upload)).toBe(false);
   });
 });
 

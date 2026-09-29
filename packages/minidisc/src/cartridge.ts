@@ -43,7 +43,7 @@ import {
 import { rimUv, roundedRect, splitCaps, type CartridgeBuild, type CartridgeBuilderInput, type Rect } from '../../../src/player3d/deck';
 import { CartridgeWear, type WearInput, type WearZone } from '../../../src/player3d/wear-render';
 import { canvas, hashString, heightToNormal, srgbTexture, type ArtSource } from './canvas';
-import { imageStickers, placeImageSticker, printedStickers, resolveShellWindow, type DiscDesign } from './design';
+import { imageStickers, placeImageSticker, printedStickers, resolveShellWindow, resolveSlideColor, type DiscDesign } from './design';
 import { resolvePreset, type ShellPreset } from './presets';
 import { BACK_HUB, LASER_WINDOW, SCREW_BORE, TONGUE_BOTTOM_T, backHeight, backSkin, buildMoulding, plasticSpeckle } from './moulding';
 import { PLATE_ASPECT, STAMP_UV, chassisPrint, discPrint, platePrint, shellNormal, stampPrint, stickerPrint } from './prints';
@@ -54,7 +54,7 @@ export interface DesignArt {
   disc: ArtSource;
   /** Image stickers' art, by their `src` (`ImageSticker`). */
   stickers?: Record<string, ArtSource>;
-  /** The uploaded label image (`labelArt`): printed on the shutter's label in place of the title. */
+  /** The slide cover's uploaded label image (`labelImage`): its own layer, in place of the printed label. */
   label?: ArtSource;
 }
 
@@ -530,14 +530,16 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
 
   // ── The label plate ──────────────────────────────────────────────────────────────────────────────────
   const plateZ = frontZ + 0.0021;
+  // The slide cover's colour, whole (the moulded shutter's steel, and the plate stock on the older shells).
+  const slideColor = resolveSlideColor(design, preset.gel);
   let stampInk = '#a8102c';
-  if (plateRect) {
-    const print = platePrint(design, quality === 'low' ? 768 : 1280, art.label);
+  // An uploaded label image replaces the printed label: it's its own layer (below), not a print on the plate.
+  if (plateRect && !design.labelImage) {
+    const print = platePrint(design, quality === 'low' ? 768 : 1280, slideColor);
     const map = tex(srgbTexture(print.map, anisotropy));
     if (print.normal) tex(print.normal);
     stampInk = print.stampInk;
     const metal = design.labelStyle === 'metal' || design.labelStyle === 'metal-dark' || design.labelStyle === 'none';
-    const dark = design.labelStyle === 'metal-dark';
     const tintedPlate = design.labelStyle === 'tinted';
     const lip = 0.004;
     // A sticker sits on the steel shutter with the metal showing round it (refs 20, 23).
@@ -551,7 +553,7 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
       ),
       keep(
         !tintedPlate
-          ? new MeshStandardMaterial({ color: dark ? '#2b2d33' : '#b9bcc3', metalness: 1, roughness: 0.4, envMap, envMapIntensity: 0.5 })
+          ? new MeshStandardMaterial({ color: slideColor, metalness: 1, roughness: 0.4, envMap, envMapIntensity: 0.5 })
           : tintedPlate
             ? new MeshStandardMaterial({ color: resolvePreset(design.shell, design.shellTint).gel, roughness: 0.55, envMap, envMapIntensity: 0.3 })
             : new MeshStandardMaterial({ color: '#d9d3c7', roughness: 0.95 }),
@@ -565,8 +567,9 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
           ? new MeshStandardMaterial({
               map,
               // Steel, not chrome: refs 19 and 33 read mid grey. Brushed, not mirror: the grain scatters the
-              // highlight so the print stays legible under the key light.
-              color: new Color(0.66, 0.68, 0.71),
+              // highlight so the print stays legible under the key light. The print is already dyed the slide's
+              // colour (platePrint), so the plate and the rest of the slide read as one sheet.
+              color: new Color(1.2, 1.2, 1.2),
               metalness: 0.8,
               roughness: 0.56,
               normalMap: print.normal,
@@ -619,6 +622,7 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
       bevel,
       shellRadius: SHELL_RADIUS,
       frame: preset.frame,
+      slideColor,
       rail: preset.rail,
       plateRect,
       shutter,
@@ -631,6 +635,48 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
       geo,
       tex,
     });
+  }
+
+  // ── Placement areas (cartridge space), for the release portal's drag-to-place: the label area on the slide
+  // cover (its meshes ride in `shutter`), and the clear cover, anywhere inside the bevel ────────────────────────
+  const shellArea = { x0: rect.x0 + bevel, y0: rect.y0 + bevel, x1: rect.x1 - bevel, y1: rect.y1 - bevel };
+  const labelArea = plateRect ? { x0: plateRect.x0 + 0.004, y0: plateRect.y0 + 0.004, x1: plateRect.x1 - 0.004, y1: plateRect.y1 - 0.004 } : shellArea;
+  cartridge.userData.placementAreas = {
+    shutter: { rect: labelArea, z: plateZ + 0.0004 },
+    shell: { rect: shellArea, z: frontZ + 0.0013 },
+  };
+
+  // ── The label image: the slide cover's own uploaded label, a layer between the slide and the stickers ──
+  if (design.labelImage && art.label) {
+    const labelImage = design.labelImage;
+    const place = placeImageSticker(labelImage, labelArea, imageSize(art.label));
+    const map = tex(srgbTexture(stickerCanvas(art.label, quality === 'low' ? 768 : 1280), anisotropy));
+    const mesh = new Mesh(
+      geo(new PlaneGeometry(place.width, place.height)),
+      keep(
+        new MeshStandardMaterial({
+          map,
+          emissiveMap: map,
+          color: new Color(0.72, 0.72, 0.72),
+          emissive: new Color(0.12, 0.12, 0.12),
+          roughness: 0.85,
+          normalMap: tex(paperGrainNormal()),
+          normalScale: new Vector2(0.3, 0.3),
+          envMap,
+          envMapIntensity: 0.12,
+          transparent: true,
+          alphaTest: 0.02,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+        }),
+      ),
+    );
+    mesh.position.set(place.x, place.y, plateZ + 0.0001);
+    mesh.rotation.z = (-(labelImage.rotation ?? 0) * Math.PI) / 180;
+    mesh.renderOrder = 5;
+    mesh.userData.placeable = { layer: 'label', area: 'shutter' };
+    (plateRect ? shutter : cartridge).add(mesh);
   }
 
   // ── Stickers ─────────────────────────────────────────────────────────────────────────────────────────
@@ -670,7 +716,7 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
     const image = art.stickers?.[sticker.src];
     if (!image) return;
     const onShutter = sticker.area === 'shutter' && plateRect !== null;
-    const area = onShutter ? plateRect! : { x0: rect.x0 + bevel, y0: rect.y0 + bevel, x1: rect.x1 - bevel, y1: rect.y1 - bevel };
+    const area = onShutter ? labelArea : shellArea;
     const place = placeImageSticker(sticker, area, imageSize(image));
     const map = tex(srgbTexture(stickerCanvas(image, quality === 'low' ? 512 : 1024), anisotropy));
     const mesh = new Mesh(
@@ -696,8 +742,11 @@ export function buildCartridge(design: DiscDesign, art: DesignArt, input: Cartri
       ),
     );
     mesh.position.set(place.x, place.y, (onShutter ? plateZ + 0.0004 : frontZ + 0.0013) + index * 0.00005);
+
     mesh.rotation.z = (-(sticker.rotation ?? 0) * Math.PI) / 180;
     mesh.renderOrder = 6 + index * 0.01;
+    // Which entry of `design.stickers` this is, for dragging it in the portal's preview.
+    mesh.userData.placeable = { layer: 'sticker', index: (design.stickers ?? []).indexOf(sticker), area: onShutter ? 'shutter' : 'shell' };
     (onShutter ? shutter : cartridge).add(mesh);
   });
 

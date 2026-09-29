@@ -147,6 +147,8 @@ export interface MouldingInput {
   shellRadius: number;
   /** The frame's plastic and the rail's. */
   frame: string;
+  /** The whole slide cover's colour (design.ts `resolveSlideColor`): the one-piece shutter's steel, tinted. */
+  slideColor?: string;
   rail: string;
   /** The metal plate's rectangle (cartridge space); the spine, the wrap and the tongue attach to it. */
   plateRect: Rect;
@@ -930,7 +932,7 @@ export function buildMoulding(input: MouldingInput): void {
   // white frame round the label (measured: 229 → 164 mean on the label's border).
   const steel = keep(
     new MeshPhysicalMaterial({
-      color: '#8b9097',
+      color: input.slideColor ?? '#8b9097',
       map: steelGrain,
       roughnessMap: steelGrain,
       metalness: 0.75,

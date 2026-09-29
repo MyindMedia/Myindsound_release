@@ -164,6 +164,48 @@ describe('assembleReleaseZip', () => {
       assembleReleaseZip({ index, files, design: withSticker.design, cover, releaseId: 'k', version: '1.0.0' }),
     ).rejects.toThrow(/bytes were not given/);
   });
+
+  test('the label image ships as design/label.<ext>, rewritten; drawn stickers stay as they are and need no bytes', async () => {
+    const labelUrl = 'https://x.convex.cloud/api/storage/label1';
+    const stickerUrl = 'https://x.convex.cloud/api/storage/sticker1';
+    const layered = validateDesign({
+      ...(design.design as DiscDesign),
+      slideColor: '#c9a227',
+      labelImage: { src: labelUrl, x: 0.4, y: 0.6, size: 0.8, rotation: -5 },
+      stickers: [
+        { kind: 'image', src: 'preset:hot', area: 'shutter', x: 0.2, y: 0.2, size: 0.3, rotation: 0 },
+        { kind: 'image', src: stickerUrl, area: 'shell', x: 0.7, y: 0.3, size: 0.2, rotation: 0 },
+        { kind: 'image', src: 'emoji:🔥', area: 'shell', x: 0.5, y: 0.9, size: 0.2, rotation: 15 },
+      ],
+    });
+    if (!layered.ok) throw new Error(layered.errors.join());
+    const labelBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+    const stickerBytes = new Uint8Array([...PNG_HEAD, 5, 5, 5]);
+    const base = { index, files, design: layered.design, cover, releaseId: 'k', version: '1.0.0' };
+
+    const result = await assembleReleaseZip({ ...base, label: labelBytes, stickers: new Map([[stickerUrl, stickerBytes]]) });
+    const zip = readZip(result.zip);
+    expect([...zip.keys()]).toEqual([
+      'assets/boot.js',
+      'design/cover.png',
+      'design/design.json',
+      'design/label.jpg',
+      'design/sticker-0.png',
+      'index.html',
+      'manifest.json',
+    ]);
+    expect([...zip.get('design/label.jpg')!]).toEqual([...labelBytes]);
+    const shipped = JSON.parse(zip.get('design/design.json')!.toString());
+    expect(shipped.labelImage).toEqual({ src: 'label.jpg', x: 0.4, y: 0.6, size: 0.8, rotation: -5 });
+    expect(shipped.slideColor).toBe('#c9a227');
+    expect(shipped.stickers.map((sticker: { src: string }) => sticker.src)).toEqual(['preset:hot', 'sticker-0.png', 'emoji:🔥']);
+    expect(validateDesign(shipped).ok).toBe(true);
+
+    await expect(assembleReleaseZip({ ...base, stickers: new Map([[stickerUrl, stickerBytes]]) })).rejects.toThrow(/label image, but its bytes/);
+    await expect(
+      assembleReleaseZip({ ...base, label: new Uint8Array([1, 2, 3]), stickers: new Map([[stickerUrl, stickerBytes]]) }),
+    ).rejects.toThrow(/label image is not a PNG/);
+  });
 });
 
 describe('portal helpers', () => {

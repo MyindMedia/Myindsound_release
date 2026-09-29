@@ -20,7 +20,7 @@ function sampleDesign(path: string): DiscDesign {
     if (!hit) throw new Error(`Sample art missing: ${ref}`);
     return new URL(hit[1], location.href).href;
   };
-  return { ...design, coverArt: resolve(design.coverArt), discArt: design.discArt ? resolve(design.discArt) : undefined, labelArt: design.labelArt ? resolve(design.labelArt) : undefined, stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolve(sticker.src) } : sticker)), theme: design.theme ? { ...design.theme, backdrop: design.theme.backdrop ? { ...design.theme.backdrop, image: design.theme.backdrop.image ? resolve(design.theme.backdrop.image) : undefined } : undefined } : undefined };
+  return { ...design, coverArt: resolve(design.coverArt), discArt: design.discArt ? resolve(design.discArt) : undefined, labelImage: design.labelImage ? { ...design.labelImage, src: resolve(design.labelImage.src) } : undefined, stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolve(sticker.src) } : sticker)), theme: design.theme ? { ...design.theme, backdrop: design.theme.backdrop ? { ...design.theme.backdrop, image: design.theme.backdrop.image ? resolve(design.theme.backdrop.image) : undefined } : undefined } : undefined };
 }
 
 async function save(path: string, blob: Blob): Promise<string> {

@@ -79,6 +79,51 @@ export interface PrintedSticker {
   ink?: string;
 }
 
+/** The slide cover's uploaded label: centre and width as fractions of the label area, like an image sticker. */
+export interface LabelImage {
+  /** PNG, JPEG or WebP: relative to the design file, or absolute. */
+  src: string;
+  x: number;
+  y: number;
+  /** 0.05..1 of the label area's width. */
+  size: number;
+  /** Degrees, -180..180. */
+  rotation?: number;
+}
+
+/**
+ * Built-in stickers, drawn in code (no upload): an image sticker's `src` is `preset:<id>`. `emoji:<emoji>` draws
+ * any emoji the same way.
+ */
+export const STICKER_PRESETS = [
+  { id: 'advisory', title: 'Parental Advisory' },
+  { id: 'hot', title: 'HOT' },
+  { id: 'new', title: 'NEW' },
+  { id: 'limited', title: 'Limited Edition' },
+  { id: 'exclusive', title: 'Exclusive' },
+  { id: 'bonus', title: 'Bonus Track' },
+  { id: 'remastered', title: 'Remastered' },
+  { id: 'fire', title: 'Fire' },
+  { id: 'heart', title: 'Heart' },
+  { id: 'star', title: 'Gold Star' },
+  { id: 'smiley', title: 'Smiley' },
+  { id: 'lightning', title: 'Lightning' },
+] as const;
+export type StickerPresetId = (typeof STICKER_PRESETS)[number]['id'];
+
+/** Whether an art reference is drawn in code (a built-in or an emoji) rather than a file to load and ship. */
+export function isDrawnArt(ref: string): boolean {
+  return ref.startsWith('preset:') || ref.startsWith('emoji:');
+}
+
+/** The slide cover's colour, whole: `slideColor`, else what the older label styles implied, else steel. */
+export function resolveSlideColor(design: Pick<DiscDesign, 'slideColor' | 'labelStyle' | 'shell' | 'shellTint'>, shellGel?: string): string {
+  if (design.slideColor) return design.slideColor;
+  if (design.labelStyle === 'metal-dark') return '#2b2d33';
+  if (design.labelStyle === 'tinted' && shellGel) return shellGel;
+  return '#8b9097';
+}
+
 /** Where an image sticker goes: on the metal slide cover (it rides with it), or anywhere on the plastic shell. */
 export const STICKER_AREAS = ['shutter', 'shell'] as const;
 export type StickerArea = (typeof STICKER_AREAS)[number];
@@ -155,10 +200,16 @@ export interface DiscDesign {
   /** Printed on the label plate; defaults to the title (line 1) and artist (line 2). */
   labelText?: string;
   /**
-   * An uploaded image for the label on the metal shutter (PNG, JPEG or WebP; relative to the design file, or
-   * absolute). When set it fills the label, as a printed sticker, in place of the printed title and artist.
+   * The whole metal slide cover's colour (`#RRGGBB`): front, fold, back leaf and spine, anodised over the brushed
+   * steel. Default: steel (or, for the older label styles, black for `metal-dark` and the shell's colour for
+   * `tinted`). The label and the stickers are separate layers on top of it.
    */
-  labelArt?: string;
+  slideColor?: string;
+  /**
+   * An uploaded image as the slide cover's label, its own layer between the slide and the stickers, placed and
+   * sized within the label area. When set, the printed label (`labelStyle`) is not drawn.
+   */
+  labelImage?: LabelImage;
   /** `#RRGGBB` accents for the prints; default gold and cream. */
   accent?: string;
   accent2?: string;
@@ -226,7 +277,21 @@ export function validateDesign(value: unknown): ValidationResult {
   };
   path('coverArt');
   path('discArt', true);
-  path('labelArt', true);
+  if (d.labelImage !== undefined) {
+    const label = d.labelImage as Record<string, unknown>;
+    if (!isRecord(label)) fail('labelImage', 'must be an object');
+    else {
+      if (typeof label.src !== 'string' || label.src.trim().length === 0) fail('labelImage.src', 'must be a non-empty path or URL');
+      for (const key of ['x', 'y'] as const) {
+        const n = label[key] as number;
+        if (!isFinite(n) || n < 0 || n > 1) fail(`labelImage.${key}`, 'must be a number in 0..1');
+      }
+      const size = label.size as number;
+      if (!isFinite(size) || size < 0.05 || size > 1) fail('labelImage.size', 'must be a number in 0.05..1');
+      const rotation = label.rotation as number | undefined;
+      if (rotation !== undefined && (!isFinite(rotation) || Math.abs(rotation) > 180)) fail('labelImage.rotation', 'must be a number in -180..180');
+    }
+  }
 
   if (typeof d.shell !== 'string' || !(SHELL_PRESET_IDS as readonly string[]).includes(d.shell)) {
     fail('shell', `must be one of ${SHELL_PRESET_IDS.join(', ')}`);
@@ -251,6 +316,7 @@ export function validateDesign(value: unknown): ValidationResult {
   colour('shellTint', d);
   colour('accent', d);
   colour('accent2', d);
+  colour('slideColor', d);
 
   if (d.stickers !== undefined) {
     if (!Array.isArray(d.stickers)) fail('stickers', 'must be an array');
@@ -369,9 +435,9 @@ export function designArtRefs(design: DiscDesign): string[] {
     design.coverArt,
     design.discArt ?? design.coverArt,
     theme.backdrop.image,
-    ...(design.labelArt ? [design.labelArt] : []),
+    ...(design.labelImage ? [design.labelImage.src] : []),
     ...imageStickers(design).map((sticker) => sticker.src),
-  ];
+  ].filter((ref) => !isDrawnArt(ref));
   return [...new Set(refs)];
 }
 

@@ -22,6 +22,8 @@ export interface PortalBackend {
   attachCover(args: Args<'attachCover'>): Promise<Result<'attachCover'>>;
   attachSticker(args: Args<'attachSticker'>): Promise<Result<'attachSticker'>>;
   removeSticker(args: Args<'removeSticker'>): Promise<Result<'removeSticker'>>;
+  attachLabel(args: Args<'attachLabel'>): Promise<Result<'attachLabel'>>;
+  removeLabel(args: Args<'removeLabel'>): Promise<Result<'removeLabel'>>;
   saveDesign(args: Args<'saveDesign'>): Promise<Result<'saveDesign'>>;
   attachRackArt(args: Args<'attachRackArt'>): Promise<Result<'attachRackArt'>>;
   attachBundle(args: Args<'attachBundle'>): Promise<Result<'attachBundle'>>;
@@ -67,6 +69,8 @@ export function convexBackend(): PortalBackend {
     attachCover: (args) => convex.action(r.attachCover, args),
     attachSticker: (args) => convex.action(r.attachSticker, args),
     removeSticker: (args) => convex.mutation(r.removeSticker, args),
+    attachLabel: (args) => convex.action(r.attachLabel, args),
+    removeLabel: (args) => convex.mutation(r.removeLabel, args),
     saveDesign: (args) => convex.mutation(r.saveDesign, args),
     attachRackArt: (args) => convex.action(r.attachRackArt, args),
     attachBundle: (args) => convex.action(r.attachBundle, args),

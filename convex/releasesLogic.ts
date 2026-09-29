@@ -5,12 +5,12 @@
  * facts: slug, title, artist, year, tracklist, cover), the design hash that ties the rack art and the bundle to the
  * design they were made from, and the publish preconditions.
  */
-import { validateDesign, MAX_STICKERS, type DiscDesign, type ValidationResult } from '../packages/minidisc/src/design';
+import { isDrawnArt, validateDesign, MAX_STICKERS, STICKER_PRESETS, type DiscDesign, type ValidationResult } from '../packages/minidisc/src/design';
 
 export const MB = 1024 * 1024;
 
 /** What each upload is for. Each has its own sniffed formats and size cap. */
-export type UploadPurpose = 'audio' | 'cover' | 'sticker' | 'spriteWebp' | 'spritePng' | 'still' | 'stillWebp' | 'bundle';
+export type UploadPurpose = 'audio' | 'cover' | 'sticker' | 'label' | 'spriteWebp' | 'spritePng' | 'still' | 'stillWebp' | 'bundle';
 export type FileKind = 'mp3' | 'png' | 'jpeg' | 'webp' | 'zip';
 
 export const UPLOAD_RULES: Record<UploadPurpose, { kinds: FileKind[]; maxBytes: number; label: string; headBytes: number }> = {
@@ -20,6 +20,8 @@ export const UPLOAD_RULES: Record<UploadPurpose, { kinds: FileKind[]; maxBytes: 
   cover: { kinds: ['png', 'jpeg', 'webp'], maxBytes: 25 * MB, label: 'PNG, JPEG or WebP image', headBytes: 512 * 1024 },
   // A sticker: any shape PNG (alpha kept) or JPEG/WebP, same checks and cap as the cover.
   sticker: { kinds: ['png', 'jpeg', 'webp'], maxBytes: 25 * MB, label: 'PNG, JPEG or WebP image', headBytes: 512 * 1024 },
+  // The slide cover's label image (`design.labelImage`): any shape, the same checks and cap as a sticker.
+  label: { kinds: ['png', 'jpeg', 'webp'], maxBytes: 25 * MB, label: 'PNG, JPEG or WebP image', headBytes: 512 * 1024 },
   spriteWebp: { kinds: ['webp'], maxBytes: 40 * MB, label: 'WebP sprite sheet', headBytes: 64 },
   spritePng: { kinds: ['png'], maxBytes: 60 * MB, label: 'PNG sprite sheet', headBytes: 64 },
   // The rack image: the sleeve still (`renderSleeveStill`), PNG with alpha, and the same render as WebP.
@@ -248,13 +250,33 @@ export type ReleaseFacts = {
   year: number;
   coverUrl: string;
   tracks: { n: number; title: string; durationSec: number }[];
-  /** The release's uploaded sticker images' serving URLs (`products.stickerFiles`): an image sticker's `src` must be one of these. */
+  /**
+   * The release's uploaded sticker images' serving URLs (`products.stickerFiles`): an image sticker's `src` must be
+   * one of these, or a drawn built-in or emoji (`preset:<id>`, `emoji:<emoji>`).
+   */
   stickerUrls: string[];
+  /** The uploaded label image's serving URL (`products.labelFile`): `labelImage.src` must be this. */
+  labelUrl?: string | null;
 };
 
-const DESIGN_KEYS = ['shell', 'shellTint', 'labelStyle', 'labelText', 'accent', 'accent2', 'discFinish'] as const;
+const DESIGN_KEYS = ['shell', 'shellTint', 'labelStyle', 'labelText', 'slideColor', 'accent', 'accent2', 'discFinish'] as const;
 // `src`, `area` and `size` are the image sticker's own fields; `w` stays for the text/advisory/badge kinds.
 const STICKER_KEYS = ['kind', 'text', 'src', 'area', 'x', 'y', 'w', 'size', 'rotation', 'fill', 'ink'] as const;
+const LABEL_IMAGE_KEYS = ['src', 'x', 'y', 'size', 'rotation'] as const;
+const PRESET_IDS: readonly string[] = STICKER_PRESETS.map((preset) => preset.id);
+/** The longest emoji a drawn sticker takes (a family or flag sequence runs to about 11 UTF-16 units). */
+export const MAX_EMOJI_LENGTH = 16;
+
+/**
+ * Whether a drawn sticker ref is one the bundle can draw: a built-in's id, or a short emoji (no spaces and no
+ * letters, so it can't carry words onto the print).
+ */
+export function isKnownDrawnArt(ref: string): boolean {
+  if (ref.startsWith('preset:')) return PRESET_IDS.includes(ref.slice(7));
+  if (!ref.startsWith('emoji:')) return false;
+  const emoji = ref.slice(6);
+  return emoji.length > 0 && emoji.length <= MAX_EMOJI_LENGTH && !/[\s\p{L}]/u.test(emoji);
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -290,16 +312,28 @@ export function buildDesign(input: unknown, facts: ReleaseFacts): ValidationResu
     const raw = Array.isArray(input.stickers) ? input.stickers : [];
     const stickers = raw.map((s) => (isRecord(s) ? pick(s, STICKER_KEYS) : s));
     out.stickers = stickers;
-    // Image stickers point at an uploaded sticker file, never an arbitrary URL, and stay inside the shutter/total caps.
+    // Image stickers point at an uploaded sticker file or a drawn built-in/emoji, never an arbitrary URL, and stay
+    // inside the shutter/total caps.
     const images = stickers.filter((s): s is Record<string, unknown> => isRecord(s) && s.kind === 'image');
     images.forEach((sticker, i) => {
-      if (typeof sticker.src !== 'string' || !facts.stickerUrls.includes(sticker.src)) {
+      const src = sticker.src;
+      if (typeof src === 'string' && isDrawnArt(src)) {
+        if (!isKnownDrawnArt(src)) errors.push(`stickers[${i}].src: not a built-in sticker or a single emoji`);
+      } else if (typeof src !== 'string' || !facts.stickerUrls.includes(src)) {
         errors.push(`stickers[${i}].src: only an uploaded sticker image can be used`);
       }
     });
     const onShutter = images.filter((s) => s.area === 'shutter').length;
     if (onShutter > MAX_SHUTTER_IMAGE_STICKERS) errors.push(`stickers: at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers on the slide cover`);
     if (images.length > MAX_IMAGE_STICKERS) errors.push(`stickers: at most ${MAX_IMAGE_STICKERS} image stickers`);
+  }
+  if (input.labelImage !== undefined && input.labelImage !== null) {
+    // The slide cover's label image is the release's own uploaded label file, nothing else.
+    const label = isRecord(input.labelImage) ? pick(input.labelImage, LABEL_IMAGE_KEYS) : input.labelImage;
+    out.labelImage = label;
+    if (isRecord(label) && (!facts.labelUrl || label.src !== facts.labelUrl)) {
+      errors.push('labelImage.src: only the uploaded label image can be used');
+    }
   }
   if (input.theme !== undefined) {
     if (!isRecord(input.theme)) out.theme = input.theme;

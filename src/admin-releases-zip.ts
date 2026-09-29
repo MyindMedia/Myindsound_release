@@ -1,10 +1,10 @@
 /**
  * The release zip, built in the admin's browser (PRD §10.1 BUN-1, BUN-4): the prebuilt generic bundle
  * (`bundles/release`, staged at `/release-bundle/` by `scripts/stage-release-bundle.mjs`), plus `design/design.json`
- * and the cover, plus `manifest.json`. Same layout and manifest fields as `scripts/build-bundle.mjs release --design`,
+ * and its art (the cover, the label image, uploaded stickers), plus `manifest.json`. Same layout and manifest fields as `scripts/build-bundle.mjs release --design`,
  * so the app can't tell which one built it. Deterministic like that script: sorted entries, fixed 1980 timestamps.
  */
-import { resolveTheme, type DiscDesign } from '../packages/minidisc/src/design';
+import { isDrawnArt, resolveTheme, type DiscDesign } from '../packages/minidisc/src/design';
 
 /** `/release-bundle/index.json`, written by the stage script from the generic bundle's own manifest. */
 export interface GenericBundleIndex {
@@ -138,15 +138,21 @@ export interface ReleaseZipInput {
   /** The saved design (from `releases.get`); its cover URL is rewritten to the shipped file. */
   design: DiscDesign;
   cover: Uint8Array;
-  /** Every image sticker's bytes (`design.stickers[]`, kind `image`), keyed by its current `src` (the uploaded URL). */
+  /**
+   * Every uploaded image sticker's bytes (`design.stickers[]`, kind `image`), keyed by its current `src` (the
+   * uploaded URL). Drawn ones (`preset:`, `emoji:`) need none: the bundle draws them.
+   */
   stickers?: Map<string, Uint8Array>;
+  /** The slide cover's label image bytes, when the design has an uploaded `labelImage`. */
+  label?: Uint8Array;
   releaseId: string;
   version: string;
 }
 
 /**
- * The zip and its manifest. The design ships as `design/design.json` with its art at `design/cover.<ext>` (the
- * bundle reads `./design/design.json` and resolves art against it), exactly as build-bundle.mjs lays it out.
+ * The zip and its manifest. The design ships as `design/design.json` with its art at `design/cover.<ext>`,
+ * `design/label.<ext>` and `design/sticker-<n>.<ext>` (the bundle reads `./design/design.json` and resolves art
+ * against it), exactly as build-bundle.mjs lays it out.
  */
 export async function assembleReleaseZip(input: ReleaseZipInput): Promise<{ zip: Uint8Array; sha256: string; manifest: Record<string, unknown> }> {
   const ext = imageExtension(input.cover.slice(0, 12));
@@ -156,7 +162,9 @@ export async function assembleReleaseZip(input: ReleaseZipInput): Promise<{ zip:
 
   // Image stickers ship beside the cover, each under its own name; `stickerNames` maps its `src` (the uploaded
   // URL) to that name, so the "art other than its cover" check below can wave them through too.
-  const stickers = ((input.design.stickers ?? []) as { kind: string; src?: string }[]).filter((s) => s.kind === 'image');
+  const stickers = ((input.design.stickers ?? []) as { kind: string; src?: string }[]).filter(
+    (s) => s.kind === 'image' && !(s.src && isDrawnArt(s.src)),
+  );
   const stickerNames = new Map<string, string>();
   const stickerEntries: ZipEntry[] = [];
   stickers.forEach((sticker, i) => {
@@ -169,6 +177,17 @@ export async function assembleReleaseZip(input: ReleaseZipInput): Promise<{ zip:
     stickerEntries.push({ name: `design/${name}`, data: bytes });
   });
 
+  // The label image ships as `label.<ext>`; a drawn one (the contract allows it) stays as it is.
+  const labelImage = input.design.labelImage;
+  let labelName: string | null = null;
+  if (labelImage && !isDrawnArt(labelImage.src)) {
+    if (!input.label) throw new Error('The design names a label image, but its bytes were not given.');
+    const labelExt = imageExtension(input.label.slice(0, 12));
+    if (!labelExt) throw new Error('The label image is not a PNG, JPEG or WebP image.');
+    labelName = `label.${labelExt}`;
+    stickerEntries.push({ name: `design/${labelName}`, data: input.label });
+  }
+
   const rewrite = (ref: string | undefined) =>
     ref === undefined ? undefined : ref === coverRef ? coverName : stickerNames.has(ref) ? stickerNames.get(ref)! : null;
   const art = [input.design.discArt, input.design.theme?.backdropImage, input.design.theme?.backdrop?.image];
@@ -177,8 +196,9 @@ export async function assembleReleaseZip(input: ReleaseZipInput): Promise<{ zip:
     ...input.design,
     coverArt: coverName,
     discArt: rewrite(input.design.discArt) ?? undefined,
+    labelImage: labelImage ? { ...labelImage, src: labelName ?? labelImage.src } : undefined,
     stickers: (input.design.stickers as { kind: string; src?: string }[] | undefined)?.map((sticker) =>
-      sticker.kind === 'image' && sticker.src ? { ...sticker, src: stickerNames.get(sticker.src) } : sticker,
+      sticker.kind === 'image' && sticker.src && stickerNames.has(sticker.src) ? { ...sticker, src: stickerNames.get(sticker.src) } : sticker,
     ) as DiscDesign['stickers'],
     theme: input.design.theme
       ? {

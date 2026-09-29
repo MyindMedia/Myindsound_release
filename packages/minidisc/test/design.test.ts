@@ -8,6 +8,9 @@ import {
   assertDesign,
   catalogueNumber,
   designArtRefs,
+  isDrawnArt,
+  resolveSlideColor,
+  STICKER_PRESETS,
   placeImageSticker,
   formatDuration,
   resolveShellWindow,
@@ -190,5 +193,33 @@ describe('image stickers (uploaded art on the slide cover or the shell)', () => 
     expect(place.height).toBeCloseTo(0.25);
     expect(place.x).toBeCloseTo(1);
     expect(place.y).toBeCloseTo(0.5);
+  });
+});
+
+describe('the slide cover: its colour, its label image, and drawn stickers', () => {
+  it('colours the whole slide: its own colour, else what the older label styles meant, else steel', () => {
+    expect(resolveSlideColor({ ...valid(), slideColor: '#c9a227' })).toBe('#c9a227');
+    expect(resolveSlideColor({ ...valid(), labelStyle: 'metal-dark' })).toBe('#2b2d33');
+    expect(resolveSlideColor({ ...valid(), labelStyle: 'tinted' }, '#ff0000')).toBe('#ff0000');
+    expect(resolveSlideColor({ ...valid(), labelStyle: 'sticker' })).toBe('#8b9097');
+    expect(validateDesign({ ...valid(), slideColor: 'gold' }).ok).toBe(false);
+  });
+
+  it('places an uploaded label image like a sticker, and ships its file', () => {
+    const labelImage = { src: 'label.png', x: 0.5, y: 0.5, size: 0.8, rotation: -4 };
+    expect(validateDesign({ ...valid(), labelImage }).ok).toBe(true);
+    expect(validateDesign({ ...valid(), labelImage: { ...labelImage, size: 0 } }).ok).toBe(false);
+    expect(validateDesign({ ...valid(), labelImage: { ...labelImage, x: 2 } }).ok).toBe(false);
+    expect(designArtRefs({ ...valid(), labelImage })).toContain('label.png');
+  });
+
+  it('draws the built-ins and emoji in code: valid stickers, nothing to upload or ship', () => {
+    const stickers = [
+      { kind: 'image', src: 'preset:advisory', area: 'shell', x: 0.8, y: 0.9, size: 0.2 },
+      { kind: 'image', src: 'emoji:🔥', area: 'shutter', x: 0.9, y: 0.8, size: 0.2 },
+    ];
+    expect(validateDesign({ ...valid(), stickers }).ok).toBe(true);
+    expect(designArtRefs({ ...valid(), stickers } as DiscDesign).some((ref) => isDrawnArt(ref))).toBe(false);
+    expect(STICKER_PRESETS.map((p) => p.id)).toEqual(expect.arrayContaining(['advisory', 'hot', 'new']));
   });
 });

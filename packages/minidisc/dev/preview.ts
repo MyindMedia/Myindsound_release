@@ -36,30 +36,34 @@ const sheetImage = document.getElementById('sheet') as HTMLImageElement;
 function sampleDesign(name: string): DiscDesign {
   const entry = Object.entries(designs).find(([path]) => path.endsWith(`/${name}.json`));
   if (!entry) throw new Error(`No sample "${name}"`);
-  // `?labelart=c-walk/cover.png`: try an uploaded label image (sample art path) on the shutter.
+  // `?labelart=c-walk/cover.png`: try an uploaded label image (sample art path) on the slide cover.
+  // `?slide=#c9a227`: the whole slide cover's colour.
   const design = { ...assertDesign(entry[1]) };
-  const labelArt = new URLSearchParams(location.search).get('labelart');
-  if (labelArt) design.labelArt = labelArt;
+  const query = new URLSearchParams(location.search);
+  const labelArt = query.get('labelart');
+  if (labelArt) design.labelImage = { src: labelArt, x: 0.5, y: 0.5, size: 0.8, rotation: -4 };
+  if (query.get('slide')) design.slideColor = query.get('slide')!;
   // `?stickerdemo`: four any-shape image stickers (drawn here, transparent PNG) on the slide cover and one on the shell.
   if (new URLSearchParams(location.search).has('stickerdemo')) {
     const star = demoSticker('star');
     const blob = demoSticker('blob');
     design.stickers = [
       ...(design.stickers ?? []),
-      { kind: 'image', src: star, area: 'shutter', x: 0.2, y: 0.3, size: 0.3, rotation: -15 },
-      { kind: 'image', src: blob, area: 'shutter', x: 0.75, y: 0.7, size: 0.35, rotation: 20 },
-      { kind: 'image', src: star, area: 'shutter', x: 0.95, y: 0.05, size: 0.25, rotation: 45 },
-      { kind: 'image', src: blob, area: 'shutter', x: 0.5, y: 0.55, size: 0.2, rotation: 90 },
-      { kind: 'image', src: star, area: 'shell', x: 0.8, y: 0.85, size: 0.18, rotation: 10 },
+      { kind: 'image', src: 'preset:hot', area: 'shutter', x: 0.15, y: 0.25, size: 0.28, rotation: -12 },
+      { kind: 'image', src: 'emoji:🔥', area: 'shutter', x: 0.88, y: 0.75, size: 0.22, rotation: 10 },
+      { kind: 'image', src: star, area: 'shell', x: 0.85, y: 0.12, size: 0.1, rotation: 20 },
+      { kind: 'image', src: 'preset:advisory', area: 'shell', x: 0.82, y: 0.86, size: 0.24, rotation: 0 },
+      { kind: 'image', src: 'preset:new', area: 'shell', x: 0.62, y: 0.2, size: 0.14, rotation: 15 },
+      { kind: 'image', src: blob, area: 'shell', x: 0.3, y: 0.8, size: 0.12, rotation: -20 },
     ];
   }
   const resolve = (ref: string) => {
-    if (/^(data|https?):/.test(ref)) return ref;
+    if (/^(data|https?|preset|emoji):/.test(ref)) return ref;
     const hit = Object.entries(artUrls).find(([path]) => path.endsWith(`/samples/${ref}`));
     if (!hit) throw new Error(`Sample art missing: ${ref}`);
     return new URL(hit[1], location.href).href;
   };
-  return { ...design, coverArt: resolve(design.coverArt), discArt: design.discArt ? resolve(design.discArt) : undefined, labelArt: design.labelArt ? resolve(design.labelArt) : undefined, stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolve(sticker.src) } : sticker)), theme: design.theme ? { ...design.theme, backdrop: design.theme.backdrop ? { ...design.theme.backdrop, image: design.theme.backdrop.image ? resolve(design.theme.backdrop.image) : undefined } : undefined } : undefined };
+  return { ...design, coverArt: resolve(design.coverArt), discArt: design.discArt ? resolve(design.discArt) : undefined, labelImage: design.labelImage ? { ...design.labelImage, src: resolve(design.labelImage.src) } : undefined, stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolve(sticker.src) } : sticker)), theme: design.theme ? { ...design.theme, backdrop: design.theme.backdrop ? { ...design.theme.backdrop, image: design.theme.backdrop.image ? resolve(design.theme.backdrop.image) : undefined } : undefined } : undefined };
 }
 
 const canvas = document.getElementById('stage') as HTMLCanvasElement;

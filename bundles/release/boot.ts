@@ -20,7 +20,7 @@ import {
 import { ArtBackdrop } from '../../packages/minidisc/src/backdrop';
 import type { BuiltCartridge } from '../../packages/minidisc/src/cartridge';
 import { ensureFonts } from '../../packages/minidisc/src/canvas';
-import { assertDesign, resolveTheme, type DiscDesign } from '../../packages/minidisc/src/design';
+import { assertDesign, isDrawnArt, resolveTheme, type DiscDesign } from '../../packages/minidisc/src/design';
 import { cartridgeBuilder, loadDesignArt, makeSleevePrints, resolveArtUrl, type LoadedArt } from '../../packages/minidisc/src/minidisc';
 import type { WearInput } from '../../src/player3d/wear-render';
 import { PlayerApp, type PlayerMoment } from '../../src/player3d/player-app';
@@ -71,13 +71,15 @@ async function loadRelease(overrides: BootOverrides): Promise<{ design: DiscDesi
     design = assertDesign(await response.json());
   }
   const resolve = overrides.resolveArt ?? ((ref: string) => resolveArtUrl(ref, base));
+  // Built-in stickers and emoji are drawn, not fetched.
+  const resolveArt = (ref: string) => (isDrawnArt(ref) ? ref : resolve(ref));
   // loadDesignArt resolves against `base`; the harness maps each ref to Vite's URL for it instead.
   const mapped: DiscDesign = {
     ...design,
     coverArt: resolve(design.coverArt),
     discArt: design.discArt ? resolve(design.discArt) : undefined,
-    labelArt: design.labelArt ? resolve(design.labelArt) : undefined,
-    stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolve(sticker.src) } : sticker)),
+    labelImage: design.labelImage ? { ...design.labelImage, src: resolveArt(design.labelImage.src) } : undefined,
+    stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: resolveArt(sticker.src) } : sticker)),
     theme: design.theme
       ? {
           ...design.theme,

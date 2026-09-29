@@ -7,9 +7,11 @@
  * and audited. No window.confirm or alert: publishing is confirmed in the page, with a reason.
  */
 import './admin-releases.css';
-import { MAX_IMAGE_STICKERS, MAX_SHUTTER_IMAGE_STICKERS } from '../convex/releasesLogic';
+import { MAX_IMAGE_STICKERS, MAX_SHUTTER_IMAGE_STICKERS, isKnownDrawnArt } from '../convex/releasesLogic';
 import type { Id } from '../convex/_generated/dataModel';
-import type { DiscDesign, DiscSticker, LoadedArt, ShellSuggestion, SleeveStill, SpinLoopResult } from './admin-releases-3d';
+import { STICKER_PRESETS, isDrawnArt, resolveSlideColor } from '../packages/minidisc/src/design';
+import { resolvePreset } from '../packages/minidisc/src/presets';
+import type { DiscDesign, DiscSticker, LoadedArt, PlaceTarget, ShellSuggestion, SleeveStill, SpinLoopResult } from './admin-releases-3d';
 import type { DraftRow, PortalBackend, ReleaseState } from './admin-releases-backend';
 import { assembleReleaseZip, type GenericBundleIndex } from './admin-releases-zip';
 import { convexErrorMessage } from './convex';
@@ -111,16 +113,47 @@ function zoneLabel(at: Date): string {
   return `${zone}, UTC${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
 }
 
-type Look = Pick<DiscDesign, 'shell' | 'shellTint' | 'labelStyle' | 'labelText' | 'discFinish'>;
+type Look = Pick<DiscDesign, 'shell' | 'shellTint' | 'labelStyle' | 'labelText' | 'discFinish' | 'slideColor' | 'labelImage'>;
+type LabelPlace = NonNullable<DiscDesign['labelImage']>;
+type PlaceField = 'x' | 'y' | 'size' | 'rotation';
 
-/** The slide cover on the shell's left side (the label plate) and the spinning disc, as the portal names them. */
-const COVER_CHOICES: [DiscDesign['labelStyle'], string][] = [
-  ['metal', 'STEEL'],
-  ['metal-dark', 'BLACK STEEL'],
-  ['tinted', 'SHELL COLOUR'],
-  ['sticker', 'STICKER'],
+/**
+ * The slide cover (the metal slide on the shell's left side) is three layers, bottom to top: its colour (the
+ * whole slide), the label on it, and the stickers. The colour first: fixed finishes, then the shell's own colour.
+ */
+const SLIDE_CHOICES: [string, string][] = [
+  ['#8b9097', 'STEEL'],
+  ['#2b2d33', 'BLACK'],
+  ['#c9a227', 'GOLD'],
+  ['shell', 'SHELL COLOUR'],
+];
+/** The label: printed on paper, printed straight on the metal, an uploaded image placed like a sticker, or none. */
+type LabelMode = 'sticker' | 'metal' | 'image' | 'none';
+const LABEL_CHOICES: [LabelMode, string][] = [
+  ['sticker', 'PRINTED LABEL'],
+  ['metal', 'PRINTED ON METAL'],
+  ['image', 'IMAGE'],
   ['none', 'NONE'],
 ];
+/** The older label styles (`metal-dark`, `tinted`) print on the metal too; their colour now lives in `slideColor`. */
+const labelModeOf = (current: Look): LabelMode =>
+  current.labelImage ? 'image' : current.labelStyle === 'sticker' ? 'sticker' : current.labelStyle === 'none' ? 'none' : 'metal';
+/** Where a label image or a new built-in or emoji sticker starts: centred, square on. */
+const LABEL_PLACE = { x: 0.5, y: 0.5, size: 0.9, rotation: 0 };
+const DRAWN_PLACE = { x: 0.5, y: 0.5, size: 0.3, rotation: 0 };
+const STICKER_EMOJI = ['🔥', '❤️', '⭐', '😀', '⚡', '💿', '🎧', '🎤', '🎶', '👑', '💎', '🚀', '🌈', '✨', '💯', '😎', '🤘', '🙌', '🌙', '☀️', '🍀', '🎉', '💥', '👀'];
+const AREA_NAMES: Record<StickerFields['area'], string> = { shutter: 'Slide cover', shell: 'Clear cover (anywhere)' };
+const readout = (field: PlaceField, value: number) => (field === 'rotation' ? `${value.toFixed(0)}°` : value.toFixed(2));
+/** A drawn sticker's name for its card: the built-in's title, or the emoji itself. */
+const drawnName = (ref: string) =>
+  ref.startsWith('emoji:') ? ref.slice(6) : (STICKER_PRESETS.find((preset) => `preset:${preset.id}` === ref)?.title ?? 'Sticker');
+/** The first emoji (grapheme) of what was typed or pasted. */
+const firstGrapheme = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  if (typeof Intl.Segmenter === 'function') return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(trimmed)][0]?.segment ?? '';
+  return [...trimmed][0] ?? '';
+};
 const DISC_CHOICES: [NonNullable<DiscDesign['discFinish']>, string][] = [
   ['print', 'ART PRINT'],
   ['vinyl', 'BLACK VINYL'],
@@ -142,7 +175,11 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
   let tracksDirty = false;
   /** The cover uploaded in this session (skips a download for the preview, render and bundle). */
   let localCover: { file: Blob; url: string } | null = null;
-  let art: { src: string; loaded: LoadedArt } | null = null;
+  /** The preview's loaded art, keyed by every art ref of the design it was loaded for (`artKey`). */
+  let art: { key: string; loaded: LoadedArt } | null = null;
+  let artToken = 0;
+  /** The three.js module once loaded (the built-in stickers' thumbnails are drawn with it). */
+  let threeMod: ThreeModule | null = null;
   let look: Look | null = null;
   let lookDirty = false;
   let suggestion: ShellSuggestion | null = null;
@@ -154,9 +191,21 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
   let render: { still: SleeveStill; loop: SpinLoopResult | null } | null = null;
   let withLoop = false;
   let spriteTimer = 0;
-  /** Image stickers (`design.stickers`, kind `image`), matched to their file for the REMOVE button; edited locally
-   * (position, size, rotation, area) and only written back to the server on SAVE CASING, like `look`. */
-  let stickers: { file: Id<'_storage'>; sticker: DiscSticker }[] = [];
+  /** Image stickers (`design.stickers`, kind `image`): uploads matched to their file (for REMOVE), and the drawn
+   * built-ins and emoji (no file). Edited and added locally, and only written back on SAVE CASING, like `look`
+   * (an upload or a removal saves the casing first, so nothing local is lost). */
+  let stickers: { file: Id<'_storage'> | null; sticker: DiscSticker }[] = [];
+  /** PLACE mode in the preview (drag the label image and the stickers). */
+  let placing = false;
+  /** The LABEL layer's IMAGE choice before any label image is uploaded: shows the upload box. */
+  let labelPicking = false;
+  /** The label image's last placing, kept while a printed label is chosen, for switching back to IMAGE. */
+  let lastLabel: LabelPlace | null = null;
+  let pickerTab: 'library' | 'emoji' | 'upload' = 'library';
+  let addArea: StickerFields['area'] = 'shutter';
+  const thumbs = new Map<string, string>();
+  let scaleTimer = 0;
+  let slideTimer = 0;
   /** Every other sticker kind (text, advisory, badge), carried through unedited: the portal has no UI for them. */
   let otherStickers: DiscSticker[] = [];
 
@@ -251,6 +300,9 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     tracksDirty = false;
     stickers = [];
     otherStickers = [];
+    placing = false;
+    labelPicking = false;
+    lastLabel = null;
     stopSprite();
     for (let i = 1; i < STEPS.length; i++) section(i).innerHTML = '';
     wizard.hidden = true;
@@ -285,7 +337,11 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     if (!state) return;
     state = await backend.get(state.slug);
     if (!tracksDirty) syncTracks();
-    syncStickers();
+    // Unsaved casing edits stay local (uploads and removals save them first, so the server already has them).
+    if (!lookDirty) {
+      syncStickers();
+      if (look) look = { ...look, labelImage: state.design?.labelImage };
+    }
     renderAll();
     void loadDrafts();
   }
@@ -302,8 +358,10 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     otherStickers = all.filter((sticker) => stickerFields(sticker).kind !== 'image');
     stickers = all
       .filter((sticker) => stickerFields(sticker).kind === 'image')
-      .flatMap((sticker) => {
-        const match = files.find((f) => f.url === stickerFields(sticker).src);
+      .flatMap((sticker): { file: Id<'_storage'> | null; sticker: DiscSticker }[] => {
+        const src = stickerFields(sticker).src;
+        if (isDrawnArt(src)) return [{ file: null, sticker }];
+        const match = files.find((f) => f.url === src);
         return match ? [{ file: match.file, sticker }] : [];
       });
   }
@@ -673,6 +731,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
 
   /** The cover as the portal's pages can read it (the local file when there is one). */
   const coverSrc = () => localCover?.url ?? state?.coverUrl ?? null;
+  const allStickers = () => [...otherStickers, ...stickers.map((entry) => entry.sticker)];
 
   /** A full DiscDesign for the preview and the render, with the cover at `src`. */
   function designWith(current: Look, src: string): DiscDesign {
@@ -688,24 +747,40 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       tracks: s.tracks.map((t) => ({ n: t.position, title: t.title, durationSec: t.durationSeconds })),
       coverArt: src,
       discArt: undefined,
-      stickers: [...otherStickers, ...stickers.map((entry) => entry.sticker)],
+      stickers: allStickers(),
       shell: current.shell,
       shellTint: current.shellTint,
+      slideColor: current.slideColor,
       labelStyle: current.labelStyle,
       labelText: current.labelText,
+      labelImage: current.labelImage,
       discFinish: current.discFinish,
     };
   }
 
-  async function ensureArt(mod: ThreeModule): Promise<LoadedArt> {
-    const src = coverSrc();
-    if (!src) throw new Error('Upload the cover first.');
-    if (art?.src === src) return art.loaded;
+  /** Every art ref the design loads (the cover, the label image, each image sticker): the art cache's key. */
+  const artKey = (design: DiscDesign) =>
+    JSON.stringify([
+      design.coverArt,
+      design.labelImage?.src ?? null,
+      ((design.stickers ?? []) as DiscSticker[]).map(stickerFields).filter((f) => f.kind === 'image').map((f) => f.src),
+    ]);
+
+  /** The design's art, loaded once per set of refs (a new sticker or label image loads it again). */
+  async function artFor(design: DiscDesign): Promise<LoadedArt> {
+    const key = artKey(design);
+    if (art?.key === key) return art.loaded;
+    const mod = await loadThree();
     await mod.ready();
-    const loaded = await mod.loadDesignArt(designWith({ shell: 'clear', labelStyle: 'none' }, src));
-    art = { src, loaded };
+    const loaded = await mod.loadDesignArt(design);
+    art = { key, loaded };
     return loaded;
   }
+
+  /** The shell's own colour (its gel, with the design's tint), for the SHELL COLOUR slide. */
+  const shellGel = (current: Pick<Look, 'shell' | 'shellTint'>) => resolvePreset(current.shell, current.shellTint).gel;
+  /** The slide's colour as the preview draws it (older designs: what their label style implied). */
+  const slideOf = (current: Look) => resolveSlideColor(current, shellGel(current));
 
   function renderCasing() {
     const el = section(3);
@@ -718,31 +793,57 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       el.innerHTML = `
         <div class="rp-casing">
           <div class="rp-stage">
-            <canvas class="rp-canvas" tabindex="0" aria-label="Live 3D preview of the MiniDisc. Drag or use the arrow keys to turn it; double-click to reset."></canvas>
+            <canvas class="rp-canvas" tabindex="0" aria-label="Live 3D preview of the MiniDisc. Drag or use the arrow keys to turn it; double-click to reset. In PLACE mode, drag the label image or a sticker to move it."></canvas>
             <p class="rp-stage-note admin-sub">LOADING 3D…</p>
             <div class="admin-actions rp-stage-tools">
               <button type="button" class="secondary-btn mini-btn rp-sleeve" aria-pressed="false">SHOW SLEEVE</button>
               <button type="button" class="secondary-btn mini-btn rp-reset">FACE FRONT</button>
+              <button type="button" class="secondary-btn mini-btn rp-place" aria-pressed="false">PLACE</button>
             </div>
           </div>
           <div class="rp-controls">
             <p class="admin-sub">SHELL</p>
             <div class="rp-swatches" role="radiogroup" aria-label="Shell"></div>
-            <p class="rp-tint"></p>
-            <p class="admin-sub">SLIDE COVER</p>
-            <div class="rp-labels" role="radiogroup" aria-label="Slide cover">
-              ${COVER_CHOICES.map(([style, name]) => `<button type="button" class="secondary-btn mini-btn" role="radio" data-label="${style}">${name}</button>`).join('')}
+            <p class="admin-sub">PLASTIC COLOUR <span class="rp-layer-note">the clear cover's tint</span></p>
+            <div class="rp-tints" role="radiogroup" aria-label="Plastic colour">
+              <button type="button" class="secondary-btn mini-btn" role="radio" data-tint="preset"><span class="rp-chip small rp-tint-preset-chip"></span>PRESET</button>
+              <button type="button" class="secondary-btn mini-btn" role="radio" data-tint="cover" hidden><span class="rp-chip small rp-tint-cover-chip"></span>FROM COVER</button>
+              <label class="secondary-btn mini-btn rp-colour-pick" data-tint-custom><span class="rp-chip small rp-tint-custom-chip"></span>CUSTOM
+                <input type="color" class="rp-colour-input rp-tint-custom" aria-label="Custom plastic colour">
+              </label>
             </div>
             <p class="admin-sub">DISC</p>
             <div class="rp-discs" role="radiogroup" aria-label="Disc finish">
               ${DISC_CHOICES.map(([finish, name]) => `<button type="button" class="secondary-btn mini-btn" role="radio" data-disc="${finish}">${name}</button>`).join('')}
             </div>
-            <label class="field"><span>Label text (optional, one line each)</span><textarea class="rp-label-text" maxlength="160" rows="3" placeholder="${escapeHtml(`${s.title}\n${s.artist ?? ''}`)}"></textarea></label>
+            <section class="rp-layer" aria-labelledby="rp-layer-slide">
+              <p class="admin-sub rp-layer-head" id="rp-layer-slide"><span class="rp-layer-n">1</span> SLIDE COLOUR <span class="rp-layer-note">the whole slide cover</span></p>
+              <div class="rp-slides" role="radiogroup" aria-label="Slide colour">
+                ${SLIDE_CHOICES.map(
+                  ([colour, name]) =>
+                    `<button type="button" class="secondary-btn mini-btn" role="radio" data-slide="${colour}"><span class="rp-chip small"${colour === 'shell' ? '' : ` style="--chip:${colour};--chip2:${colour}"`}></span>${name}</button>`,
+                ).join('')}
+                <label class="secondary-btn mini-btn rp-colour-pick" data-slide-custom><span class="rp-chip small rp-slide-custom-chip"></span>CUSTOM
+                  <input type="color" class="rp-colour-input rp-slide-custom" aria-label="Custom slide colour">
+                </label>
+              </div>
+            </section>
+            <section class="rp-layer" aria-labelledby="rp-layer-label">
+              <p class="admin-sub rp-layer-head" id="rp-layer-label"><span class="rp-layer-n">2</span> LABEL <span class="rp-layer-note">on the slide</span></p>
+              <div class="rp-labels" role="radiogroup" aria-label="Label">
+                ${LABEL_CHOICES.map(([mode, name]) => `<button type="button" class="secondary-btn mini-btn" role="radio" data-label="${mode}">${name}</button>`).join('')}
+              </div>
+              <label class="field rp-label-text-field"><span>Label text (optional, one line each)</span><textarea class="rp-label-text" maxlength="160" rows="3" placeholder="${escapeHtml(`${s.title}\n${s.artist ?? ''}`)}"></textarea></label>
+              <div class="rp-label-image"></div>
+            </section>
+            <section class="rp-layer" aria-labelledby="rp-layer-stickers">
+              <p class="admin-sub rp-layer-head" id="rp-layer-stickers"><span class="rp-layer-n">3</span> STICKERS <span class="rp-layer-note">on top, on the slide or the clear cover</span></p>
+              <div class="rp-stickers"></div>
+            </section>
             <div class="admin-actions"><button type="button" class="primary-btn rp-save-look">SAVE CASING</button></div>
             <p class="admin-status rp-look-status" role="status" aria-live="polite"></p>
           </div>
-        </div>
-        <div class="rp-stickers"></div>`;
+        </div>`;
       void setupCasing();
     } else updateCasingControls();
   }
@@ -754,7 +855,10 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     let loaded: LoadedArt;
     try {
       mod = await loadThree();
-      loaded = await ensureArt(mod);
+      threeMod = mod;
+      const src = coverSrc();
+      if (!src) throw new Error('Upload the cover first.');
+      loaded = await artFor(designWith({ shell: 'clear', labelStyle: 'none' }, src));
     } catch (error) {
       note.textContent = errorText(error, 'The 3D preview could not start.');
       return;
@@ -763,8 +867,16 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     suggestion ??= mod.suggestShell(loaded.cover);
     const saved = state.design;
     look ??= saved
-      ? { shell: saved.shell, shellTint: saved.shellTint, labelStyle: saved.labelStyle, labelText: saved.labelText, discFinish: saved.discFinish }
-      : { shell: suggestion.shell, shellTint: suggestion.tint, labelStyle: 'sticker', labelText: undefined, discFinish: undefined };
+      ? {
+          shell: saved.shell,
+          shellTint: saved.shellTint,
+          slideColor: saved.slideColor,
+          labelStyle: saved.labelStyle,
+          labelText: saved.labelText,
+          labelImage: saved.labelImage,
+          discFinish: saved.discFinish,
+        }
+      : { shell: suggestion.shell, shellTint: suggestion.tint, labelStyle: 'sticker', labelText: undefined, labelImage: undefined, discFinish: undefined };
     presetDisc = Object.fromEntries(mod.SHELL_PRESET_LIST.map((preset) => [preset.id, preset.disc]));
     const swatches = $('.rp-swatches', el);
     swatches.innerHTML = mod.SHELL_PRESET_LIST.map(
@@ -778,12 +890,36 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-shell]');
       if (!button || !look) return;
       const shell = button.dataset.shell as Look['shell'];
-      // The suggested tint belongs to the suggested shell; another shell starts plain.
-      changeLook({ shell, shellTint: shell === suggestion?.shell ? suggestion?.tint : undefined });
+      // The suggested tint belongs to the suggested shell (another starts plain); a custom plastic colour stays.
+      const custom = look.shellTint && look.shellTint !== suggestion?.tint ? look.shellTint : undefined;
+      changeLook({ shell, shellTint: custom ?? (shell === suggestion?.shell ? suggestion?.tint : undefined) });
+    });
+    $('.rp-tints', el).addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-tint]');
+      if (!button || !look) return;
+      changeLook({ shellTint: button.dataset.tint === 'cover' ? suggestion?.tint : undefined });
+    });
+    let tinting = 0;
+    $<HTMLInputElement>('.rp-tint-custom', el).addEventListener('input', (event) => {
+      const value = (event.target as HTMLInputElement).value;
+      window.clearTimeout(tinting);
+      tinting = window.setTimeout(() => changeLook({ shellTint: value.toLowerCase() }), 120);
+    });
+    $('.rp-slides', el).addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-slide]');
+      if (!button || !look) return;
+      const colour = button.dataset.slide!;
+      changeLook({ slideColor: colour === 'shell' ? shellGel(look) : colour });
+    });
+    $<HTMLInputElement>('.rp-slide-custom', el).addEventListener('input', (event) => {
+      const value = (event.target as HTMLInputElement).value;
+      // The picker fires on every step of a drag; the cartridge rebuilds once it settles.
+      window.clearTimeout(slideTimer);
+      slideTimer = window.setTimeout(() => changeLook({ slideColor: value.toLowerCase() }), 120);
     });
     $('.rp-labels', el).addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-label]');
-      if (button) changeLook({ labelStyle: button.dataset.label as Look['labelStyle'] });
+      if (button) pickLabel(button.dataset.label as LabelMode);
     });
     $('.rp-discs', el).addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-disc]');
@@ -796,6 +932,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       typing = window.setTimeout(() => changeLook({ labelText: value.trim() ? value : undefined }), 350);
     });
     $('.rp-save-look', el).addEventListener('click', () => void saveLook());
+    wireLabel(el);
     wireStickers(el);
     $('.rp-sleeve', el).addEventListener('click', (event) => {
       sleeveOn = !sleeveOn;
@@ -804,13 +941,14 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       preview?.setSleeve(sleeveOn);
     });
     $('.rp-reset', el).addEventListener('click', () => preview?.reset());
+    $('.rp-place', el).addEventListener('click', () => setPlacing(!placing));
     const sleeveButton = $('.rp-sleeve', el);
     sleeveButton.setAttribute('aria-pressed', String(sleeveOn));
     sleeveButton.textContent = sleeveOn ? 'HIDE SLEEVE' : 'SHOW SLEEVE';
     try {
-      preview = mod.createCasingPreview($<HTMLCanvasElement>('.rp-canvas', el));
+      preview = mod.createCasingPreview($<HTMLCanvasElement>('.rp-canvas', el), { onPlace: placed, onScale: scaled });
       preview.setSleeve(sleeveOn);
-      note.textContent = 'DRAG TO TURN · DOUBLE-CLICK TO RESET';
+      setPlacing(placing);
     } catch (error) {
       note.textContent = errorText(error, 'WebGL is not available in this browser.');
     }
@@ -821,7 +959,12 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
 
   function changeLook(patch: Partial<Look>) {
     if (!look) return;
-    look = { ...look, ...patch };
+    const next = { ...look, ...patch };
+    // A slide in the shell's colour follows the shell (and its tint) when either changes.
+    if (('shell' in patch || 'shellTint' in patch) && !('slideColor' in patch) && look.slideColor?.toLowerCase() === shellGel(look).toLowerCase()) {
+      next.slideColor = shellGel(next);
+    }
+    look = next;
     lookDirty = true;
     updateCasingControls();
     showPreview();
@@ -829,12 +972,98 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
 
   function showPreview() {
     const src = coverSrc();
-    if (!preview || !look || !art || !src) return;
+    if (!preview || !look || !src) return;
+    const design = designWith(look, src);
+    if (art?.key !== artKey(design)) {
+      // New art (a sticker or a label image): load it, then show whatever the design is by then.
+      const token = ++artToken;
+      artFor(design).then(
+        () => token === artToken && showPreview(),
+        (error) => setStatus($('.rp-look-status', section(3)), errorText(error, 'The preview could not load the art.'), 'error'),
+      );
+      return;
+    }
     try {
-      preview.show(designWith(look, src), art.loaded);
+      preview.show(design, art.loaded);
     } catch (error) {
       setStatus($('.rp-look-status', section(3)), errorText(error, 'The preview failed.'), 'error');
     }
+  }
+
+  function setPlacing(on: boolean) {
+    placing = on;
+    preview?.setPlacing(on);
+    const button = section(3).querySelector<HTMLElement>('.rp-place');
+    if (button) {
+      button.setAttribute('aria-pressed', String(on));
+      button.textContent = on ? 'DONE PLACING' : 'PLACE';
+    }
+    const note = section(3).querySelector('.rp-stage-note');
+    if (note && preview) {
+      note.textContent = on
+        ? 'DRAG THE LABEL IMAGE OR A STICKER TO MOVE IT · SCROLL OR PINCH TO RESIZE'
+        : 'DRAG TO TURN · DOUBLE-CLICK TO RESET · PLACE TO MOVE STICKERS';
+    }
+  }
+
+  /** The preview moved the label image or a sticker (PLACE mode): the sliders follow, and it rebuilds on release. */
+  function placed(target: PlaceTarget, x: number, y: number, done: boolean) {
+    if (!look) return;
+    if (target.layer === 'label') {
+      if (!look.labelImage) return;
+      look = { ...look, labelImage: { ...look.labelImage, x, y } };
+      syncCard(null);
+    } else {
+      const i = (target.index ?? -1) - otherStickers.length;
+      if (!stickers[i]) return;
+      stickers[i] = { ...stickers[i], sticker: asSticker({ ...stickerFields(stickers[i].sticker), x, y }) };
+      syncCard(i);
+    }
+    lookDirty = true;
+    updateLookStatus();
+    if (done) showPreview();
+  }
+
+  /** A wheel turn or a pinch in PLACE mode: resize the last picked one; the cartridge rebuilds once it settles. */
+  function scaled(target: PlaceTarget, factor: number) {
+    if (!look) return;
+    const size = (value: number) => Math.max(0.05, Math.min(1, Math.round(value * factor * 1000) / 1000));
+    if (target.layer === 'label') {
+      if (!look.labelImage) return;
+      look = { ...look, labelImage: { ...look.labelImage, size: size(look.labelImage.size) } };
+      syncCard(null);
+    } else {
+      const i = (target.index ?? -1) - otherStickers.length;
+      if (!stickers[i]) return;
+      const fields = stickerFields(stickers[i].sticker);
+      stickers[i] = { ...stickers[i], sticker: asSticker({ ...fields, size: size(fields.size) }) };
+      syncCard(i);
+    }
+    lookDirty = true;
+    updateLookStatus();
+    window.clearTimeout(scaleTimer);
+    scaleTimer = window.setTimeout(showPreview, 150);
+  }
+
+  /** Sets a card's sliders and readouts from the model: the label image's (`null`) or sticker `i`'s. */
+  function syncCard(i: number | null) {
+    const card = section(3).querySelector<HTMLElement>(i === null ? '.rp-label-card' : `.rp-sticker[data-i="${i}"]`);
+    const place = i === null ? look?.labelImage : stickers[i] ? stickerFields(stickers[i].sticker) : null;
+    if (!card || !place) return;
+    for (const input of card.querySelectorAll<HTMLInputElement>('input[type="range"][data-field]')) {
+      const field = input.dataset.field as PlaceField;
+      const value = field === 'rotation' ? (place.rotation ?? 0) : place[field];
+      input.value = String(value);
+      const out = input.closest('label')?.querySelector('.rp-sticker-readout');
+      if (out) out.textContent = readout(field, value);
+    }
+  }
+
+  function updateLookStatus() {
+    const status = section(3).querySelector('.rp-look-status');
+    if (!status || status.classList.contains('error')) return;
+    const saved = state?.designHash ? `Saved (revision ${state.designRev}).` : 'Not saved yet.';
+    setStatus(status, lookDirty ? `Unsaved changes. ${saved}` : saved, lookDirty ? 'warn' : state?.designHash ? 'ok' : '');
   }
 
   function updateCasingControls() {
@@ -845,40 +1074,74 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       button.setAttribute('aria-checked', String(on));
       button.classList.toggle('on', on);
     }
-    for (const button of el.querySelectorAll<HTMLElement>('[data-label]')) {
-      button.setAttribute('aria-checked', String(button.dataset.label === look.labelStyle));
+    // The slide's colour: the matching choice, else CUSTOM (older designs show what their label style implied).
+    const slide = slideOf(look).toLowerCase();
+    const gel = shellGel(look).toLowerCase();
+    const shellSwatch = el.querySelector<HTMLElement>('[data-slide="shell"] .rp-chip');
+    shellSwatch?.style.setProperty('--chip', gel);
+    shellSwatch?.style.setProperty('--chip2', gel);
+    const fixed = SLIDE_CHOICES.find(([colour]) => colour !== 'shell' && colour === slide)?.[0] ?? (slide === gel ? 'shell' : null);
+    for (const button of el.querySelectorAll<HTMLElement>('[data-slide]')) {
+      button.setAttribute('aria-checked', String(button.dataset.slide === fixed));
     }
+    const custom = el.querySelector<HTMLElement>('[data-slide-custom]');
+    if (custom) {
+      custom.setAttribute('aria-checked', String(fixed === null));
+      custom.querySelector<HTMLElement>('.rp-slide-custom-chip')?.style.setProperty('--chip', slide);
+      custom.querySelector<HTMLElement>('.rp-slide-custom-chip')?.style.setProperty('--chip2', slide);
+      const input = custom.querySelector<HTMLInputElement>('.rp-slide-custom');
+      if (input && document.activeElement !== input) input.value = slide;
+    }
+    const mode = labelPicking && !look.labelImage ? 'image' : labelModeOf(look);
+    for (const button of el.querySelectorAll<HTMLElement>('[data-label]')) {
+      button.setAttribute('aria-checked', String(button.dataset.label === mode));
+    }
+    // The label text is for the printed labels only.
+    const textField = el.querySelector<HTMLElement>('.rp-label-text-field');
+    if (textField) textField.hidden = mode === 'image' || mode === 'none';
     // No finish chosen: the shell's own disc (the gold-disc shell's gold, otherwise the art print).
     const disc = look.discFinish ?? presetDisc[look.shell] ?? 'print';
     for (const button of el.querySelectorAll<HTMLElement>('[data-disc]')) {
       button.setAttribute('aria-checked', String(button.dataset.disc === disc));
     }
-    const tint = $('.rp-tint', el);
-    if (tint) {
-      tint.innerHTML = look.shellTint
-        ? `<span class="rp-chip small" style="--chip:${escapeHtml(look.shellTint)};--chip2:${escapeHtml(look.shellTint)}"></span> Tinted ${escapeHtml(look.shellTint)} from the cover. <button type="button" class="secondary-btn mini-btn rp-untint">PLAIN</button>`
-        : suggestion?.tint && look.shell === suggestion.shell
-          ? `The cover suggests a ${escapeHtml(suggestion.tint)} tint. <button type="button" class="secondary-btn mini-btn rp-retint">USE TINT</button>`
-          : '';
-      tint.querySelector('.rp-untint')?.addEventListener('click', () => changeLook({ shellTint: undefined }));
-      tint.querySelector('.rp-retint')?.addEventListener('click', () => changeLook({ shellTint: suggestion?.tint }));
+    // The plastic's colour: the preset's own, the cover's suggestion, or any colour (`shellTint`).
+    const presetGel = resolvePreset(look.shell).gel;
+    const tint = look.shellTint?.toLowerCase();
+    const coverTint = suggestion?.tint?.toLowerCase();
+    const tintChoice = !tint ? 'preset' : tint === coverTint ? 'cover' : null;
+    const chip = (selector: string, colour: string) => {
+      const element = el.querySelector<HTMLElement>(selector);
+      element?.style.setProperty('--chip', colour);
+      element?.style.setProperty('--chip2', colour);
+    };
+    chip('.rp-tint-preset-chip', presetGel);
+    if (coverTint) chip('.rp-tint-cover-chip', coverTint);
+    chip('.rp-tint-custom-chip', tint ?? presetGel);
+    for (const button of el.querySelectorAll<HTMLElement>('[data-tint]')) {
+      button.setAttribute('aria-checked', String(button.dataset.tint === tintChoice));
+      if (button.dataset.tint === 'cover') button.hidden = !coverTint;
     }
-    const status = $('.rp-look-status', el);
-    if (status && !status.classList.contains('error')) {
-      const saved = state?.designHash ? `Saved (revision ${state.designRev}).` : 'Not saved yet.';
-      setStatus(status, lookDirty ? `Unsaved changes. ${saved}` : saved, lookDirty ? 'warn' : state?.designHash ? 'ok' : '');
+    const customTint = el.querySelector<HTMLElement>('[data-tint-custom]');
+    if (customTint) {
+      customTint.setAttribute('aria-checked', String(tintChoice === null));
+      const input = customTint.querySelector<HTMLInputElement>('.rp-tint-custom');
+      if (input && document.activeElement !== input) input.value = /^#[0-9a-f]{6}$/.test(tint ?? presetGel) ? (tint ?? presetGel) : '#ffffff';
     }
+    updateLookStatus();
+    renderLabel();
     renderStickers();
   }
 
-  async function saveLook() {
-    if (!state || !look) return;
+  /** Saves the local casing (look and stickers). True when it went through. */
+  async function saveLook(): Promise<boolean> {
+    if (!state || !look) return false;
     const status = $('.rp-look-status', section(3));
     // Keep whatever else the saved design carries (accents, theme); the server fills in the facts. Stickers are
     // the local `stickers`/`otherStickers` draft, not whatever the last save happened to carry.
     const kept: Record<string, unknown> = { ...(state.design ?? {}) };
-    for (const fact of ['v', 'slug', 'title', 'artist', 'year', 'tracks', 'coverArt', 'discArt']) delete kept[fact];
-    kept.stickers = [...otherStickers, ...stickers.map((entry) => entry.sticker)];
+    for (const fact of ['v', 'slug', 'title', 'artist', 'year', 'tracks', 'coverArt', 'discArt', 'labelImage', 'slideColor']) delete kept[fact];
+    const all = allStickers();
+    kept.stickers = all.length > 0 ? all : undefined;
     setStatus(status, 'Saving…');
     try {
       const result = await backend.saveDesign({ slug: state.slug, design: { ...kept, ...look } });
@@ -886,12 +1149,199 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       if (result.changed) render = null;
       await refresh();
       setStatus($('.rp-look-status', section(3)), `Saved (revision ${result.designRev}).${result.changed ? ' Render the rack art and the bundle again.' : ''}`, 'ok');
+      return true;
     } catch (error) {
       setStatus(status, errorText(error), 'error');
+      return false;
     }
   }
 
-  // ── Stickers (any shape PNG, or JPEG/WebP, on the slide cover or the plastic shell) ─────────────────────
+  /** Uploads and removals change the saved design on the server: save local edits first so none are lost. */
+  async function ensureSaved(): Promise<boolean> {
+    if (state?.designHash && !lookDirty) return true;
+    return await saveLook();
+  }
+
+  const rangeField = (className: string, field: PlaceField, label: string, value: number) => {
+    const [min, max, step] = field === 'rotation' ? [-180, 180, 1] : field === 'size' ? [0.05, 1, 0.01] : [0, 1, 0.01];
+    return `
+      <label class="field">
+        <span>${label} <span class="rp-sticker-readout">${readout(field, value)}</span></span>
+        <input type="range" class="${className}" data-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}">
+      </label>`;
+  };
+  const placeFields = (className: string, place: { x: number; y: number; size: number; rotation?: number }) =>
+    [
+      rangeField(className, 'x', 'X', place.x),
+      rangeField(className, 'y', 'Y', place.y),
+      rangeField(className, 'size', 'Size', place.size),
+      rangeField(className, 'rotation', 'Rotation', place.rotation ?? 0),
+    ].join('');
+  const imageTypes = /^image\/(png|jpeg|webp)$/;
+
+  // ── The label layer: printed (paper or on the metal), an uploaded image placed like a sticker, or none ─────
+
+  function pickLabel(mode: LabelMode) {
+    if (!look || !state) return;
+    if (mode === 'image') {
+      if (look.labelImage) return;
+      if (state.labelUrl) {
+        labelPicking = false;
+        changeLook({ labelImage: { ...LABEL_PLACE, ...(lastLabel ?? {}), src: state.labelUrl } });
+        return;
+      }
+      // No label image yet: show the upload box (the choice sticks once one is uploaded).
+      labelPicking = true;
+      updateCasingControls();
+      section(3).querySelector<HTMLElement>('.rp-label-drop')?.focus();
+      return;
+    }
+    labelPicking = false;
+    if (look.labelImage) lastLabel = look.labelImage;
+    // The older styles carried the slide's colour; keep it as the slide colour when the label changes.
+    const legacy = !look.slideColor && (look.labelStyle === 'metal-dark' || look.labelStyle === 'tinted');
+    changeLook({ labelStyle: mode, labelImage: undefined, ...(legacy ? { slideColor: slideOf(look) } : {}) });
+  }
+
+  /** Delegated listeners on the stable `.rp-label-image` container, wired once; `renderLabel` replaces its content. */
+  function wireLabel(el: HTMLElement) {
+    const box = $('.rp-label-image', el);
+    box.addEventListener('change', (event) => {
+      const input = event.target as HTMLInputElement;
+      if (!input.matches('.rp-label-file')) return;
+      if (input.files?.[0]) void uploadLabel(input.files[0]);
+      input.value = '';
+    });
+    box.addEventListener('input', (event) => {
+      const input = event.target as HTMLInputElement;
+      if (!input.matches('.rp-label-field') || !look?.labelImage) return;
+      const field = input.dataset.field as PlaceField;
+      const value = Number(input.value);
+      look = { ...look, labelImage: { ...look.labelImage, [field]: value } };
+      const out = input.closest('label')?.querySelector('.rp-sticker-readout');
+      if (out) out.textContent = readout(field, value);
+      lookDirty = true;
+      updateLookStatus();
+      showPreview();
+    });
+    box.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('.rp-label-remove')) void removeLabelImage();
+      else if (target.closest('.rp-label-cancel')) {
+        labelPicking = false;
+        updateCasingControls();
+      }
+    });
+    box.addEventListener('dragover', (event) => {
+      if (!(event.target as HTMLElement).closest('.rp-drop')) return;
+      event.preventDefault();
+      (event.target as HTMLElement).closest('.rp-drop')!.classList.add('over');
+    });
+    box.addEventListener('dragleave', (event) => (event.target as HTMLElement).closest('.rp-drop')?.classList.remove('over'));
+    box.addEventListener('drop', (event) => {
+      if (!(event.target as HTMLElement).closest('.rp-drop')) return;
+      event.preventDefault();
+      const file = event.dataTransfer?.files?.[0];
+      if (file) void uploadLabel(file);
+    });
+    box.addEventListener('keydown', (event) => {
+      const zone = (event.target as HTMLElement).closest('.rp-drop');
+      if (zone && (event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault();
+        zone.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+      }
+    });
+  }
+
+  function renderLabel() {
+    const box = section(3).querySelector<HTMLElement>('.rp-label-image');
+    if (!box || !look) return;
+    const status = `<progress class="rp-label-progress" max="1" value="0" hidden></progress><p class="admin-status rp-label-status" role="status" aria-live="polite"></p>`;
+    const label = look.labelImage;
+    if (label) {
+      box.innerHTML = `
+        <div class="rp-sticker rp-label-card">
+          <div class="rp-sticker-thumb"><img src="${escapeHtml(label.src)}" alt="Label image"></div>
+          <div class="rp-sticker-fields">${placeFields('rp-label-field', label)}</div>
+          <div class="admin-actions rp-card-actions">
+            <label class="secondary-btn mini-btn rp-file-btn">REPLACE<input type="file" accept="image/png,image/jpeg,image/webp" class="rp-label-file" hidden></label>
+            <button type="button" class="secondary-btn mini-btn rp-label-remove">REMOVE</button>
+          </div>
+        </div>
+        ${status}`;
+      return;
+    }
+    if (labelPicking) {
+      box.innerHTML = `
+        <label class="rp-drop rp-label-drop" tabindex="0">
+          <input type="file" accept="image/png,image/jpeg,image/webp" class="rp-label-file">
+          <strong>CHOOSE A LABEL IMAGE</strong>
+          <span>PNG (any shape, keeps its shape), JPEG or WebP. It sits on the slide, under the stickers; place it with the sliders or PLACE.</span>
+        </label>
+        <div class="admin-actions"><button type="button" class="secondary-btn mini-btn rp-label-cancel">CANCEL</button></div>
+        ${status}`;
+      return;
+    }
+    box.innerHTML = state?.labelUrl
+      ? `<p class="admin-sub">A label image is uploaded; choose IMAGE to use it again.</p>${status}`
+      : status;
+  }
+
+  async function uploadLabel(file: File) {
+    if (!state) return;
+    const status = () => $('.rp-label-status', section(3));
+    if (!imageTypes.test(file.type)) return setStatus(status(), 'Use a PNG, JPEG or WebP image.', 'error');
+    if (file.size > MAX_STICKER_BYTES) return setStatus(status(), `${mb(file.size)} is over the ${mb(MAX_STICKER_BYTES)} limit.`, 'error');
+    setStatus(status(), 'Saving the casing…');
+    if (!(await ensureSaved())) return setStatus(status(), 'Save the casing first (see the message below).', 'error');
+    setStatus(status(), 'Uploading…');
+    try {
+      const id = await backend.upload(state.slug, file, file.type, (fraction) => {
+        const current = section(3).querySelector<HTMLProgressElement>('.rp-label-progress');
+        if (current) {
+          current.hidden = false;
+          current.value = fraction;
+        }
+      });
+      setStatus(status(), 'Checking…');
+      await backend.attachLabel({ slug: state.slug, file: id });
+      labelPicking = false;
+      await refresh();
+      setStatus(status(), 'Label image added. Place it with the sliders or PLACE.', 'ok');
+    } catch (error) {
+      setStatus(status(), errorText(error), 'error');
+    }
+  }
+
+  async function removeLabelImage() {
+    if (!state) return;
+    const status = () => $('.rp-label-status', section(3));
+    setStatus(status(), 'Removing…');
+    if (!(await ensureSaved())) return setStatus(status(), 'Save the casing first (see the message below).', 'error');
+    try {
+      await backend.removeLabel({ slug: state.slug });
+      lastLabel = null;
+      await refresh();
+      setStatus(status(), 'Label image removed: the printed label shows again.', 'ok');
+    } catch (error) {
+      setStatus(status(), errorText(error), 'error');
+    }
+  }
+
+  // ── The stickers layer: built-ins, emoji and uploads, on the slide cover or anywhere on the clear cover ───
+
+  /** A drawn sticker's thumbnail (a data URL), drawn once; empty until the three.js module has loaded. */
+  function thumbOf(ref: string): string {
+    const cached = thumbs.get(ref);
+    if (cached) return cached;
+    if (!threeMod) return '';
+    const url = threeMod.drawnSticker(ref, 160).toDataURL('image/png');
+    thumbs.set(ref, url);
+    return url;
+  }
+
+  const onShutterCount = () => stickers.filter((entry) => stickerFields(entry.sticker).area === 'shutter').length;
+  const stickerTotal = () => otherStickers.length + stickers.length;
 
   /** Delegated listeners on the stable `.rp-stickers` container, wired once; `renderStickers` only replaces its content. */
   function wireStickers(el: HTMLElement) {
@@ -900,9 +1350,12 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       const target = event.target as HTMLElement;
       if (target.matches('.rp-sticker-file')) {
         const input = target as HTMLInputElement;
-        const area = ($('.rp-sticker-add-area', root) as HTMLSelectElement).value as StickerFields['area'];
-        if (input.files?.[0]) void uploadSticker(input.files[0], area);
+        if (input.files?.[0]) void uploadSticker(input.files[0], addArea);
         input.value = '';
+        return;
+      }
+      if (target.matches('.rp-sticker-add-area')) {
+        addArea = (target as HTMLSelectElement).value as StickerFields['area'];
         return;
       }
       if (target.matches('.rp-sticker-field') && target.tagName === 'SELECT') {
@@ -912,8 +1365,8 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
         const value = (target as HTMLSelectElement).value as StickerFields['area'];
         stickers[i] = { ...stickers[i], sticker: asSticker({ ...stickerFields(stickers[i].sticker), area: value }) };
         lookDirty = true;
+        updateLookStatus();
         renderStickers();
-        updateCasingControls();
         showPreview();
       }
     });
@@ -923,42 +1376,69 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       const card = input.closest<HTMLElement>('[data-i]');
       if (!card) return;
       const i = Number(card.dataset.i);
-      const field = (input as HTMLInputElement).dataset.field as 'x' | 'y' | 'size' | 'rotation';
+      const field = (input as HTMLInputElement).dataset.field as PlaceField;
       const value = Number((input as HTMLInputElement).value);
       stickers[i] = { ...stickers[i], sticker: asSticker({ ...stickerFields(stickers[i].sticker), [field]: value }) };
-      const readout = input.closest('label')?.querySelector('.rp-sticker-readout');
-      if (readout) readout.textContent = field === 'rotation' ? `${value.toFixed(0)}°` : value.toFixed(2);
+      const out = input.closest('label')?.querySelector('.rp-sticker-readout');
+      if (out) out.textContent = readout(field, value);
       lookDirty = true;
+      updateLookStatus();
       showPreview();
     });
     root.addEventListener('click', (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.rp-sticker-remove');
-      if (button?.dataset.file) void removeStickerCard(button.dataset.file as Id<'_storage'>);
+      const target = event.target as HTMLElement;
+      const tab = target.closest<HTMLElement>('[data-tab]');
+      if (tab) {
+        pickerTab = tab.dataset.tab as typeof pickerTab;
+        renderStickers();
+        root.querySelector<HTMLElement>(`[data-tab="${pickerTab}"]`)?.focus();
+        return;
+      }
+      const add = target.closest<HTMLButtonElement>('[data-add]');
+      if (add && !add.disabled) return addDrawn(add.dataset.add!);
+      if (target.closest('.rp-emoji-add')) return addTypedEmoji();
+      const remove = target.closest<HTMLElement>('.rp-sticker-remove');
+      if (remove) void removeStickerCard(Number(remove.dataset.i));
+    });
+    root.addEventListener('keydown', (event) => {
+      if ((event.target as HTMLElement).matches('.rp-emoji-input') && event.key === 'Enter') {
+        event.preventDefault();
+        addTypedEmoji();
+      }
+    });
+    root.addEventListener('dragover', (event) => {
+      if (!(event.target as HTMLElement).closest('.rp-drop')) return;
+      event.preventDefault();
+      (event.target as HTMLElement).closest('.rp-drop')!.classList.add('over');
+    });
+    root.addEventListener('dragleave', (event) => (event.target as HTMLElement).closest('.rp-drop')?.classList.remove('over'));
+    root.addEventListener('drop', (event) => {
+      if (!(event.target as HTMLElement).closest('.rp-drop')) return;
+      event.preventDefault();
+      const file = event.dataTransfer?.files?.[0];
+      if (file) void uploadSticker(file, addArea);
     });
   }
 
-  const stickerCard = (entry: { file: Id<'_storage'>; sticker: DiscSticker }, i: number) => {
+  const stickerCard = (entry: { file: Id<'_storage'> | null; sticker: DiscSticker }, i: number) => {
     const f = stickerFields(entry.sticker);
-    const range = (field: 'x' | 'y' | 'size' | 'rotation', label: string, min: number, max: number, value: number, digits: number) => `
-      <label class="field">
-        <span>${label} <span class="rp-sticker-readout">${field === 'rotation' ? `${value.toFixed(0)}°` : value.toFixed(digits)}</span></span>
-        <input type="range" class="rp-sticker-field" data-field="${field}" min="${min}" max="${max}" step="${field === 'rotation' ? 1 : 0.01}" value="${value}">
-      </label>`;
+    const drawn = isDrawnArt(f.src);
+    const name = drawn ? drawnName(f.src) : `Sticker ${i + 1}`;
+    const thumb = drawn ? thumbOf(f.src) : f.src;
+    // The slide cover is full: only the ones already on it can stay there.
+    const shutterFull = onShutterCount() >= MAX_SHUTTER_IMAGE_STICKERS && f.area !== 'shutter';
     return `<div class="rp-sticker" data-i="${i}">
-      <div class="rp-sticker-thumb"><img src="${escapeHtml(f.src)}" alt="Sticker ${i + 1}" loading="lazy"></div>
+      <div class="rp-sticker-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(name)}" loading="lazy">` : `<span>${escapeHtml(name)}</span>`}</div>
       <div class="rp-sticker-fields">
         <label class="field"><span>Area</span>
           <select class="rp-sticker-field" data-field="area">
-            <option value="shutter" ${f.area === 'shutter' ? 'selected' : ''}>SLIDE COVER</option>
-            <option value="shell" ${f.area === 'shell' ? 'selected' : ''}>PLASTIC SHELL</option>
+            <option value="shutter" ${f.area === 'shutter' ? 'selected' : ''} ${shutterFull ? 'disabled' : ''}>${AREA_NAMES.shutter}</option>
+            <option value="shell" ${f.area === 'shell' ? 'selected' : ''}>${AREA_NAMES.shell}</option>
           </select>
         </label>
-        ${range('x', 'X', 0, 1, f.x, 2)}
-        ${range('y', 'Y', 0, 1, f.y, 2)}
-        ${range('size', 'Size', 0.05, 1, f.size, 2)}
-        ${range('rotation', 'Rotation', -180, 180, f.rotation, 0)}
+        ${placeFields('rp-sticker-field', f)}
       </div>
-      <button type="button" class="secondary-btn mini-btn rp-sticker-remove" data-file="${escapeHtml(entry.file)}">REMOVE</button>
+      <button type="button" class="secondary-btn mini-btn rp-sticker-remove" data-i="${i}" aria-label="Remove ${escapeHtml(name)}">REMOVE</button>
     </div>`;
   };
 
@@ -966,24 +1446,51 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
   function renderStickers() {
     const root = section(3).querySelector<HTMLElement>('.rp-stickers');
     if (!root || !state) return;
-    if (!state.designHash) {
-      root.innerHTML = '<p class="admin-sub">STICKERS</p><p class="admin-sub">Save the casing once (above), then add stickers.</p>';
-      return;
-    }
-    const onShutter = stickers.filter((entry) => stickerFields(entry.sticker).area === 'shutter').length;
-    const atTotal = stickers.length >= MAX_IMAGE_STICKERS;
+    const onShutter = onShutterCount();
+    const atTotal = stickerTotal() >= MAX_IMAGE_STICKERS;
     const atShutter = onShutter >= MAX_SHUTTER_IMAGE_STICKERS;
+    if (atShutter && addArea === 'shutter') addArea = 'shell';
+    const off = atTotal ? 'disabled' : '';
+    const tabs: [typeof pickerTab, string][] = [
+      ['library', 'LIBRARY'],
+      ['emoji', 'EMOJI'],
+      ['upload', 'UPLOAD'],
+    ];
+    const panel =
+      pickerTab === 'library'
+        ? `<div class="rp-picker-grid">${STICKER_PRESETS.map((preset) => {
+            const thumb = thumbOf(`preset:${preset.id}`);
+            return `<button type="button" class="rp-pick" data-add="preset:${preset.id}" title="${escapeHtml(preset.title)}" ${off}>
+              ${thumb ? `<img src="${thumb}" alt="">` : ''}<span>${escapeHtml(preset.title)}</span>
+            </button>`;
+          }).join('')}</div>`
+        : pickerTab === 'emoji'
+          ? `<div class="rp-picker-grid rp-emoji-grid">${STICKER_EMOJI.map(
+              (emoji) => `<button type="button" class="rp-pick rp-pick-emoji" data-add="emoji:${emoji}" aria-label="Add ${emoji}" ${off}><span class="rp-emoji">${emoji}</span></button>`,
+            ).join('')}</div>
+            <div class="rp-emoji-own">
+              <input class="rp-emoji-input" maxlength="16" placeholder="Paste any emoji" aria-label="Any emoji" ${off}>
+              <button type="button" class="secondary-btn mini-btn rp-emoji-add" ${off}>ADD</button>
+            </div>`
+          : `<label class="rp-drop rp-sticker-drop" tabindex="0">
+              <input type="file" accept="image/png,image/jpeg,image/webp" class="rp-sticker-file" ${off}>
+              <strong>UPLOAD A STICKER OR LABEL</strong>
+              <span>PNG (any shape, keeps its shape), JPEG or WebP, up to ${mb(MAX_STICKER_BYTES)}.</span>
+            </label>`;
     root.innerHTML = `
-      <p class="admin-sub">STICKERS · ${stickers.length}/${MAX_IMAGE_STICKERS} · ${onShutter}/${MAX_SHUTTER_IMAGE_STICKERS} ON THE SLIDE COVER</p>
-      <p class="admin-sub">Any shape PNG (keeps its shape) or JPEG/WebP, on the slide cover or anywhere on the plastic shell. Drag the sliders, then SAVE CASING.</p>
-      <div class="rp-sticker-add">
-        <select class="rp-sticker-add-area" ${atTotal ? 'disabled' : ''}>
-          <option value="shutter" ${atShutter ? 'disabled' : ''}>SLIDE COVER</option>
-          <option value="shell">PLASTIC SHELL</option>
-        </select>
-        <label class="secondary-btn mini-btn rp-sticker-add-pick">ADD STICKER
-          <input type="file" accept="image/png,image/jpeg,image/webp" class="rp-sticker-file" ${atTotal ? 'disabled' : ''} hidden>
+      <p class="admin-sub">${stickerTotal()}/${MAX_IMAGE_STICKERS} STICKERS · ${onShutter}/${MAX_SHUTTER_IMAGE_STICKERS} ON THE SLIDE COVER</p>
+      <div class="rp-picker">
+        <div class="rp-picker-tabs" role="tablist" aria-label="Add a sticker">
+          ${tabs.map(([id, label]) => `<button type="button" class="secondary-btn mini-btn" role="tab" data-tab="${id}" aria-selected="${pickerTab === id}">${label}</button>`).join('')}
+        </div>
+        <label class="field rp-picker-area"><span>Add to</span>
+          <select class="rp-sticker-add-area" ${off}>
+            <option value="shutter" ${addArea === 'shutter' ? 'selected' : ''} ${atShutter ? 'disabled' : ''}>${AREA_NAMES.shutter}</option>
+            <option value="shell" ${addArea === 'shell' ? 'selected' : ''}>${AREA_NAMES.shell}</option>
+          </select>
         </label>
+        <div class="rp-picker-panel" role="tabpanel">${panel}</div>
+        ${atTotal ? `<p class="admin-sub">At the ${MAX_IMAGE_STICKERS} sticker limit: remove one to add another.</p>` : ''}
       </div>
       <progress class="rp-sticker-progress" max="1" value="0" hidden></progress>
       <p class="admin-status rp-sticker-status" role="status" aria-live="polite"></p>
@@ -992,56 +1499,84 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       </div>`;
   }
 
+  /** Room for one more on `area`, or the reason there isn't. */
+  function stickerRoom(area: StickerFields['area']): string | null {
+    if (stickerTotal() >= MAX_IMAGE_STICKERS) return `A release has at most ${MAX_IMAGE_STICKERS} stickers.`;
+    if (area === 'shutter' && onShutterCount() >= MAX_SHUTTER_IMAGE_STICKERS) {
+      return `The slide cover has at most ${MAX_SHUTTER_IMAGE_STICKERS} stickers. Add it to the clear cover instead.`;
+    }
+    return null;
+  }
+
+  /** A built-in or an emoji: added locally (no upload), saved with SAVE CASING like the rest of the look. */
+  function addDrawn(ref: string) {
+    const status = () => section(3).querySelector('.rp-sticker-status');
+    const full = stickerRoom(addArea);
+    if (full) return setStatus(status(), full, 'error');
+    if (!isKnownDrawnArt(ref)) return setStatus(status(), 'That is not a single emoji.', 'error');
+    stickers.push({ file: null, sticker: asSticker({ kind: 'image', src: ref, area: addArea, ...DRAWN_PLACE }) });
+    lookDirty = true;
+    updateLookStatus();
+    renderStickers();
+    setStatus(status(), `${drawnName(ref)} added to the ${AREA_NAMES[addArea].toLowerCase()}. Place it, then SAVE CASING.`, 'ok');
+    showPreview();
+  }
+
+  function addTypedEmoji() {
+    const input = section(3).querySelector<HTMLInputElement>('.rp-emoji-input');
+    const emoji = firstGrapheme(input?.value ?? '');
+    if (!emoji) return setStatus(section(3).querySelector('.rp-sticker-status'), 'Paste or type an emoji first.', 'error');
+    addDrawn(`emoji:${emoji}`);
+  }
+
   async function uploadSticker(file: File, area: StickerFields['area']) {
     if (!state) return;
-    const status = $('.rp-sticker-status', section(3));
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return setStatus(status, 'Use a PNG, JPEG or WebP image.', 'error');
-    if (file.size > MAX_STICKER_BYTES) return setStatus(status, `${mb(file.size)} is over the ${mb(MAX_STICKER_BYTES)} limit.`, 'error');
-    if (stickers.length >= MAX_IMAGE_STICKERS) return setStatus(status, `A release has at most ${MAX_IMAGE_STICKERS} stickers.`, 'error');
-    if (area === 'shutter' && stickers.filter((entry) => stickerFields(entry.sticker).area === 'shutter').length >= MAX_SHUTTER_IMAGE_STICKERS) {
-      return setStatus(status, `The slide cover has at most ${MAX_SHUTTER_IMAGE_STICKERS} image stickers.`, 'error');
-    }
-    const bar = $<HTMLProgressElement>('.rp-sticker-progress', section(3));
-    bar.hidden = false;
-    setStatus(status, 'Uploading…');
+    const status = () => $('.rp-sticker-status', section(3));
+    if (!imageTypes.test(file.type)) return setStatus(status(), 'Use a PNG, JPEG or WebP image.', 'error');
+    if (file.size > MAX_STICKER_BYTES) return setStatus(status(), `${mb(file.size)} is over the ${mb(MAX_STICKER_BYTES)} limit.`, 'error');
+    const full = stickerRoom(area);
+    if (full) return setStatus(status(), full, 'error');
+    setStatus(status(), 'Saving the casing…');
+    if (!(await ensureSaved())) return setStatus(status(), 'Save the casing first (see the message below).', 'error');
+    setStatus(status(), 'Uploading…');
     try {
-      const id = await backend.upload(state.slug, file, file.type, (fraction) => (bar.value = fraction));
-      setStatus(status, 'Checking…');
+      const id = await backend.upload(state.slug, file, file.type, (fraction) => {
+        const bar = section(3).querySelector<HTMLProgressElement>('.rp-sticker-progress');
+        if (bar) {
+          bar.hidden = false;
+          bar.value = fraction;
+        }
+      });
+      setStatus(status(), 'Checking…');
       await backend.attachSticker({ slug: state.slug, file: id, area });
-      art = null;
       await refresh();
-      await reloadStickerArt();
-      setStatus($('.rp-sticker-status', section(3)), 'Sticker added.', 'ok');
+      setStatus(status(), 'Sticker added. Place it with the sliders or PLACE.', 'ok');
     } catch (error) {
-      bar.hidden = true;
-      setStatus(status, errorText(error), 'error');
+      setStatus(status(), errorText(error), 'error');
     }
   }
 
-  async function removeStickerCard(file: Id<'_storage'>) {
-    if (!state) return;
-    const status = $('.rp-sticker-status', section(3));
-    setStatus(status, 'Removing…');
-    try {
-      await backend.removeSticker({ slug: state.slug, file });
-      art = null;
-      await refresh();
-      await reloadStickerArt();
-      setStatus($('.rp-sticker-status', section(3)), 'Sticker removed.', 'ok');
-    } catch (error) {
-      setStatus(status, errorText(error), 'error');
-    }
-  }
-
-  /** Reloads the 3D preview's art after a sticker was added or removed (`art` was cleared for it). */
-  async function reloadStickerArt() {
-    if (!look) return;
-    try {
-      const mod = await loadThree();
-      await ensureArt(mod);
+  /** An upload goes on the server (file and design entry); a built-in or emoji only leaves the local list. */
+  async function removeStickerCard(i: number) {
+    const entry = stickers[i];
+    if (!state || !entry) return;
+    const status = () => $('.rp-sticker-status', section(3));
+    if (!entry.file) {
+      stickers.splice(i, 1);
+      lookDirty = true;
+      updateLookStatus();
+      renderStickers();
       showPreview();
+      return setStatus(status(), 'Sticker removed. SAVE CASING to keep the change.', 'ok');
+    }
+    setStatus(status(), 'Removing…');
+    if (!(await ensureSaved())) return setStatus(status(), 'Save the casing first (see the message below).', 'error');
+    try {
+      await backend.removeSticker({ slug: state.slug, file: entry.file });
+      await refresh();
+      setStatus(status(), 'Sticker removed.', 'ok');
     } catch (error) {
-      setStatus($('.rp-sticker-status', section(3)), errorText(error, 'The preview could not reload; the change was still saved.'), 'warn');
+      setStatus(status(), errorText(error), 'error');
     }
   }
 
@@ -1121,9 +1656,9 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       setStatus(status, 'Loading the renderer…');
       try {
         const mod = await loadThree();
-        const loaded = await ensureArt(mod);
+        const design = { ...(state!.design as DiscDesign), coverArt: coverSrc()! };
+        const loaded = await artFor(design);
         const started = performance.now();
-        const design = { ...(state!.design as DiscDesign), coverArt: art!.src };
         setStatus(status, 'Rendering the sleeve still…');
         const sleeve = await mod.renderSleeveStill(design, { art: loaded });
         let loop: SpinLoopResult | null = null;
@@ -1234,11 +1769,11 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  /** Every image sticker's bytes the design names, keyed by its `src` (the uploaded URL), for `assembleReleaseZip`. */
+  /** Every uploaded image sticker's bytes the design names, keyed by its `src` (the uploaded URL), for `assembleReleaseZip`. */
   async function stickerBytesMap(design: DiscDesign): Promise<Map<string, Uint8Array>> {
     const srcs = ((design.stickers ?? []) as DiscSticker[])
       .map(stickerFields)
-      .filter((sticker) => sticker.kind === 'image')
+      .filter((sticker) => sticker.kind === 'image' && !isDrawnArt(sticker.src))
       .map((sticker) => sticker.src);
     const map = new Map<string, Uint8Array>();
     await Promise.all(
@@ -1250,6 +1785,15 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
       }),
     );
     return map;
+  }
+
+  /** The label image's bytes, when the design has an uploaded one. */
+  async function labelBytes(design: DiscDesign): Promise<Uint8Array | undefined> {
+    const src = design.labelImage?.src;
+    if (!src || isDrawnArt(src)) return undefined;
+    const response = await fetch(src);
+    if (!response.ok) throw new Error(`The label image could not be downloaded (HTTP ${response.status}).`);
+    return new Uint8Array(await response.arrayBuffer());
   }
 
   async function buildBundle(button: HTMLButtonElement) {
@@ -1288,6 +1832,7 @@ export function mountReleasePortal(root: HTMLElement, backend: PortalBackend): v
         design: zipDesign,
         cover: await coverBytes(),
         stickers: await stickerBytesMap(zipDesign),
+        label: await labelBytes(zipDesign),
         releaseId: s.releaseId,
         version,
       });

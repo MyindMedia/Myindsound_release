@@ -75,12 +75,14 @@ if (designPath) {
     renamed.set(ref, name);
   }
   const rewrite = (ref) => (ref === undefined ? undefined : renamed.get(ref));
+  // Built-in stickers and emoji (`preset:`, `emoji:`) are drawn by the bundle: nothing to copy.
+  const keepDrawn = (ref) => (/^(preset|emoji):/.test(ref) ? ref : rewrite(ref));
   const shipped = {
     ...design,
     coverArt: rewrite(design.coverArt),
     discArt: rewrite(design.discArt),
-    labelArt: rewrite(design.labelArt),
-    stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: rewrite(sticker.src) } : sticker)),
+    labelImage: design.labelImage ? { ...design.labelImage, src: keepDrawn(design.labelImage.src) } : undefined,
+    stickers: design.stickers?.map((sticker) => (sticker.kind === 'image' ? { ...sticker, src: keepDrawn(sticker.src) } : sticker)),
     theme: design.theme
       ? {
           ...design.theme,

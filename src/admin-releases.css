@@ -401,26 +401,32 @@
   height: 1rem;
 }
 
-.rp-tint {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
+.rp-tints [hidden],
+.rp-label-text-field[hidden] {
+  display: none;
 }
 
 .rp-labels,
-.rp-discs {
+.rp-discs,
+.rp-slides,
+.rp-tints {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rp-slides .mini-btn,
+.rp-tints .mini-btn {
+  display: inline-flex;
+  align-items: center;
   gap: 0.4rem;
 }
 
 .rp-labels [aria-checked='true'],
-.rp-discs [aria-checked='true'] {
+.rp-discs [aria-checked='true'],
+.rp-slides [aria-checked='true'],
+.rp-tints [aria-checked='true'],
+.rp-picker-tabs [aria-selected='true'] {
   border-color: var(--gold);
   color: var(--gold);
   background: rgba(253, 185, 19, 0.12);
@@ -432,12 +438,162 @@
   font-size: 0.72rem;
 }
 
-/* Stickers (any shape PNG or JPEG/WebP, on the slide cover or the plastic shell) */
-.rp-stickers {
+/* The slide cover's three layers, bottom to top: its colour, the label, the stickers */
+.rp-layer {
   display: grid;
   gap: 0.6rem;
   border-top: 1px solid var(--line-dim);
-  padding-top: 1rem;
+  padding-top: 0.75rem;
+  min-width: 0;
+}
+
+.rp-controls .rp-layer-head {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  color: var(--text);
+}
+
+.rp-layer-n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 0.62rem;
+}
+
+.rp-layer-note {
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* The custom colours (slide, plastic): the native picker sits invisibly over its button, so a tap opens it. */
+.rp-colour-pick {
+  position: relative;
+  cursor: pointer;
+}
+
+.rp-colour-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
+.rp-card-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
+
+.rp-file-btn {
+  cursor: pointer;
+}
+
+/* Stickers: built-ins, emoji and uploads, on the slide cover or anywhere on the clear cover */
+.rp-stickers {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.rp-picker {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  border: 1px solid var(--line-dim);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rp-picker-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rp-picker-area {
+  max-width: 18rem;
+}
+
+.rp-picker-area select {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.rp-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.4rem;
+}
+
+.rp-emoji-grid {
+  grid-template-columns: repeat(auto-fill, minmax(2.9rem, 1fr));
+}
+
+.rp-pick {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.25rem;
+  min-height: 2.9rem;
+  padding: 0.35rem 0.25rem;
+  border: 1px solid var(--line-dim);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.rp-pick img {
+  width: 3.2rem;
+  height: 3.2rem;
+  object-fit: contain;
+}
+
+.rp-pick:hover:not(:disabled),
+.rp-pick:focus-visible {
+  border-color: var(--gold);
+  outline: none;
+}
+
+.rp-pick:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rp-pick-emoji {
+  align-content: center;
+}
+
+.rp-emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.rp-emoji-own {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.rp-emoji-own input {
+  width: 10rem;
+  max-width: 100%;
+  padding: 0.45rem 0.6rem;
+  font-size: 1rem;
 }
 
 .rp-sticker-add {
@@ -609,6 +765,14 @@
 
 .admin-status.warn {
   color: var(--orange);
+}
+
+/* Wide screens: the preview stays in view while the controls beside it scroll (sliders, PLACE). */
+@media (min-width: 761px) {
+  .rp-stage {
+    position: sticky;
+    top: calc(var(--nav-h, 85px) + 12px);
+  }
 }
 
 @media (max-width: 760px) {

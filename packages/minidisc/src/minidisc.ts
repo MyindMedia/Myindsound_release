@@ -11,8 +11,8 @@ import type { WearInput, WearZone } from '../../../src/player3d/wear-render';
 import { DiscWrap, type SleevePrints } from '../../../src/player3d/wrap';
 import { buildCartridge, type BuildOptions, type BuiltCartridge, type DesignArt } from './cartridge';
 import { canvas, drawCover, srgbTexture } from './canvas';
-import { designArtRefs, imageStickers, resolveTheme, type DiscDesign } from './design';
-import { backCoverPrint, spinePrint } from './prints';
+import { designArtRefs, imageStickers, isDrawnArt, resolveTheme, type DiscDesign } from './design';
+import { backCoverPrint, drawnSticker, spinePrint } from './prints';
 
 export type { DesignArt } from './cartridge';
 
@@ -36,10 +36,10 @@ export interface LoadedArt extends DesignArt {
   disc: HTMLImageElement;
   /** The backdrop image (the cover unless the theme names another). */
   backdrop: HTMLImageElement;
-  /** The uploaded label image (`labelArt`), if any. */
-  label?: HTMLImageElement;
-  /** Image stickers' art, by their `src`. */
-  stickers: Record<string, HTMLImageElement>;
+  /** The slide cover's uploaded label image (`labelImage`), if any. */
+  label?: HTMLImageElement | HTMLCanvasElement;
+  /** Image stickers' art, by their `src`: loaded uploads, and the built-ins and emoji drawn here. */
+  stickers: Record<string, HTMLImageElement | HTMLCanvasElement>;
 }
 
 /** Loads every image the design refers to, relative to `base` (the design.json URL). */
@@ -52,10 +52,13 @@ export async function loadDesignArt(design: DiscDesign, base?: string): Promise<
     get(design.coverArt),
     get(design.discArt ?? design.coverArt),
     get(theme.backdrop.image),
-    design.labelArt ? get(design.labelArt) : Promise.resolve(undefined),
+    design.labelImage ? (isDrawnArt(design.labelImage.src) ? Promise.resolve(drawnSticker(design.labelImage.src)) : get(design.labelImage.src)) : Promise.resolve(undefined),
   ]);
-  const stickers: Record<string, HTMLImageElement> = {};
-  for (const sticker of imageStickers(design)) stickers[sticker.src] = await get(sticker.src);
+  const stickers: Record<string, HTMLImageElement | HTMLCanvasElement> = {};
+  for (const sticker of imageStickers(design)) {
+    if (stickers[sticker.src]) continue;
+    stickers[sticker.src] = isDrawnArt(sticker.src) ? drawnSticker(sticker.src) : await get(sticker.src);
+  }
   return { cover, disc, backdrop, label, stickers };
 }
 

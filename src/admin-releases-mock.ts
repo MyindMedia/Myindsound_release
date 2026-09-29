@@ -39,6 +39,8 @@ type Release = {
   cover: string | null;
   /** Uploaded sticker image files, storage-id-shaped local keys (see `files`). */
   stickers: string[];
+  /** The uploaded label image's file (`design.labelImage`), or null. */
+  label: string | null;
   design: DiscDesign | null;
   designHash: string | null;
   designRev: number;
@@ -77,6 +79,7 @@ export function mockBackend(): PortalBackend {
       year: row.year,
       coverUrl,
       stickerUrls: row.stickers.map((id) => urlOf(id)!),
+      labelUrl: urlOf(row.label),
       tracks: row.tracks.map((t) => ({ n: t.position, title: t.title, durationSec: t.durationSeconds })),
     };
   };
@@ -154,6 +157,7 @@ export function mockBackend(): PortalBackend {
         })),
         coverUrl: urlOf(row.cover),
         stickerFiles: row.stickers.map((id) => ({ file: id as Id<'_storage'>, url: urlOf(id)! })),
+        labelUrl: urlOf(row.label),
         design: row.design,
         designHash: row.designHash,
         designRev: row.designRev,
@@ -184,6 +188,7 @@ export function mockBackend(): PortalBackend {
         tracks: [],
         cover: null,
         stickers: [],
+        label: null,
         design: null,
         designHash: null,
         designRev: 0,
@@ -247,7 +252,7 @@ export function mockBackend(): PortalBackend {
     async attachSticker(args) {
       const row = draft(args.slug);
       await check(args.file, 'sticker');
-      if (row.stickers.length >= MAX_IMAGE_STICKERS) {
+      if (Math.max(row.stickers.length, row.design?.stickers?.length ?? 0) >= MAX_IMAGE_STICKERS) {
         files.delete(args.file);
         return fail(`A release has at most ${MAX_IMAGE_STICKERS} stickers.`);
       }
@@ -289,6 +294,42 @@ export function mockBackend(): PortalBackend {
         row.designRev += 1;
       }
       files.delete(args.file);
+      return null;
+    },
+    async attachLabel(args) {
+      const row = draft(args.slug);
+      await check(args.file, 'label');
+      const f = facts(row);
+      if (!f) {
+        files.delete(args.file);
+        return fail('Upload the tracks and the cover before the label.');
+      }
+      const url = urlOf(args.file)!;
+      const previous = row.design?.labelImage;
+      const place = previous ? { x: previous.x, y: previous.y, size: previous.size, rotation: previous.rotation ?? 0 } : { x: 0.5, y: 0.5, size: 0.9, rotation: 0 };
+      const result = buildDesign({ ...(row.design ?? {}), labelImage: { src: url, ...place } }, { ...f, labelUrl: url });
+      if (!result.ok) {
+        files.delete(args.file);
+        return fail(`Could not place the label: ${result.errors.slice(0, 8).join('; ')}`);
+      }
+      if (row.label && row.label !== args.file) files.delete(row.label);
+      row.label = args.file;
+      row.design = result.design;
+      row.designHash = await designHash(result.design);
+      row.designRev += 1;
+      return { url, file: args.file as Id<'_storage'> };
+    },
+    async removeLabel(args) {
+      const row = draft(args.slug);
+      if (!row.label) fail('This release has no label image.');
+      if (row.design) {
+        const { labelImage: _dropped, ...rest } = row.design;
+        row.design = rest as DiscDesign;
+        row.designHash = await designHash(row.design);
+        row.designRev += 1;
+      }
+      files.delete(row.label!);
+      row.label = null;
       return null;
     },
     async saveDesign(args) {
